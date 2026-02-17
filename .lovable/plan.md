@@ -1,44 +1,122 @@
 
+# Kanban Board, Notifications, Engagement Agreements & Role Assignment
 
-# Client Onboarding & Lead Tracking System
+## 1. Assign team_admin Role
+Insert the `team_admin` role for user `ryan@baylegal.com` (already signed up) via a database migration so you get full access immediately.
 
-## Overview
-A CRM-style web app for managing leads from first contact through to signed clients, with detailed client profiles. Your team manages the pipeline while clients can fill in parts of their own profile.
+## 2. Update Lead Stages
+Replace the current stages ("New", "Contacted", "In Progress", "Booked", "Proposal", "Signed", "Lost") with the Kanban stages from your image:
+- **Prospecting Stage**
+- **Discovery Stage**
+- **Solution Mapping Stage**
+- **Proposal/Contract Stage**
+- **Onboarding/Kickoff Stage**
+
+Existing leads with old stage values will be migrated to "Prospecting Stage" as a default.
+
+## 3. Kanban Board View
+Create a new `src/pages/LeadsKanban.tsx` page with:
+- 5 columns matching the stages above, each with a header and lead count
+- Lead cards showing name, contact, source, and next steps
+- **Drag-and-drop** between columns using native HTML5 drag events (no extra library needed)
+- Dropping a card into a new column updates the stage in the database
+- Toggle between **Table view** and **Kanban view** on the Leads page via tabs
+- Clicking a card opens the lead detail / client profile
+
+## 4. Engagement Agreement System
+New database table `engagement_agreements`:
+- `id`, `lead_id`, `client_profile_id`, `sent_by`, `sent_at`, `status` (draft/sent/viewed/signed), `agreement_url`, `notes`
+
+Features:
+- "Send Engagement Agreement" button on the Client Profile page
+- Dialog to compose/attach agreement details and send
+- Track agreement status (draft, sent, viewed, signed)
+- Agreement history visible on the client profile
+
+## 5. Notifications System
+New database table `notifications`:
+- `id`, `user_id`, `type` (stage_change, follow_up_due, agreement_sent, agreement_signed), `title`, `message`, `read`, `lead_id`, `created_at`
+
+New edge function `send-notification`:
+- Creates notification records when triggered
+- Sends email via Lovable Cloud's built-in email (password reset endpoint repurposed) or logs for future SMTP integration
+
+Notification triggers (handled in the frontend when actions occur):
+- **Stage change**: When a lead is moved to a new stage (via Kanban drag or manual edit)
+- **Follow-up due**: Checked on dashboard load -- any leads with `follow_up_date <= today`
+- **Engagement agreement sent/signed**: When agreement status changes
+
+UI:
+- Bell icon in the header with unread count badge
+- Dropdown showing recent notifications
+- Mark as read functionality
+
+## 6. Sidebar & Routing Updates
+- Add "Kanban" link to the sidebar navigation
+- Add route for `/leads/kanban`
+- Add notification bell to the app header
 
 ---
 
-## 1. Authentication & Roles
-- **Team login** (email/password) for your staff to manage leads and client profiles
-- **Client login** so clients can view/complete their own profile
-- Two roles: **Admin/Team** and **Client**
+## Technical Details
 
-## 2. Lead Tracking Dashboard
-A table view (inspired by your spreadsheet) to manage your sales pipeline:
-- **Columns**: Name, Contact, Source, Website, Date Reached, Follow-up Email Sent, Date, Needs, Booked, Email Sent With Info, Next Steps, Follow-up Email After, Stage, Notes
-- **Features**: Sort/filter by stage, search by name, inline editing for quick updates
-- Click any lead to open their full Client Profile
+### Database Migration
+```sql
+-- Assign team_admin role
+INSERT INTO public.user_roles (user_id, role)
+VALUES ('d64e380a-7654-44a8-ade7-4ab4b62ecfc7', 'team_admin')
+ON CONFLICT (user_id, role) DO NOTHING;
 
-## 3. Client Profile Page
-A detailed profile form (based on your Client Profile template) with these sections:
-- **Basic Info**: Name, Role, Company, Practice Area, Economic Buyer/Decision Maker checkbox
-- **Assessment**: Key Attributes, Attitude (Internal Assessment), Stage, Pain Points, Influences, Motivators
-- **Relationship**: Repeat Customer Probability, Meeting Preferences, Client Health Score
-- **Business**: Future Plans, Roles Open (30-60 days) — a mini-table with role name, signed status, and pricing
-- **Discovery**: Source, how they found you, notes
+-- Engagement agreements table
+CREATE TABLE public.engagement_agreements (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lead_id uuid REFERENCES public.leads(id) ON DELETE SET NULL,
+  client_profile_id uuid REFERENCES public.client_profiles(id) ON DELETE SET NULL,
+  sent_by uuid,
+  sent_at timestamptz DEFAULT now(),
+  status text NOT NULL DEFAULT 'draft',
+  agreement_url text,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.engagement_agreements ENABLE ROW LEVEL SECURITY;
 
-## 4. Client-Facing View
-- Clients log in and see a simplified version of their profile
-- They can fill in fields like Company info, Pain Points, Meeting Preferences, and Needs
-- Team-only fields (Attitude, Health Score, etc.) are hidden from clients
+-- Notifications table
+CREATE TABLE public.notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  type text NOT NULL,
+  title text NOT NULL,
+  message text,
+  read boolean NOT NULL DEFAULT false,
+  lead_id uuid REFERENCES public.leads(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
-## 5. Database (Supabase)
-- **Leads table**: All pipeline tracking fields
-- **Client profiles table**: Detailed profile data linked to leads
-- **Roles table**: Team vs. Client access control
-- **Row-Level Security**: Clients can only see/edit their own profile; team sees everything
+-- Migrate old stages to new ones
+UPDATE public.leads SET stage = 'Prospecting Stage'
+WHERE stage NOT IN (
+  'Prospecting Stage','Discovery Stage',
+  'Solution Mapping Stage','Proposal/Contract Stage',
+  'Onboarding/Kickoff Stage'
+);
+```
 
-## 6. Design & UX
-- Clean, professional look with a sidebar navigation
-- Dashboard as the home page with lead counts by stage
-- Responsive design for use on desktop and tablet
+### RLS Policies
+- `engagement_agreements`: Team can full CRUD; clients can view their own
+- `notifications`: Users can view/update their own notifications; team can insert for any user
 
+### Files to Create
+- `src/pages/LeadsKanban.tsx` -- Kanban board component with drag-and-drop
+- `src/components/NotificationBell.tsx` -- Header notification dropdown
+- `supabase/functions/send-notification/index.ts` -- Edge function for creating notifications
+
+### Files to Modify
+- `src/pages/Leads.tsx` -- Add tab toggle for Table/Kanban views, update stage constants
+- `src/pages/ClientProfile.tsx` -- Add "Send Engagement Agreement" section, update stages
+- `src/components/AppSidebar.tsx` -- Add Kanban nav item
+- `src/components/AppLayout.tsx` -- Add NotificationBell to header
+- `src/App.tsx` -- Add Kanban route
+- `supabase/config.toml` -- Register new edge function
