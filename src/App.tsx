@@ -11,6 +11,7 @@ import Leads from "./pages/Leads";
 import Clients from "./pages/Clients";
 import ClientProfile from "./pages/ClientProfile";
 import MyProfile from "./pages/MyProfile";
+import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/leads" element={<ProtectedRoute><TeamRoute><Leads /></TeamRoute></ProtectedRoute>} />
             <Route path="/clients" element={<ProtectedRoute><TeamRoute><Clients /></TeamRoute></ProtectedRoute>} />
             <Route path="/clients/:id" element={<ProtectedRoute><TeamRoute><ClientProfile /></TeamRoute></ProtectedRoute>} />
+            <Route path="/analytics" element={<ProtectedRoute><TeamRoute><Analytics /></TeamRoute></ProtectedRoute>} />
             <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

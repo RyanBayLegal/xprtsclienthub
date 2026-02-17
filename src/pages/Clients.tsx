@@ -3,8 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Search, Mail } from "lucide-react";
+import { toast } from "sonner";
 
 interface ClientRow {
   id: string;
@@ -20,22 +24,86 @@ export default function Clients() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [search, setSearch] = useState("");
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteProfileId, setInviteProfileId] = useState("");
+  const [inviting, setInviting] = useState(false);
 
-  useEffect(() => {
-    const fetch = async () => {
-      let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score").order("created_at", { ascending: false });
-      if (search) q = q.ilike("name", `%${search}%`);
-      const { data } = await q;
-      if (data) setClients(data);
-    };
-    fetch();
-  }, [search]);
+  const fetchClients = async () => {
+    let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score").order("created_at", { ascending: false });
+    if (search) q = q.ilike("name", `%${search}%`);
+    const { data } = await q;
+    if (data) setClients(data);
+  };
+
+  useEffect(() => { fetchClients(); }, [search]);
+
+  const handleInvite = async () => {
+    if (!inviteEmail || !inviteName) { toast.error("Email and name are required"); return; }
+    setInviting(true);
+    const { data, error } = await supabase.functions.invoke("invite-client", {
+      body: { email: inviteEmail, name: inviteName, clientProfileId: inviteProfileId || undefined },
+    });
+    if (error) {
+      toast.error(error.message || "Failed to invite client");
+    } else if (data?.error) {
+      toast.error(data.error);
+    } else {
+      toast.success(`Invitation sent to ${inviteEmail}`);
+      setInviteOpen(false);
+      setInviteEmail("");
+      setInviteName("");
+      setInviteProfileId("");
+    }
+    setInviting(false);
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Client Profiles</h1>
-        <Button onClick={() => navigate("/clients/new")}><Plus className="mr-2 h-4 w-4" />New Profile</Button>
+        <div className="flex gap-2">
+          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline"><Mail className="mr-2 h-4 w-4" />Invite Client</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invite Client by Email</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label>Client Name *</Label>
+                  <Input value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="John Smith" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email Address *</Label>
+                  <Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="john@company.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Link to Existing Profile (optional)</Label>
+                  <Select value={inviteProfileId} onValueChange={setInviteProfileId}>
+                    <SelectTrigger><SelectValue placeholder="Select a profile..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {clients.filter(c => c.name).map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  An account will be created and the client will receive a login link via email.
+                </p>
+                <Button onClick={handleInvite} disabled={inviting}>
+                  {inviting ? "Sending..." : "Send Invitation"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Button onClick={() => navigate("/clients/new")}><Plus className="mr-2 h-4 w-4" />New Profile</Button>
+        </div>
       </div>
 
       <div className="relative max-w-sm mb-4">
