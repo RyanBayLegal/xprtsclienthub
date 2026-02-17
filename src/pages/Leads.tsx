@@ -9,11 +9,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import LeadsKanban from "./LeadsKanban";
 
-const STAGES = ["New", "Contacted", "In Progress", "Booked", "Proposal", "Signed", "Lost"];
+const STAGES = [
+  "Prospecting Stage",
+  "Discovery Stage",
+  "Solution Mapping Stage",
+  "Proposal/Contract Stage",
+  "Onboarding/Kickoff Stage",
+];
 
 interface Lead {
   id: string;
@@ -36,7 +44,7 @@ interface Lead {
 const emptyLead = {
   name: "", contact: "", source: "", website: "", date_reached: "",
   follow_up_email_sent: false, follow_up_date: "", needs: "", booked: false,
-  email_sent_with_info: false, next_steps: "", follow_up_email_after: "", stage: "New", notes: "",
+  email_sent_with_info: false, next_steps: "", follow_up_email_after: "", stage: "Prospecting Stage", notes: "",
 };
 
 export default function Leads() {
@@ -85,20 +93,13 @@ export default function Leads() {
 
   const handleEdit = (lead: Lead) => {
     setForm({
-      name: lead.name,
-      contact: lead.contact || "",
-      source: lead.source || "",
-      website: lead.website || "",
-      date_reached: lead.date_reached || "",
+      name: lead.name, contact: lead.contact || "", source: lead.source || "",
+      website: lead.website || "", date_reached: lead.date_reached || "",
       follow_up_email_sent: lead.follow_up_email_sent || false,
-      follow_up_date: lead.follow_up_date || "",
-      needs: lead.needs || "",
-      booked: lead.booked || false,
-      email_sent_with_info: lead.email_sent_with_info || false,
-      next_steps: lead.next_steps || "",
-      follow_up_email_after: lead.follow_up_email_after || "",
-      stage: lead.stage,
-      notes: lead.notes || "",
+      follow_up_date: lead.follow_up_date || "", needs: lead.needs || "",
+      booked: lead.booked || false, email_sent_with_info: lead.email_sent_with_info || false,
+      next_steps: lead.next_steps || "", follow_up_email_after: lead.follow_up_email_after || "",
+      stage: lead.stage, notes: lead.notes || "",
     });
     setEditingId(lead.id);
     setDialogOpen(true);
@@ -199,71 +200,84 @@ export default function Leads() {
         </Dialog>
       </div>
 
-      <div className="flex gap-4 mb-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search leads..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <Select value={stageFilter} onValueChange={setStageFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Filter stage" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Stages</SelectItem>
-            {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+      <Tabs defaultValue="kanban">
+        <TabsList className="mb-4">
+          <TabsTrigger value="kanban">Kanban</TabsTrigger>
+          <TabsTrigger value="table">Table</TabsTrigger>
+        </TabsList>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Stage</TableHead>
-              <TableHead>Date Reached</TableHead>
-              <TableHead>Booked</TableHead>
-              <TableHead>Next Steps</TableHead>
-              <TableHead className="w-20">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {leads.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                  No leads yet. Click "Add Lead" to get started.
-                </TableCell>
-              </TableRow>
-            ) : (
-              leads.map((lead) => (
-                <TableRow key={lead.id} className="cursor-pointer" onClick={() => navigate(`/clients/${lead.id}`)}>
-                  <TableCell className="font-medium">{lead.name}</TableCell>
-                  <TableCell>{lead.contact}</TableCell>
-                  <TableCell>{lead.source}</TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
-                      {lead.stage}
-                    </span>
-                  </TableCell>
-                  <TableCell>{lead.date_reached}</TableCell>
-                  <TableCell>{lead.booked ? "✓" : "—"}</TableCell>
-                  <TableCell className="max-w-[200px] truncate">{lead.next_steps}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(lead.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+        <TabsContent value="kanban">
+          <LeadsKanban />
+        </TabsContent>
+
+        <TabsContent value="table">
+          <div className="flex gap-4 mb-4">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search leads..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="w-52"><SelectValue placeholder="Filter stage" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="rounded-lg border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Stage</TableHead>
+                  <TableHead>Date Reached</TableHead>
+                  <TableHead>Booked</TableHead>
+                  <TableHead>Next Steps</TableHead>
+                  <TableHead className="w-20">Actions</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {leads.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      No leads yet. Click "Add Lead" to get started.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  leads.map((lead) => (
+                    <TableRow key={lead.id} className="cursor-pointer" onClick={() => navigate(`/clients/${lead.id}`)}>
+                      <TableCell className="font-medium">{lead.name}</TableCell>
+                      <TableCell>{lead.contact}</TableCell>
+                      <TableCell>{lead.source}</TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
+                          {lead.stage}
+                        </span>
+                      </TableCell>
+                      <TableCell>{lead.date_reached}</TableCell>
+                      <TableCell>{lead.booked ? "✓" : "—"}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{lead.next_steps}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(lead.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

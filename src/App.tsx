@@ -8,6 +8,7 @@ import { AppLayout } from "@/components/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Leads from "./pages/Leads";
+import LeadsKanban from "./pages/LeadsKanban";
 import Clients from "./pages/Clients";
 import ClientProfile from "./pages/ClientProfile";
 import MyProfile from "./pages/MyProfile";
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/" element={<ProtectedRoute><TeamRoute><Dashboard /></TeamRoute></ProtectedRoute>} />
             <Route path="/leads" element={<ProtectedRoute><TeamRoute><Leads /></TeamRoute></ProtectedRoute>} />
+            <Route path="/leads/kanban" element={<ProtectedRoute><TeamRoute><LeadsKanban /></TeamRoute></ProtectedRoute>} />
             <Route path="/clients" element={<ProtectedRoute><TeamRoute><Clients /></TeamRoute></ProtectedRoute>} />
             <Route path="/clients/:id" element={<ProtectedRoute><TeamRoute><ClientProfile /></TeamRoute></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><TeamRoute><Analytics /></TeamRoute></ProtectedRoute>} />
