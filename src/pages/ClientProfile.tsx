@@ -11,12 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Plus, Trash2, Save, FileText, Send } from "lucide-react";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 
-interface ClientProfile {
+interface ClientProfileData {
   id: string;
   lead_id: string | null;
   user_id: string | null;
@@ -47,16 +50,28 @@ interface RoleOpen {
   pricing: string | null;
 }
 
+interface Agreement {
+  id: string;
+  status: string;
+  notes: string | null;
+  agreement_url: string | null;
+  sent_at: string;
+  created_at: string;
+}
+
 export default function ClientProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, role: userRole } = useAuth();
   const isTeam = userRole === "team_admin";
 
-  const [profile, setProfile] = useState<ClientProfile | null>(null);
+  const [profile, setProfile] = useState<ClientProfileData | null>(null);
   const [roles, setRoles] = useState<RoleOpen[]>([]);
+  const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [isNew, setIsNew] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
+  const [agreementForm, setAgreementForm] = useState({ notes: "", agreement_url: "" });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -73,7 +88,6 @@ export default function ClientProfile() {
         return;
       }
 
-      // Try finding by lead_id first, then by profile id
       let { data } = await supabase.from("client_profiles").select("*").eq("lead_id", id!).maybeSingle();
       if (!data) {
         const res = await supabase.from("client_profiles").select("*").eq("id", id!).maybeSingle();
@@ -81,11 +95,15 @@ export default function ClientProfile() {
       }
 
       if (data) {
-        setProfile(data as ClientProfile);
-        const { data: rolesData } = await supabase.from("roles_open").select("*").eq("client_profile_id", data.id);
-        if (rolesData) setRoles(rolesData);
+        setProfile(data as ClientProfileData);
+        // Fetch roles and agreements in parallel
+        const [rolesRes, agreementsRes] = await Promise.all([
+          supabase.from("roles_open").select("*").eq("client_profile_id", data.id),
+          supabase.from("engagement_agreements").select("*").eq("client_profile_id", data.id).order("created_at", { ascending: false }),
+        ]);
+        if (rolesRes.data) setRoles(rolesRes.data);
+        if (agreementsRes.data) setAgreements(agreementsRes.data as Agreement[]);
       } else if (isTeam) {
-        // Create new profile from lead
         const { data: lead } = await supabase.from("leads").select("*").eq("id", id!).maybeSingle();
         setIsNew(true);
         setProfile({
@@ -109,11 +127,10 @@ export default function ClientProfile() {
   const handleSave = async () => {
     if (!profile) return;
     const { id: _id, ...payload } = profile;
-
     if (isNew) {
       const { data, error } = await supabase.from("client_profiles").insert({ ...payload, created_by: user?.id }).select().single();
       if (error) { toast.error(error.message); return; }
-      setProfile(data as ClientProfile);
+      setProfile(data as ClientProfileData);
       setIsNew(false);
       toast.success("Profile created");
     } else {
@@ -125,9 +142,7 @@ export default function ClientProfile() {
 
   const addRole = async () => {
     if (!profile?.id) { toast.error("Save the profile first"); return; }
-    const { data, error } = await supabase.from("roles_open").insert({
-      client_profile_id: profile.id, role_name: "New Role",
-    }).select().single();
+    const { data, error } = await supabase.from("roles_open").insert({ client_profile_id: profile.id, role_name: "New Role" }).select().single();
     if (error) { toast.error(error.message); return; }
     setRoles([...roles, data]);
   };
@@ -142,6 +157,51 @@ export default function ClientProfile() {
     setRoles((r) => r.filter((ro) => ro.id !== roleId));
   };
 
+  const sendAgreement = async () => {
+    if (!profile?.id) { toast.error("Save the profile first"); return; }
+    const { data, error } = await supabase.from("engagement_agreements").insert({
+      client_profile_id: profile.id,
+      lead_id: profile.lead_id,
+      sent_by: user?.id,
+      status: "sent",
+      notes: agreementForm.notes || null,
+      agreement_url: agreementForm.agreement_url || null,
+    }).select().single();
+    if (error) { toast.error(error.message); return; }
+    setAgreements([data as Agreement, ...agreements]);
+    setAgreementDialogOpen(false);
+    setAgreementForm({ notes: "", agreement_url: "" });
+
+    // Create notification
+    if (user) {
+      await supabase.from("notifications").insert({
+        user_id: user.id,
+        type: "agreement_sent",
+        title: "Engagement agreement sent",
+        message: `Agreement sent to ${profile.name}`,
+        lead_id: profile.lead_id,
+      });
+    }
+    toast.success("Engagement agreement sent");
+  };
+
+  const updateAgreementStatus = async (agreementId: string, status: string) => {
+    const { error } = await supabase.from("engagement_agreements").update({ status }).eq("id", agreementId);
+    if (error) { toast.error(error.message); return; }
+    setAgreements((prev) => prev.map((a) => a.id === agreementId ? { ...a, status } : a));
+
+    if (status === "signed" && user) {
+      await supabase.from("notifications").insert({
+        user_id: user.id,
+        type: "agreement_signed",
+        title: "Agreement signed!",
+        message: `${profile?.name} signed the engagement agreement`,
+        lead_id: profile?.lead_id || null,
+      });
+    }
+    toast.success(`Agreement marked as ${status}`);
+  };
+
   if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">Loading...</div>;
   if (!profile) return <div className="text-center py-12 text-muted-foreground">Profile not found</div>;
 
@@ -152,7 +212,28 @@ export default function ClientProfile() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold tracking-tight">{profile.name || "New Client Profile"}</h1>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          {isTeam && !isNew && (
+            <Dialog open={agreementDialogOpen} onOpenChange={setAgreementDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Send Agreement</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Send Engagement Agreement</DialogTitle></DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Agreement URL</Label>
+                    <Input placeholder="https://..." value={agreementForm.agreement_url} onChange={(e) => setAgreementForm((f) => ({ ...f, agreement_url: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Notes</Label>
+                    <Textarea placeholder="Additional notes..." value={agreementForm.notes} onChange={(e) => setAgreementForm((f) => ({ ...f, notes: e.target.value }))} />
+                  </div>
+                  <Button onClick={sendAgreement}><Send className="mr-2 h-4 w-4" />Send Agreement</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
           <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" />Save</Button>
         </div>
       </div>
@@ -164,6 +245,7 @@ export default function ClientProfile() {
           <TabsTrigger value="relationship">Relationship</TabsTrigger>
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="discovery">Discovery</TabsTrigger>
+          {isTeam && <TabsTrigger value="agreements">Agreements</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="basic">
@@ -259,17 +341,12 @@ export default function ClientProfile() {
 
         <TabsContent value="business">
           <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Business</CardTitle>
-              </div>
-            </CardHeader>
+            <CardHeader><CardTitle>Business</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label>Future Plans</Label>
                 <Textarea value={profile.future_plans || ""} onChange={(e) => updateProfile("future_plans", e.target.value)} />
               </div>
-
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <Label className="text-base font-semibold">Roles Open (30-60 days)</Label>
@@ -290,19 +367,11 @@ export default function ClientProfile() {
                     ) : (
                       roles.map((r) => (
                         <TableRow key={r.id}>
-                          <TableCell>
-                            <Input value={r.role_name} onChange={(e) => updateRole(r.id, "role_name", e.target.value)} className="h-8" />
-                          </TableCell>
-                          <TableCell>
-                            <Checkbox checked={r.is_signed || false} onCheckedChange={(v) => updateRole(r.id, "is_signed", !!v)} />
-                          </TableCell>
-                          <TableCell>
-                            <Input value={r.pricing || ""} onChange={(e) => updateRole(r.id, "pricing", e.target.value)} className="h-8" />
-                          </TableCell>
+                          <TableCell><Input value={r.role_name} onChange={(e) => updateRole(r.id, "role_name", e.target.value)} className="h-8" /></TableCell>
+                          <TableCell><Checkbox checked={r.is_signed || false} onCheckedChange={(v) => updateRole(r.id, "is_signed", !!v)} /></TableCell>
+                          <TableCell><Input value={r.pricing || ""} onChange={(e) => updateRole(r.id, "pricing", e.target.value)} className="h-8" /></TableCell>
                           {isTeam && (
-                            <TableCell>
-                              <Button variant="ghost" size="icon" onClick={() => deleteRole(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                            </TableCell>
+                            <TableCell><Button variant="ghost" size="icon" onClick={() => deleteRole(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                           )}
                         </TableRow>
                       ))
@@ -335,6 +404,62 @@ export default function ClientProfile() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {isTeam && (
+          <TabsContent value="agreements">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Engagement Agreements</CardTitle>
+                  {!isNew && (
+                    <Button variant="outline" size="sm" onClick={() => setAgreementDialogOpen(true)}>
+                      <Plus className="mr-1 h-3 w-3" />New Agreement
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sent</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>URL</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {agreements.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No agreements yet</TableCell></TableRow>
+                    ) : (
+                      agreements.map((a) => (
+                        <TableRow key={a.id}>
+                          <TableCell className="text-sm">{formatDistanceToNow(new Date(a.sent_at), { addSuffix: true })}</TableCell>
+                          <TableCell>
+                            <Badge variant={a.status === "signed" ? "default" : "secondary"}>{a.status}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {a.agreement_url ? <a href={a.agreement_url} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm">View</a> : "—"}
+                          </TableCell>
+                          <TableCell className="max-w-[200px] truncate text-sm">{a.notes || "—"}</TableCell>
+                          <TableCell>
+                            <Select value={a.status} onValueChange={(v) => updateAgreementStatus(a.id, v)}>
+                              <SelectTrigger className="w-28 h-8"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {["draft", "sent", "viewed", "signed"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

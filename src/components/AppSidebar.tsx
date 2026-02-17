@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Kanban } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/lib/auth";
 import {
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 const teamItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Leads", url: "/leads", icon: Users },
+  { title: "Kanban", url: "/leads/kanban", icon: Kanban },
   { title: "Client Profiles", url: "/clients", icon: UserCircle },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
 ];
