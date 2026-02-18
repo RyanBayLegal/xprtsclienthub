@@ -13,6 +13,8 @@ import Clients from "./pages/Clients";
 import ClientProfile from "./pages/ClientProfile";
 import MyProfile from "./pages/MyProfile";
 import Analytics from "./pages/Analytics";
+import CalendarPage from "./pages/CalendarPage";
+import Tasks from "./pages/Tasks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +58,8 @@ const App = () => (
             <Route path="/clients" element={<ProtectedRoute><TeamRoute><Clients /></TeamRoute></ProtectedRoute>} />
             <Route path="/clients/:id" element={<ProtectedRoute><TeamRoute><ClientProfile /></TeamRoute></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><TeamRoute><Analytics /></TeamRoute></ProtectedRoute>} />
+            <Route path="/calendar" element={<ProtectedRoute><TeamRoute><CalendarPage /></TeamRoute></ProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><TeamRoute><Tasks /></TeamRoute></ProtectedRoute>} />
             <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
