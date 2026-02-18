@@ -10,13 +10,21 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import LeadsKanban from "./LeadsKanban";
 
 const STAGES = [
+  "Prospecting Stage",
+  "Discovery Stage",
+  "Solution Mapping Stage",
+  "Proposal/Contract Stage",
+  "Onboarding/Kickoff Stage",
+];
+
+const CLIENT_STAGES = [
   "Prospecting Stage",
   "Discovery Stage",
   "Solution Mapping Stage",
@@ -58,6 +66,15 @@ export default function Leads() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyLead);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Convert to client state
+  const [convertLead, setConvertLead] = useState<Lead | null>(null);
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [convertForm, setConvertForm] = useState({
+    name: "", company: "", role: "", practice_area: "", stage: "Onboarding/Kickoff Stage",
+    pain_points: "", discovery_notes: "",
+  });
 
   const fetchLeads = async () => {
     let q = supabase.from("leads").select("*").order("created_at", { ascending: false });
@@ -112,6 +129,59 @@ export default function Leads() {
     if (error) { toast.error(error.message); return; }
     toast.success("Lead deleted");
     fetchLeads();
+  };
+
+  const openConvert = (lead: Lead) => {
+    setConvertLead(lead);
+    setConvertForm({
+      name: lead.name,
+      company: "",
+      role: "",
+      practice_area: "",
+      stage: "Onboarding/Kickoff Stage",
+      pain_points: lead.needs || "",
+      discovery_notes: lead.notes || "",
+    });
+    setConvertDialogOpen(true);
+  };
+
+  const handleConvert = async () => {
+    if (!convertLead || !convertForm.name) { toast.error("Name is required"); return; }
+    setConverting(true);
+
+    // Check if a client profile already exists for this lead
+    const { data: existing } = await supabase
+      .from("client_profiles")
+      .select("id")
+      .eq("lead_id", convertLead.id)
+      .maybeSingle();
+
+    if (existing) {
+      toast.info("A client profile already exists for this lead.");
+      navigate(`/clients/${existing.id}`);
+      setConvertDialogOpen(false);
+      setConverting(false);
+      return;
+    }
+
+    const { data, error } = await supabase.from("client_profiles").insert({
+      name: convertForm.name,
+      company: convertForm.company || null,
+      role: convertForm.role || null,
+      practice_area: convertForm.practice_area || null,
+      stage: convertForm.stage || null,
+      pain_points: convertForm.pain_points || null,
+      discovery_notes: convertForm.discovery_notes || null,
+      lead_id: convertLead.id,
+      created_by: user?.id,
+    }).select("id").single();
+
+    if (error) { toast.error(error.message); setConverting(false); return; }
+
+    toast.success(`${convertForm.name} converted to client profile!`);
+    setConvertDialogOpen(false);
+    setConverting(false);
+    navigate(`/clients/${data.id}`);
   };
 
   const updateField = (field: string, value: string | boolean) => setForm((f) => ({ ...f, [field]: value }));
@@ -202,6 +272,62 @@ export default function Leads() {
         </Dialog>
       </div>
 
+      {/* Convert to Client Dialog */}
+      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-primary" />
+              Convert to Client Profile
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Pre-filled from <span className="font-medium">{convertLead?.name}</span>. Fill in additional details and confirm.
+          </p>
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 col-span-2">
+                <Label>Full Name *</Label>
+                <Input value={convertForm.name} onChange={(e) => setConvertForm((f) => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Company</Label>
+                <Input value={convertForm.company} onChange={(e) => setConvertForm((f) => ({ ...f, company: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Role / Title</Label>
+                <Input value={convertForm.role} onChange={(e) => setConvertForm((f) => ({ ...f, role: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Practice Area</Label>
+                <Input value={convertForm.practice_area} onChange={(e) => setConvertForm((f) => ({ ...f, practice_area: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Client Stage</Label>
+                <Select value={convertForm.stage} onValueChange={(v) => setConvertForm((f) => ({ ...f, stage: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CLIENT_STAGES.map((s) => <SelectItem key={s} value={s}>{s.replace(" Stage", "")}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Pain Points / Needs</Label>
+              <Textarea rows={2} value={convertForm.pain_points} onChange={(e) => setConvertForm((f) => ({ ...f, pain_points: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Discovery Notes</Label>
+              <Textarea rows={2} value={convertForm.discovery_notes} onChange={(e) => setConvertForm((f) => ({ ...f, discovery_notes: e.target.value }))} />
+            </div>
+            <Button onClick={handleConvert} disabled={converting} className="w-full">
+              <UserCheck className="mr-2 h-4 w-4" />
+              {converting ? "Converting..." : "Create Client Profile"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Tabs defaultValue="kanban">
         <TabsList className="mb-4">
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
@@ -239,13 +365,13 @@ export default function Leads() {
                   <TableHead>Booked</TableHead>
                   <TableHead>Next Steps</TableHead>
                   <TableHead>Stage Changed</TableHead>
-                  <TableHead className="w-20">Actions</TableHead>
+                  <TableHead className="w-32">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {leads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                       No leads yet. Click "Add Lead" to get started.
                     </TableCell>
                   </TableRow>
@@ -268,6 +394,14 @@ export default function Leads() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Convert to Client"
+                            onClick={() => openConvert(lead)}
+                          >
+                            <UserCheck className="h-4 w-4 text-primary" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
                             <Pencil className="h-4 w-4" />
                           </Button>

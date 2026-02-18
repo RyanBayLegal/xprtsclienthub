@@ -42,7 +42,7 @@ export default function Settings() {
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
-  const [newUserRole, setNewUserRole] = useState<"team_admin" | "client">("team_admin");
+  const [newUserRole, setNewUserRole] = useState<"team_admin" | "client" | "staff_member">("team_admin");
   const [addingUser, setAddingUser] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
 
@@ -98,7 +98,7 @@ export default function Settings() {
     setAddUserOpen(false);
     setNewUserEmail("");
     setNewUserName("");
-    setNewUserRole("team_admin");
+    setNewUserRole("team_admin" as "team_admin" | "client" | "staff_member");
     setAddingUser(false);
     fetchUsers();
   };
@@ -393,10 +393,11 @@ export default function Settings() {
                       </div>
                       <div className="space-y-2">
                         <Label>Role</Label>
-                        <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as "team_admin" | "client")}>
+                        <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as "team_admin" | "client" | "staff_member")}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="team_admin">Team Admin</SelectItem>
+                            <SelectItem value="staff_member">Staff Member</SelectItem>
                             <SelectItem value="client">Client</SelectItem>
                           </SelectContent>
                         </Select>
