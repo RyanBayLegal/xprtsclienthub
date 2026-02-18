@@ -175,6 +175,7 @@ export type Database = {
           notes: string | null
           source: string | null
           stage: string
+          stage_changed_at: string | null
           updated_at: string
           website: string | null
         }
@@ -195,6 +196,7 @@ export type Database = {
           notes?: string | null
           source?: string | null
           stage?: string
+          stage_changed_at?: string | null
           updated_at?: string
           website?: string | null
         }
@@ -215,6 +217,7 @@ export type Database = {
           notes?: string | null
           source?: string | null
           stage?: string
+          stage_changed_at?: string | null
           updated_at?: string
           website?: string | null
         }
@@ -316,6 +319,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "roles_open_client_profile_id_fkey"
+            columns: ["client_profile_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scoping_questionnaires: {
+        Row: {
+          client_profile_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          section_data: Json
+          updated_at: string
+        }
+        Insert: {
+          client_profile_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          section_data?: Json
+          updated_at?: string
+        }
+        Update: {
+          client_profile_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          section_data?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scoping_questionnaires_client_profile_id_fkey"
             columns: ["client_profile_id"]
             isOneToOne: false
             referencedRelation: "client_profiles"

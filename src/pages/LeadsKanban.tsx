@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
+import { formatDistanceToNow } from "date-fns";
 
 const STAGES = [
   "Prospecting Stage",
@@ -29,6 +30,7 @@ interface Lead {
   source: string | null;
   next_steps: string | null;
   stage: string;
+  stage_changed_at: string | null;
 }
 
 export default function LeadsKanban() {
@@ -38,8 +40,11 @@ export default function LeadsKanban() {
   const { user } = useAuth();
 
   const fetchLeads = async () => {
-    const { data } = await supabase.from("leads").select("id, name, contact, source, next_steps, stage").order("created_at", { ascending: false });
-    if (data) setLeads(data);
+    const { data } = await supabase
+      .from("leads")
+      .select("id, name, contact, source, next_steps, stage, stage_changed_at")
+      .order("created_at", { ascending: false });
+    if (data) setLeads(data as Lead[]);
   };
 
   useEffect(() => { fetchLeads(); }, []);
@@ -62,7 +67,7 @@ export default function LeadsKanban() {
     if (!lead || lead.stage === newStage) { setDraggedId(null); return; }
 
     const oldStage = lead.stage;
-    setLeads((prev) => prev.map((l) => l.id === draggedId ? { ...l, stage: newStage } : l));
+    setLeads((prev) => prev.map((l) => l.id === draggedId ? { ...l, stage: newStage, stage_changed_at: new Date().toISOString() } : l));
     setDraggedId(null);
 
     const { error } = await supabase.from("leads").update({ stage: newStage }).eq("id", draggedId);
@@ -72,7 +77,6 @@ export default function LeadsKanban() {
       return;
     }
 
-    // Create notification for stage change
     if (user) {
       await supabase.from("notifications").insert({
         user_id: user.id,
@@ -119,6 +123,11 @@ export default function LeadsKanban() {
                     {lead.source && <p className="text-xs text-muted-foreground">Source: {lead.source}</p>}
                     {lead.next_steps && (
                       <p className="text-xs text-muted-foreground truncate">Next: {lead.next_steps}</p>
+                    )}
+                    {lead.stage_changed_at && (
+                      <p className="text-[10px] text-muted-foreground/70 mt-1">
+                        Moved {formatDistanceToNow(new Date(lead.stage_changed_at), { addSuffix: true })}
+                      </p>
                     )}
                   </CardContent>
                 </Card>
