@@ -41,6 +41,10 @@ interface Task {
   template_name: string | null;
   completed_at: string | null;
   created_at: string;
+  // enriched client name (fetched separately)
+  client_name?: string | null;
+  // enriched staff name (fetched separately)
+  staff_name?: string | null;
 }
 
 interface Client {
@@ -132,13 +136,18 @@ function DraggableTaskCard({
         </div>
         {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
         <div className="flex items-center gap-2 flex-wrap">
-          {task.client_profile_id && task.assigned_to_name && (
+          {task.client_profile_id && task.client_name && (
             <button
               onClick={() => navigate(`/clients/${task.client_profile_id}`)}
               className="text-[10px] text-primary underline underline-offset-2 hover:opacity-80"
             >
-              {task.assigned_to_name}
+              📁 {task.client_name}
             </button>
+          )}
+          {task.staff_name && (
+            <span className="text-[10px] text-muted-foreground">
+              👤 {task.staff_name}
+            </span>
           )}
           {task.due_date && (
             <span className={`text-[10px] ${getDueDateStyle(task.due_date, task.status)}`}>
@@ -246,7 +255,31 @@ export default function Tasks() {
     if (statusFilter !== "all") q = q.eq("status", statusFilter);
     if (clientFilter !== "all") q = q.eq("client_profile_id", clientFilter);
     const { data } = await q;
-    if (data) setTasks(data as Task[]);
+    if (!data) return;
+
+    // Enrich with client names and staff names
+    const clientIds = [...new Set(data.map((t) => t.client_profile_id).filter(Boolean))];
+    const staffIds = [...new Set(data.map((t) => t.assigned_to).filter(Boolean))];
+
+    const [clientRes, staffRes] = await Promise.all([
+      clientIds.length > 0
+        ? supabase.from("client_profiles").select("id, name").in("id", clientIds)
+        : Promise.resolve({ data: [] }),
+      staffIds.length > 0
+        ? supabase.from("profiles").select("user_id, full_name").in("user_id", staffIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const clientMap = Object.fromEntries((clientRes.data || []).map((c) => [c.id, c.name]));
+    const staffMap = Object.fromEntries((staffRes.data || []).map((p) => [p.user_id, p.full_name]));
+
+    setTasks(
+      data.map((t) => ({
+        ...t,
+        client_name: t.client_profile_id ? clientMap[t.client_profile_id] ?? null : null,
+        staff_name: t.assigned_to ? staffMap[t.assigned_to] ?? null : null,
+      })) as Task[]
+    );
   };
 
   const fetchClients = async () => {
@@ -530,13 +563,14 @@ export default function Tasks() {
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Client</TableHead>
+                    <TableHead>Staff</TableHead>
                     <TableHead>Due</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tasks.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
                   ) : tasks.map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.title}</TableCell>
@@ -552,11 +586,14 @@ export default function Tasks() {
                         <Badge className={`text-[10px] ${priorityColors[task.priority]}`}>{task.priority}</Badge>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {task.client_profile_id && task.assigned_to_name ? (
+                        {task.client_profile_id && task.client_name ? (
                           <button onClick={() => navigate(`/clients/${task.client_profile_id}`)} className="text-primary underline underline-offset-2 hover:opacity-80 text-sm">
-                            {task.assigned_to_name}
+                            {task.client_name}
                           </button>
-                        ) : task.assigned_to_name || "—"}
+                        ) : task.client_name || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {task.staff_name || "—"}
                       </TableCell>
                       <TableCell className={`text-sm ${getDueDateStyle(task.due_date, task.status)}`}>
                         {task.due_date ? getDueDateLabel(task.due_date) : "—"}

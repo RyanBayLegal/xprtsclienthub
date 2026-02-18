@@ -10,11 +10,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, Pencil, Trash2, UserCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import LeadsKanban from "./LeadsKanban";
+import NDABuilder from "@/components/NDABuilder";
+import AgreementBuilder from "@/components/AgreementBuilder";
+
 
 const STAGES = [
   "Prospecting Stage",
@@ -75,6 +79,13 @@ export default function Leads() {
     name: "", company: "", role: "", practice_area: "", stage: "Onboarding/Kickoff Stage",
     pain_points: "", discovery_notes: "",
   });
+
+  // NDA / Agreement dialog for leads
+  const [docLead, setDocLead] = useState<Lead | null>(null);
+  const [docClientProfileId, setDocClientProfileId] = useState<string | null>(null);
+  const [docDialogOpen, setDocDialogOpen] = useState(false);
+  const [docTab, setDocTab] = useState<"nda" | "agreement">("nda");
+  const [loadingDocProfile, setLoadingDocProfile] = useState(false);
 
   const fetchLeads = async () => {
     let q = supabase.from("leads").select("*").order("created_at", { ascending: false });
@@ -182,6 +193,22 @@ export default function Leads() {
     setConvertDialogOpen(false);
     setConverting(false);
     navigate(`/clients/${data.id}`);
+  };
+
+  const openDocDialog = async (lead: Lead, tab: "nda" | "agreement") => {
+    setDocLead(lead);
+    setDocTab(tab);
+    setDocClientProfileId(null);
+    setLoadingDocProfile(true);
+    setDocDialogOpen(true);
+    // Find existing client profile for this lead
+    const { data } = await supabase
+      .from("client_profiles")
+      .select("id")
+      .eq("lead_id", lead.id)
+      .maybeSingle();
+    setDocClientProfileId(data?.id ?? null);
+    setLoadingDocProfile(false);
   };
 
   const updateField = (field: string, value: string | boolean) => setForm((f) => ({ ...f, [field]: value }));
@@ -328,6 +355,52 @@ export default function Leads() {
         </DialogContent>
       </Dialog>
 
+      {/* NDA / Agreement Dialog */}
+      <Dialog open={docDialogOpen} onOpenChange={setDocDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {docTab === "nda" ? <Shield className="h-5 w-5 text-primary" /> : <FileText className="h-5 w-5 text-primary" />}
+              {docTab === "nda" ? "Mutual NDA" : "Engagement Agreement"} — {docLead?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {loadingDocProfile ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Loading...</p>
+          ) : !docClientProfileId ? (
+            <div className="text-center py-8 space-y-3">
+              <p className="text-sm text-muted-foreground">This lead must be converted to a client profile before creating documents.</p>
+              <Button onClick={() => { setDocDialogOpen(false); if (docLead) openConvert(docLead); }}>
+                <UserCheck className="mr-2 h-4 w-4" />
+                Convert to Client First
+              </Button>
+            </div>
+          ) : (
+            <Tabs value={docTab} onValueChange={(v) => setDocTab(v as "nda" | "agreement")}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="nda"><Shield className="h-3.5 w-3.5 mr-1.5" />NDA</TabsTrigger>
+                <TabsTrigger value="agreement"><FileText className="h-3.5 w-3.5 mr-1.5" />Agreement</TabsTrigger>
+              </TabsList>
+              <TabsContent value="nda">
+                <NDABuilder
+                  clientProfileId={docClientProfileId}
+                  leadId={docLead?.id}
+                  clientName={docLead?.name || ""}
+                  onCreated={() => setDocDialogOpen(false)}
+                />
+              </TabsContent>
+              <TabsContent value="agreement">
+                <AgreementBuilder
+                  clientProfileId={docClientProfileId}
+                  leadId={docLead?.id}
+                  clientName={docLead?.name || ""}
+                  onCreated={() => setDocDialogOpen(false)}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Tabs defaultValue="kanban">
         <TabsList className="mb-4">
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
@@ -335,7 +408,7 @@ export default function Leads() {
         </TabsList>
 
         <TabsContent value="kanban">
-          <LeadsKanban />
+          <LeadsKanban onConvert={openConvert} />
         </TabsContent>
 
         <TabsContent value="table">
@@ -365,7 +438,7 @@ export default function Leads() {
                   <TableHead>Booked</TableHead>
                   <TableHead>Next Steps</TableHead>
                   <TableHead>Stage Changed</TableHead>
-                  <TableHead className="w-32">Actions</TableHead>
+                  <TableHead className="w-44">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -394,13 +467,14 @@ export default function Leads() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Convert to Client"
-                            onClick={() => openConvert(lead)}
-                          >
+                          <Button variant="ghost" size="icon" title="Convert to Client" onClick={() => openConvert(lead)}>
                             <UserCheck className="h-4 w-4 text-primary" />
+                          </Button>
+                          <Button variant="ghost" size="icon" title="NDA" onClick={() => openDocDialog(lead, "nda")}>
+                            <Shield className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Button variant="ghost" size="icon" title="Agreement" onClick={() => openDocDialog(lead, "agreement")}>
+                            <FileText className="h-4 w-4 text-muted-foreground" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
                             <Pencil className="h-4 w-4" />
@@ -421,3 +495,4 @@ export default function Leads() {
     </div>
   );
 }
+
