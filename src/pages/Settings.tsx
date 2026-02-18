@@ -48,6 +48,7 @@ export default function Settings() {
   const [addingUser, setAddingUser] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [uploadingAvatarId, setUploadingAvatarId] = useState<string | null>(null);
+  const [changingRoleId, setChangingRoleId] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const avatarTargetUser = useRef<string | null>(null);
 
@@ -158,6 +159,25 @@ export default function Settings() {
     toast.success("Avatar updated");
     setUploadingAvatarId(null);
     if (avatarInputRef.current) avatarInputRef.current.value = "";
+  };
+
+  const handleRoleChange = async (userId: string, newRole: "team_admin" | "client" | "staff_member") => {
+    if (userId === user?.id) {
+      toast.error("You cannot change your own role");
+      return;
+    }
+    setChangingRoleId(userId);
+    const { error } = await supabase
+      .from("user_roles")
+      .update({ role: newRole })
+      .eq("user_id", userId);
+    if (error) {
+      toast.error("Failed to update role: " + error.message);
+    } else {
+      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: newRole } : u));
+      toast.success("Role updated successfully");
+    }
+    setChangingRoleId(null);
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -487,9 +507,20 @@ export default function Settings() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={u.role === "team_admin" ? "default" : u.role === "staff_member" ? "outline" : "secondary"}>
-                            {u.role === "team_admin" ? "Team Admin" : u.role === "staff_member" ? "Staff Member" : "Client"}
-                          </Badge>
+                          <Select
+                            value={u.role}
+                            onValueChange={(v) => handleRoleChange(u.id, v as "team_admin" | "client" | "staff_member")}
+                            disabled={changingRoleId === u.id || u.id === user?.id}
+                          >
+                            <SelectTrigger className="w-[140px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="team_admin">Team Admin</SelectItem>
+                              <SelectItem value="staff_member">Staff Member</SelectItem>
+                              <SelectItem value="client">Client</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(u.created_at).toLocaleDateString()}
