@@ -3,9 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { formatDistanceToNow } from "date-fns";
+import { UserCheck } from "lucide-react";
 
 const STAGES = [
   "Prospecting Stage",
@@ -33,7 +35,11 @@ interface Lead {
   stage_changed_at: string | null;
 }
 
-export default function LeadsKanban() {
+interface LeadsKanbanProps {
+  onConvert?: (lead: Lead) => void;
+}
+
+export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -112,13 +118,15 @@ export default function LeadsKanban() {
                   key={lead.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, lead.id)}
-                  onClick={() => navigate(`/clients/${lead.id}`)}
-                  className={`cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
-                    draggedId === lead.id ? "opacity-50" : ""
-                  }`}
+                  className={`transition-shadow ${draggedId === lead.id ? "opacity-50" : "hover:shadow-md"}`}
                 >
                   <CardContent className="p-3 space-y-1">
-                    <p className="font-medium text-sm">{lead.name}</p>
+                    <p
+                      className="font-medium text-sm cursor-pointer hover:text-primary"
+                      onClick={() => navigate(`/clients/${lead.id}`)}
+                    >
+                      {lead.name}
+                    </p>
                     {lead.contact && <p className="text-xs text-muted-foreground">{lead.contact}</p>}
                     {lead.source && <p className="text-xs text-muted-foreground">Source: {lead.source}</p>}
                     {lead.next_steps && (
@@ -128,6 +136,17 @@ export default function LeadsKanban() {
                       <p className="text-[10px] text-muted-foreground/70 mt-1">
                         Moved {formatDistanceToNow(new Date(lead.stage_changed_at), { addSuffix: true })}
                       </p>
+                    )}
+                    {onConvert && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] text-primary w-full mt-1"
+                        onClick={(e) => { e.stopPropagation(); onConvert(lead); }}
+                      >
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        Convert to Client
+                      </Button>
                     )}
                   </CardContent>
                 </Card>
