@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, CheckCircle2, Circle, Clock, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { UserAvatar } from "@/components/UserAvatar";
 import {
   DndContext,
   DragEndEvent,
@@ -43,8 +44,8 @@ interface Task {
   created_at: string;
   // enriched client name (fetched separately)
   client_name?: string | null;
-  // enriched staff name (fetched separately)
   staff_name?: string | null;
+  staff_avatar?: string | null;
 }
 
 interface Client {
@@ -55,6 +56,7 @@ interface Client {
 interface StaffMember {
   id: string;
   full_name: string | null;
+  avatar_url?: string | null;
 }
 
 const STATUS_OPTIONS = ["todo", "in_progress", "done"];
@@ -145,8 +147,9 @@ function DraggableTaskCard({
             </button>
           )}
           {task.staff_name && (
-            <span className="text-[10px] text-muted-foreground">
-              👤 {task.staff_name}
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <UserAvatar avatarUrl={task.staff_avatar} fullName={task.staff_name} size="sm" />
+              {task.staff_name}
             </span>
           )}
           {task.due_date && (
@@ -266,18 +269,19 @@ export default function Tasks() {
         ? supabase.from("client_profiles").select("id, name").in("id", clientIds)
         : Promise.resolve({ data: [] }),
       staffIds.length > 0
-        ? supabase.from("profiles").select("user_id, full_name").in("user_id", staffIds)
-        : Promise.resolve({ data: [] }),
+        ? supabase.from("profiles").select("user_id, full_name, avatar_url").in("user_id", staffIds)
+        : Promise.resolve({ data: [] as { user_id: string; full_name: string | null; avatar_url: string | null }[] }),
     ]);
 
     const clientMap = Object.fromEntries((clientRes.data || []).map((c) => [c.id, c.name]));
-    const staffMap = Object.fromEntries((staffRes.data || []).map((p) => [p.user_id, p.full_name]));
+    const staffMap = Object.fromEntries((staffRes.data || []).map((p) => [p.user_id, { name: p.full_name, avatar: p.avatar_url }]));
 
     setTasks(
       data.map((t) => ({
         ...t,
         client_name: t.client_profile_id ? clientMap[t.client_profile_id] ?? null : null,
-        staff_name: t.assigned_to ? staffMap[t.assigned_to] ?? null : null,
+        staff_name: t.assigned_to ? staffMap[t.assigned_to]?.name ?? null : null,
+        staff_avatar: t.assigned_to ? staffMap[t.assigned_to]?.avatar ?? null : null,
       })) as Task[]
     );
   };
@@ -298,10 +302,10 @@ export default function Tasks() {
     if (ids.length === 0) return;
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("user_id, full_name")
+      .select("user_id, full_name, avatar_url")
       .in("user_id", ids);
     if (profiles) {
-      setStaffMembers(profiles.map((p) => ({ id: p.user_id, full_name: p.full_name })));
+      setStaffMembers(profiles.map((p) => ({ id: p.user_id, full_name: p.full_name, avatar_url: p.avatar_url })));
     }
   };
 
@@ -593,7 +597,12 @@ export default function Tasks() {
                         ) : task.client_name || "—"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {task.staff_name || "—"}
+                        {task.staff_name ? (
+                          <div className="flex items-center gap-2">
+                            <UserAvatar avatarUrl={task.staff_avatar} fullName={task.staff_name} size="sm" />
+                            {task.staff_name}
+                          </div>
+                        ) : "—"}
                       </TableCell>
                       <TableCell className={`text-sm ${getDueDateStyle(task.due_date, task.status)}`}>
                         {task.due_date ? getDueDateLabel(task.due_date) : "—"}

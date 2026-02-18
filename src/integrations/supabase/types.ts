@@ -71,6 +71,7 @@ export type Database = {
           repeat_customer_probability: string | null
           role: string | null
           stage: string | null
+          stage_changed_at: string | null
           updated_at: string
           user_id: string | null
         }
@@ -97,6 +98,7 @@ export type Database = {
           repeat_customer_probability?: string | null
           role?: string | null
           stage?: string | null
+          stage_changed_at?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -123,6 +125,7 @@ export type Database = {
           repeat_customer_probability?: string | null
           role?: string | null
           stage?: string | null
+          stage_changed_at?: string | null
           updated_at?: string
           user_id?: string | null
         }
