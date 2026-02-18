@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    // Verify caller is team_admin
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
@@ -49,83 +50,41 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { email, name, role: invitedRole, clientProfileId, resend } = body;
-
-    if (!email) {
-      return new Response(JSON.stringify({ error: "email is required" }), {
+    const { userId } = await req.json();
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "userId is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Get user's email via admin API
+    const { data: userData, error: userError } = await adminClient.auth.admin.getUserById(userId);
+    if (userError || !userData?.user?.email) {
+      return new Response(JSON.stringify({ error: "User not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const email = userData.user.email;
     const siteUrl = req.headers.get("origin") || "https://id-preview--269ff167-474a-46bb-8fcf-11513049feb4.lovable.app";
 
-    // Resend mode: just generate a new recovery link for an existing user
-    if (resend) {
-      const { error: linkError } = await adminClient.auth.admin.generateLink({
-        type: "recovery",
-        email,
-        options: { redirectTo: `${siteUrl}/reset-password` },
-      });
-
-      if (linkError) {
-        return new Response(JSON.stringify({ error: linkError.message }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, message: `Invite resent to ${email}` }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create mode
-    if (!name) {
-      return new Response(JSON.stringify({ error: "name is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const assignedRole = invitedRole === "team_admin" ? "team_admin" : "client";
-    const tempPassword = crypto.randomUUID() + "Aa1!";
-
-    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: false,
-      user_metadata: { full_name: name },
-    });
-
-    if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const userId = newUser.user.id;
-
-    await adminClient.from("user_roles").insert({ user_id: userId, role: assignedRole });
-
-    if (clientProfileId) {
-      await adminClient
-        .from("client_profiles")
-        .update({ user_id: userId })
-        .eq("id", clientProfileId);
-    }
-
-    await adminClient.auth.admin.generateLink({
+    const { error: linkError } = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email,
       options: { redirectTo: `${siteUrl}/reset-password` },
     });
 
+    if (linkError) {
+      return new Response(JSON.stringify({ error: linkError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(
-      JSON.stringify({ success: true, userId, message: `Client account created for ${email}` }),
+      JSON.stringify({ success: true, message: `Invite resent to ${email}` }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

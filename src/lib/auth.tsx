@@ -3,7 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_TIMEOUT_MINUTES = 30;
+const WARNING_BEFORE_MS = 2 * 60 * 1000; // warn 2 minutes before logout
+const SESSION_TIMEOUT_KEY = "session_timeout_minutes";
 
 type UserRole = "team_admin" | "client" | null;
 
@@ -13,6 +15,10 @@ interface AuthContextType {
   role: UserRole;
   loading: boolean;
   signOut: () => Promise<void>;
+  sessionTimeoutMinutes: number;
+  setSessionTimeoutMinutes: (minutes: number) => void;
+  showTimeoutWarning: boolean;
+  extendSession: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -21,6 +27,10 @@ const AuthContext = createContext<AuthContextType>({
   role: null,
   loading: true,
   signOut: async () => {},
+  sessionTimeoutMinutes: DEFAULT_TIMEOUT_MINUTES,
+  setSessionTimeoutMinutes: () => {},
+  showTimeoutWarning: false,
+  extendSession: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -30,7 +40,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutesState] = useState<number>(() => {
+    const stored = localStorage.getItem(SESSION_TIMEOUT_KEY);
+    return stored ? parseInt(stored, 10) : DEFAULT_TIMEOUT_MINUTES;
+  });
+
   const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const setSessionTimeoutMinutes = (minutes: number) => {
+    localStorage.setItem(SESSION_TIMEOUT_KEY, String(minutes));
+    setSessionTimeoutMinutesState(minutes);
+  };
 
   const fetchRole = async (userId: string) => {
     const { data } = await supabase
@@ -42,22 +64,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    clearTimers();
     await supabase.auth.signOut();
   };
 
-  const resetInactivityTimer = () => {
-    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    inactivityTimer.current = setTimeout(async () => {
-      toast.info("You've been logged out due to inactivity.");
-      await supabase.auth.signOut();
-    }, INACTIVITY_TIMEOUT_MS);
+  const clearTimers = () => {
+    if (inactivityTimer.current) { clearTimeout(inactivityTimer.current); inactivityTimer.current = null; }
+    if (warningTimer.current) { clearTimeout(warningTimer.current); warningTimer.current = null; }
+    setShowTimeoutWarning(false);
   };
 
-  const clearInactivityTimer = () => {
-    if (inactivityTimer.current) {
-      clearTimeout(inactivityTimer.current);
-      inactivityTimer.current = null;
+  const resetInactivityTimer = () => {
+    clearTimers();
+
+    const timeoutMs = sessionTimeoutMinutes * 60 * 1000;
+    const warnAt = timeoutMs - WARNING_BEFORE_MS;
+
+    if (warnAt > 0) {
+      warningTimer.current = setTimeout(() => {
+        setShowTimeoutWarning(true);
+      }, warnAt);
     }
+
+    inactivityTimer.current = setTimeout(async () => {
+      setShowTimeoutWarning(false);
+      toast.info("You've been logged out due to inactivity.");
+      await supabase.auth.signOut();
+    }, timeoutMs);
+  };
+
+  const extendSession = () => {
+    setShowTimeoutWarning(false);
+    resetInactivityTimer();
   };
 
   useEffect(() => {
@@ -70,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           resetInactivityTimer();
         } else {
           setRole(null);
-          clearInactivityTimer();
+          clearTimers();
         }
         setLoading(false);
       }
@@ -89,23 +127,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Activity listeners — reset timer on any user interaction
+  // Re-arm timers when timeout setting changes
+  useEffect(() => {
+    if (user) resetInactivityTimer();
+  }, [sessionTimeoutMinutes]);
+
+  // Activity listeners
   useEffect(() => {
     if (!user) return;
 
     const events = ["mousedown", "mousemove", "keydown", "scroll", "touchstart", "click"];
-    const handleActivity = () => resetInactivityTimer();
+    const handleActivity = () => {
+      if (!showTimeoutWarning) resetInactivityTimer();
+    };
 
     events.forEach((e) => window.addEventListener(e, handleActivity, { passive: true }));
     return () => {
       events.forEach((e) => window.removeEventListener(e, handleActivity));
-      clearInactivityTimer();
+      clearTimers();
     };
-  }, [user]);
-
+  }, [user, showTimeoutWarning, sessionTimeoutMinutes]);
 
   return (
-    <AuthContext.Provider value={{ user, session, role, loading, signOut }}>
+    <AuthContext.Provider value={{
+      user, session, role, loading, signOut,
+      sessionTimeoutMinutes, setSessionTimeoutMinutes,
+      showTimeoutWarning, extendSession,
+    }}>
       {children}
     </AuthContext.Provider>
   );

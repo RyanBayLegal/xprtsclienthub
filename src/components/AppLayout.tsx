@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
+import { SessionWarningDialog } from "@/components/SessionWarningDialog";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/lib/theme";
@@ -26,6 +27,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <div className="flex-1 p-6 overflow-auto">{children}</div>
         </main>
       </div>
+      <SessionWarningDialog />
     </SidebarProvider>
   );
 }
