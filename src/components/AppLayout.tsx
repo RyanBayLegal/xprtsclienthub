@@ -1,14 +1,30 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SessionWarningDialog } from "@/components/SessionWarningDialog";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/lib/theme";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { theme, toggleTheme } = useTheme();
+  const { user, role } = useAuth();
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("full_name, avatar_url").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+      if (data) setProfile(data);
+    });
+  }, [user]);
+
+  const profilePath = role === "team_admin" ? "/settings" : "/my-profile";
 
   return (
     <SidebarProvider>
@@ -22,6 +38,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
               </Button>
               <NotificationBell />
+              <button
+                onClick={() => navigate(profilePath)}
+                className="rounded-full hover:ring-2 hover:ring-primary/50 transition-all"
+                title="My Profile"
+              >
+                <UserAvatar
+                  avatarUrl={profile?.avatar_url}
+                  fullName={profile?.full_name || user?.email}
+                  size="sm"
+                />
+              </button>
             </div>
           </header>
           <div className="flex-1 p-6 overflow-auto">{children}</div>
