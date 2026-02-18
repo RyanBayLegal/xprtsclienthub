@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import ScopingQuestionnaire from "@/components/ScopingQuestionnaire";
 import ClientTasks from "@/components/ClientTasks";
+import ClientAvatarUpload from "@/components/ClientAvatarUpload";
+import ClientAttachments from "@/components/ClientAttachments";
 import SystemsAudit from "@/components/SystemsAudit";
 import AgreementBuilder from "@/components/AgreementBuilder";
 import NDABuilder from "@/components/NDABuilder";
@@ -217,6 +219,15 @@ export default function ClientProfile() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
+        {!isNew && profile.id && (
+          <ClientAvatarUpload
+            clientProfileId={profile.id}
+            clientName={profile.name}
+            avatarUrl={(profile as any).avatar_url || null}
+            onAvatarChange={(url) => setProfile((p) => p ? { ...p, avatar_url: url } as any : p)}
+            editable={isTeam}
+          />
+        )}
         <h1 className="text-2xl font-bold tracking-tight">{profile.name || "New Client Profile"}</h1>
         <div className="ml-auto flex gap-2">
           {isTeam && !isNew && (
@@ -275,6 +286,7 @@ export default function ClientProfile() {
           {isTeam && <TabsTrigger value="agreements">Agreements</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="scoping">Scoping</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="tasks">Tasks</TabsTrigger>}
+          {isTeam && !isNew && <TabsTrigger value="attachments">Attachments</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
         </TabsList>
 
@@ -500,6 +512,12 @@ export default function ClientProfile() {
         {isTeam && !isNew && profile.id && (
           <TabsContent value="tasks">
             <ClientTasks clientProfileId={profile.id} leadId={profile.lead_id} />
+          </TabsContent>
+        )}
+
+        {isTeam && !isNew && profile.id && (
+          <TabsContent value="attachments">
+            <ClientAttachments clientProfileId={profile.id} />
           </TabsContent>
         )}
 
