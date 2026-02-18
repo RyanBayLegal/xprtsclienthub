@@ -20,6 +20,7 @@ import ScopingQuestionnaire from "@/components/ScopingQuestionnaire";
 import ClientTasks from "@/components/ClientTasks";
 import SystemsAudit from "@/components/SystemsAudit";
 import AgreementBuilder from "@/components/AgreementBuilder";
+import NDABuilder from "@/components/NDABuilder";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 
@@ -75,6 +76,7 @@ export default function ClientProfile() {
   const [isNew, setIsNew] = useState(false);
   const [loading, setLoading] = useState(true);
   const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
+  const [ndaDialogOpen, setNdaDialogOpen] = useState(false);
   const [agreementForm, setAgreementForm] = useState({ notes: "", agreement_url: "" });
 
   useEffect(() => {
@@ -218,26 +220,46 @@ export default function ClientProfile() {
         <h1 className="text-2xl font-bold tracking-tight">{profile.name || "New Client Profile"}</h1>
         <div className="ml-auto flex gap-2">
           {isTeam && !isNew && (
-            <Dialog open={agreementDialogOpen} onOpenChange={setAgreementDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Create Agreement</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader><DialogTitle>XPRTS Staffing Services Agreement</DialogTitle></DialogHeader>
-                <AgreementBuilder
-                  clientProfileId={profile.id}
-                  leadId={profile.lead_id}
-                  clientName={profile.name}
-                  onCreated={() => {
-                    setAgreementDialogOpen(false);
-                    // Refresh agreements
-                    supabase.from("engagement_agreements").select("*").eq("client_profile_id", profile.id).order("created_at", { ascending: false }).then(({ data }) => {
-                      if (data) setAgreements(data as Agreement[]);
-                    });
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
+            <>
+              <Dialog open={agreementDialogOpen} onOpenChange={setAgreementDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Create Agreement</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader><DialogTitle>XPRTS Staffing Services Agreement</DialogTitle></DialogHeader>
+                  <AgreementBuilder
+                    clientProfileId={profile.id}
+                    leadId={profile.lead_id}
+                    clientName={profile.name}
+                    onCreated={() => {
+                      setAgreementDialogOpen(false);
+                      supabase.from("engagement_agreements").select("*").eq("client_profile_id", profile.id).order("created_at", { ascending: false }).then(({ data }) => {
+                        if (data) setAgreements(data as Agreement[]);
+                      });
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+              <Dialog open={ndaDialogOpen} onOpenChange={setNdaDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Create NDA</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader><DialogTitle>Mutual NDA & Non-Interference Agreement</DialogTitle></DialogHeader>
+                  <NDABuilder
+                    clientProfileId={profile.id}
+                    leadId={profile.lead_id}
+                    clientName={profile.name}
+                    onCreated={() => {
+                      setNdaDialogOpen(false);
+                      supabase.from("engagement_agreements").select("*").eq("client_profile_id", profile.id).order("created_at", { ascending: false }).then(({ data }) => {
+                        if (data) setAgreements(data as Agreement[]);
+                      });
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+            </>
           )}
           <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" />Save</Button>
         </div>

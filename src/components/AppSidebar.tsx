@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Kanban, Calendar, ListTodo } from "lucide-react";
+import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Calendar, ListTodo } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/lib/auth";
 import {
@@ -13,11 +13,11 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import xprtsLogo from "@/assets/xprts-logo-light.png";
 
 const teamItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Leads", url: "/leads", icon: Users },
-  { title: "Kanban", url: "/leads/kanban", icon: Kanban },
   { title: "Client Profiles", url: "/clients", icon: UserCircle },
   { title: "Tasks", url: "/tasks", icon: ListTodo },
   { title: "Calendar", url: "/calendar", icon: Calendar },
@@ -35,9 +35,7 @@ export function AppSidebar() {
   return (
     <Sidebar className="border-r-0">
       <div className="p-4 border-b border-sidebar-border">
-        <h1 className="text-lg font-bold text-sidebar-primary-foreground tracking-tight">
-          XPRTS CRM
-        </h1>
+        <img src={xprtsLogo} alt="XPRTS" className="h-8 mb-1" />
         <p className="text-xs text-sidebar-foreground/60 mt-0.5">
           {role === "team_admin" ? "Team Dashboard" : "Client Portal"}
         </p>
