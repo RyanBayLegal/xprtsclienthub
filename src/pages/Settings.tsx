@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import { Upload, Palette, Save, UserPlus, Users, Trash2 } from "lucide-react";
+import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield } from "lucide-react";
 
 interface ManagedUser {
   id: string;
@@ -23,7 +24,7 @@ interface ManagedUser {
 }
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, sessionTimeoutMinutes, setSessionTimeoutMinutes } = useAuth();
   const { branding, refetch } = useBranding();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,6 +44,10 @@ export default function Settings() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<"team_admin" | "client">("team_admin");
   const [addingUser, setAddingUser] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+
+  // Security state
+  const [localTimeout, setLocalTimeout] = useState(sessionTimeoutMinutes);
 
   useEffect(() => {
     fetchUsers();
@@ -96,6 +101,31 @@ export default function Settings() {
     setNewUserRole("team_admin");
     setAddingUser(false);
     fetchUsers();
+  };
+
+  const handleResendInvite = async (userId: string) => {
+    const u = users.find((x) => x.id === userId);
+    if (!u) return;
+
+    // We need the email — fetch it via edge function resend mode using user_id lookup
+    // Since we store name but not email in profiles, we call the edge function with resend + user_id
+    setResendingId(userId);
+
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+
+    // We'll need to get the email. Use admin via edge function resend with userId
+    const res = await supabase.functions.invoke("resend-invite", {
+      body: { userId },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.error || res.data?.error) {
+      toast.error(res.data?.error || res.error?.message || "Failed to resend invite");
+    } else {
+      toast.success("Invite email resent successfully.");
+    }
+    setResendingId(null);
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,6 +193,11 @@ export default function Settings() {
     setLogoFile(null);
   };
 
+  const handleSaveTimeout = () => {
+    setSessionTimeoutMinutes(localTimeout);
+    toast.success(`Session timeout set to ${localTimeout} minutes.`);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -176,8 +211,10 @@ export default function Settings() {
         <TabsList>
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="users">User Management</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
+        {/* ── BRANDING TAB ── */}
         <TabsContent value="branding">
           <div className="flex justify-end mb-4 gap-2">
             <Button variant="outline" onClick={handleReset}>Reset</Button>
@@ -325,6 +362,7 @@ export default function Settings() {
           </div>
         </TabsContent>
 
+        {/* ── USER MANAGEMENT TAB ── */}
         <TabsContent value="users">
           <Card>
             <CardHeader>
@@ -364,10 +402,10 @@ export default function Settings() {
                         </Select>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        A temporary password will be generated. The user will receive an email to set their own password.
+                        The user will receive an email to verify their address and set their own password.
                       </p>
                       <Button onClick={handleAddUser} disabled={addingUser} className="w-full">
-                        {addingUser ? "Creating..." : "Create User"}
+                        {addingUser ? "Creating..." : "Create User & Send Invite"}
                       </Button>
                     </div>
                   </DialogContent>
@@ -381,12 +419,13 @@ export default function Settings() {
                     <TableHead>Name</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                         No users found. Click "Add User" to create one.
                       </TableCell>
                     </TableRow>
@@ -402,11 +441,72 @@ export default function Settings() {
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(u.created_at).toLocaleDateString()}
                         </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleResendInvite(u.id)}
+                            disabled={resendingId === u.id}
+                            title="Resend invite email"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-1" />
+                            {resendingId === u.id ? "Sending..." : "Resend Invite"}
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── SECURITY TAB ── */}
+        <TabsContent value="security">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Session Security
+              </CardTitle>
+              <CardDescription>
+                Configure how long users stay logged in when inactive. A warning will appear 2 minutes before automatic logout.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Inactivity Timeout</Label>
+                  <span className="text-sm font-semibold tabular-nums">
+                    {localTimeout} {localTimeout === 1 ? "minute" : "minutes"}
+                  </span>
+                </div>
+                <Slider
+                  min={5}
+                  max={120}
+                  step={5}
+                  value={[localTimeout]}
+                  onValueChange={([v]) => setLocalTimeout(v)}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>5 min</span>
+                  <span>30 min (default)</span>
+                  <span>120 min</span>
+                </div>
+              </div>
+
+              <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground space-y-1">
+                <p>• Users will be warned <strong>2 minutes</strong> before being logged out.</p>
+                <p>• Any activity (mouse, keyboard, scroll) resets the timer.</p>
+                <p>• This setting is stored per device.</p>
+              </div>
+
+              <Button onClick={handleSaveTimeout} className="w-full sm:w-auto">
+                <Save className="mr-2 h-4 w-4" />
+                Save Timeout Setting
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
