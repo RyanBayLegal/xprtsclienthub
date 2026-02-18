@@ -163,6 +163,7 @@ export default function Clients() {
               <TableHead>Role</TableHead>
               <TableHead>Practice Area</TableHead>
               <TableHead>Stage</TableHead>
+              <TableHead>Stage Age</TableHead>
               <TableHead>Open Tasks</TableHead>
               <TableHead>Health</TableHead>
             </TableRow>
@@ -170,32 +171,51 @@ export default function Clients() {
           <TableBody>
             {clients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   No client profiles yet. Convert a lead to create a client profile.
                 </TableCell>
               </TableRow>
             ) : (
-              clients.map((c) => (
-                <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/clients/${c.id}`)}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell>{c.company}</TableCell>
-                  <TableCell>{c.role}</TableCell>
-                  <TableCell>{c.practice_area}</TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
-                      {c.stage}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {taskCounts[c.id] ? (
-                      <Badge variant="secondary" className="text-xs">{taskCounts[c.id]} open</Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{c.client_health_score !== null ? `${c.client_health_score}/10` : "—"}</TableCell>
-                </TableRow>
-              ))
+              clients.map((c) => {
+                const ageDays = getStageAgeDays(c.stage_changed_at);
+                const ageStyle = getStageAgeStyle(ageDays);
+                const ageBadge = getStageAgeBadge(ageDays);
+                return (
+                  <TableRow key={c.id} className={`cursor-pointer ${ageStyle}`} onClick={() => navigate(`/clients/${c.id}`)}>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>{c.company}</TableCell>
+                    <TableCell>{c.role}</TableCell>
+                    <TableCell>{c.practice_area}</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
+                        {c.stage}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${ageBadge.className}`}>
+                            {ageBadge.label}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {c.stage_changed_at
+                            ? `Stage changed: ${new Date(c.stage_changed_at).toLocaleDateString()}`
+                            : "No stage change recorded"}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      {taskCounts[c.id] ? (
+                        <Badge variant="secondary" className="text-xs">{taskCounts[c.id]} open</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{c.client_health_score !== null ? `${c.client_health_score}/10` : "—"}</TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
