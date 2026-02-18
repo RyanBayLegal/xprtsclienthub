@@ -60,6 +60,7 @@ export default function Tasks() {
   const [clients, setClients] = useState<Client[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
   const [form, setForm] = useState({
     title: "", description: "", status: "todo", priority: "medium",
     due_date: "", client_profile_id: "", stage: "",
@@ -68,6 +69,7 @@ export default function Tasks() {
   const fetchTasks = async () => {
     let q = supabase.from("tasks").select("*").order("created_at", { ascending: false });
     if (statusFilter !== "all") q = q.eq("status", statusFilter);
+    if (clientFilter !== "all") q = q.eq("client_profile_id", clientFilter);
     const { data } = await q;
     if (data) setTasks(data as Task[]);
   };
@@ -77,7 +79,7 @@ export default function Tasks() {
     if (data) setClients(data);
   };
 
-  useEffect(() => { fetchTasks(); fetchClients(); }, [statusFilter]);
+  useEffect(() => { fetchTasks(); fetchClients(); }, [statusFilter, clientFilter]);
 
   const handleCreate = async () => {
     const selectedClient = clients.find((c) => c.id === form.client_profile_id);
@@ -139,8 +141,13 @@ export default function Tasks() {
           </div>
           {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
           <div className="flex items-center gap-2 flex-wrap">
-            {task.assigned_to_name && (
-              <Badge variant="outline" className="text-[10px]">{task.assigned_to_name}</Badge>
+            {task.client_profile_id && task.assigned_to_name && (
+              <button
+                onClick={() => navigate(`/clients/${task.client_profile_id}`)}
+                className="text-[10px] text-primary underline underline-offset-2 hover:opacity-80"
+              >
+                {task.assigned_to_name}
+              </button>
             )}
             {task.due_date && (
               <span className="text-[10px] text-muted-foreground">
@@ -148,7 +155,7 @@ export default function Tasks() {
               </span>
             )}
             {task.stage && (
-              <Badge variant="secondary" className="text-[10px]">{task.stage}</Badge>
+              <Badge variant="secondary" className="text-[10px]">{task.stage.replace(" Stage", "")}</Badge>
             )}
           </div>
           <div className="flex gap-1">
@@ -165,7 +172,7 @@ export default function Tasks() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
@@ -223,6 +230,33 @@ export default function Tasks() {
             </div>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <Select value={clientFilter} onValueChange={setClientFilter}>
+          <SelectTrigger className="w-48 h-8 text-xs">
+            <SelectValue placeholder="All clients" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All clients</SelectItem>
+            {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-36 h-8 text-xs">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {(clientFilter !== "all" || statusFilter !== "all") && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={() => { setClientFilter("all"); setStatusFilter("all"); }}>
+            Clear filters
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="board">
@@ -292,7 +326,13 @@ export default function Tasks() {
                       <TableCell>
                         <Badge className={`text-[10px] ${priorityColors[task.priority]}`}>{task.priority}</Badge>
                       </TableCell>
-                      <TableCell className="text-sm">{task.assigned_to_name || "—"}</TableCell>
+                      <TableCell className="text-sm">
+                        {task.client_profile_id && task.assigned_to_name ? (
+                          <button onClick={() => navigate(`/clients/${task.client_profile_id}`)} className="text-primary underline underline-offset-2 hover:opacity-80 text-sm">
+                            {task.assigned_to_name}
+                          </button>
+                        ) : task.assigned_to_name || "—"}
+                      </TableCell>
                       <TableCell className="text-sm">{task.due_date || "—"}</TableCell>
                       <TableCell className="text-sm">{task.stage?.replace(" Stage", "") || "—"}</TableCell>
                       <TableCell>
