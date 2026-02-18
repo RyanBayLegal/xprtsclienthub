@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ interface ManagedUser {
   id: string;
   email: string;
   full_name: string | null;
+  avatar_url: string | null;
   role: string;
   created_at: string;
 }
@@ -45,6 +47,9 @@ export default function Settings() {
   const [newUserRole, setNewUserRole] = useState<"team_admin" | "client" | "staff_member">("team_admin");
   const [addingUser, setAddingUser] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [uploadingAvatarId, setUploadingAvatarId] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const avatarTargetUser = useRef<string | null>(null);
 
   // Security state
   const [localTimeout, setLocalTimeout] = useState(sessionTimeoutMinutes);
@@ -58,7 +63,7 @@ export default function Settings() {
     if (!roles) return;
 
     const userIds = roles.map((r) => r.user_id);
-    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds);
+    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, avatar_url").in("user_id", userIds);
 
     const mapped: ManagedUser[] = roles.map((r) => {
       const profile = profiles?.find((p) => p.user_id === r.user_id);
@@ -66,6 +71,7 @@ export default function Settings() {
         id: r.user_id,
         email: "",
         full_name: profile?.full_name || null,
+        avatar_url: profile?.avatar_url || null,
         role: r.role,
         created_at: r.created_at,
       };
@@ -126,6 +132,32 @@ export default function Settings() {
       toast.success("Invite email resent successfully.");
     }
     setResendingId(null);
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const userId = avatarTargetUser.current;
+    if (!file || !userId) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please upload an image"); return; }
+
+    setUploadingAvatarId(userId);
+    const ext = file.name.split(".").pop();
+    const path = `${userId}/avatar.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, { upsert: true });
+
+    if (uploadError) { toast.error(uploadError.message); setUploadingAvatarId(null); return; }
+
+    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+    const avatarUrl = urlData.publicUrl + "?t=" + Date.now();
+
+    await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("user_id", userId);
+    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, avatar_url: avatarUrl } : u));
+    toast.success("Avatar updated");
+    setUploadingAvatarId(null);
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
   };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -417,7 +449,7 @@ export default function Settings() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
+                    <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -433,10 +465,30 @@ export default function Settings() {
                   ) : (
                     users.map((u) => (
                       <TableRow key={u.id}>
-                        <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
                         <TableCell>
-                          <Badge variant={u.role === "team_admin" ? "default" : "secondary"}>
-                            {u.role === "team_admin" ? "Team Admin" : "Client"}
+                          <div className="flex items-center gap-3">
+                            <button
+                              className="relative group"
+                              onClick={() => { avatarTargetUser.current = u.id; avatarInputRef.current?.click(); }}
+                              disabled={uploadingAvatarId === u.id}
+                              title="Change avatar"
+                            >
+                              <UserAvatar avatarUrl={u.avatar_url} fullName={u.full_name} size="md" />
+                              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <Upload className="h-3 w-3 text-white" />
+                              </div>
+                              {uploadingAvatarId === u.id && (
+                                <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                                  <span className="text-white text-[8px]">...</span>
+                                </div>
+                              )}
+                            </button>
+                            <span className="font-medium">{u.full_name || "—"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={u.role === "team_admin" ? "default" : u.role === "staff_member" ? "outline" : "secondary"}>
+                            {u.role === "team_admin" ? "Team Admin" : u.role === "staff_member" ? "Staff Member" : "Client"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -459,6 +511,7 @@ export default function Settings() {
                   )}
                 </TableBody>
               </Table>
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
             </CardContent>
           </Card>
         </TabsContent>
