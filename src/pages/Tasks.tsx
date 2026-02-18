@@ -170,17 +170,29 @@ function DroppableColumn({
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
 
+  const headerColor =
+    id === "todo" ? "border-t-muted-foreground/40" :
+    id === "in_progress" ? "border-t-primary" :
+    "border-t-green-500";
+
   return (
-    <div
-      ref={setNodeRef}
-      className={`min-h-[200px] rounded-lg p-2 transition-colors ${isOver ? "bg-accent/40" : ""}`}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <h3 className="font-semibold text-sm">{label}</h3>
+    <div className="flex flex-col rounded-xl border bg-muted/30 overflow-hidden shadow-sm">
+      {/* Column header */}
+      <div className={`border-t-4 ${headerColor} bg-card px-4 py-3 flex items-center justify-between`}>
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-semibold text-sm">{label}</h3>
+        </div>
         <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
       </div>
-      <div className="space-y-2">
+      {/* Drop zone */}
+      <div
+        ref={setNodeRef}
+        className={`flex-1 min-h-[400px] p-3 space-y-2 transition-colors ${isOver ? "bg-accent/30" : ""}`}
+      >
+        {tasks.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center pt-6 italic">Drop tasks here</p>
+        )}
         {tasks.map((task) => (
           <DraggableTaskCard
             key={task.id}
@@ -331,19 +343,6 @@ export default function Tasks() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Pipeline Stage (optional)</Label>
-                <Select value={form.stage} onValueChange={(v) => setForm((f) => ({ ...f, stage: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select stage" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Prospecting Stage">Prospecting</SelectItem>
-                    <SelectItem value="Discovery Stage">Discovery</SelectItem>
-                    <SelectItem value="Solution Mapping Stage">Solution Mapping</SelectItem>
-                    <SelectItem value="Proposal/Contract Stage">Proposal/Contract</SelectItem>
-                    <SelectItem value="Onboarding/Kickoff Stage">Onboarding/Kickoff</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <Button onClick={handleCreate}>Create Task</Button>
             </div>
           </DialogContent>
@@ -385,7 +384,7 @@ export default function Tasks() {
 
         <TabsContent value="board">
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-3 items-start">
               <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} navigate={navigate} />
               <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} navigate={navigate} />
               <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} navigate={navigate} />
