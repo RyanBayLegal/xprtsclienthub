@@ -59,14 +59,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Generate a random password (client will reset via email)
+    const { email, name, role: invitedRole, clientProfileId } = await req.json();
+    if (!email || !name) {
+      return new Response(JSON.stringify({ error: "email and name are required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const assignedRole = invitedRole === "team_admin" ? "team_admin" : "client";
+
+    // Generate a random temporary password
     const tempPassword = crypto.randomUUID() + "Aa1!";
 
-    // Create user account
+    // Create user account WITHOUT email confirmation so they must use the reset link
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password: tempPassword,
-      email_confirm: true,
+      email_confirm: false,
       user_metadata: { full_name: name },
     });
 
@@ -79,8 +89,8 @@ Deno.serve(async (req) => {
 
     const userId = newUser.user.id;
 
-    // Assign client role
-    await adminClient.from("user_roles").insert({ user_id: userId, role: "client" });
+    // Assign role
+    await adminClient.from("user_roles").insert({ user_id: userId, role: assignedRole });
 
     // Link client profile if provided
     if (clientProfileId) {
@@ -90,10 +100,14 @@ Deno.serve(async (req) => {
         .eq("id", clientProfileId);
     }
 
-    // Send password reset so client can set their own password
+    // Send a password reset / set-password email so the user must verify and set their own password
+    const siteUrl = req.headers.get("origin") || "https://id-preview--269ff167-474a-46bb-8fcf-11513049feb4.lovable.app";
     await adminClient.auth.admin.generateLink({
-      type: "magiclink",
+      type: "recovery",
       email,
+      options: {
+        redirectTo: `${siteUrl}/reset-password`,
+      },
     });
 
     return new Response(
