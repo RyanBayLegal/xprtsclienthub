@@ -1,0 +1,306 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Plus, CheckCircle2, Circle, Clock, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+interface ClientTasksProps {
+  clientProfileId: string;
+  leadId?: string | null;
+}
+
+interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  assigned_to_name: string | null;
+  stage: string | null;
+  template_name: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+interface WorkflowTemplate {
+  id: string;
+  name: string;
+  stage: string;
+  tasks: { title: string; assigned_to_name: string; priority: string }[];
+}
+
+const STATUS_OPTIONS = ["todo", "in_progress", "done"];
+const PRIORITY_OPTIONS = ["low", "medium", "high", "urgent"];
+
+const priorityColors: Record<string, string> = {
+  low: "bg-muted text-muted-foreground",
+  medium: "bg-blue-500/15 text-blue-700",
+  high: "bg-amber-500/15 text-amber-700",
+  urgent: "bg-destructive/15 text-destructive",
+};
+
+export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProps) {
+  const { user } = useAuth();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [form, setForm] = useState({
+    title: "", description: "", priority: "medium", due_date: "", assigned_to_name: "", stage: "",
+  });
+  const [templateForm, setTemplateForm] = useState({
+    name: "", stage: "Prospecting Stage",
+    tasks: [{ title: "", assigned_to_name: "", priority: "medium" }],
+  });
+
+  const fetchTasks = async () => {
+    const { data } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("client_profile_id", clientProfileId)
+      .order("created_at", { ascending: false });
+    if (data) setTasks(data as Task[]);
+  };
+
+  const fetchTemplates = async () => {
+    const { data } = await supabase.from("workflow_templates").select("*");
+    if (data) setTemplates(data.map((t) => ({ ...t, tasks: (t.tasks as any) || [] })) as WorkflowTemplate[]);
+  };
+
+  useEffect(() => { fetchTasks(); fetchTemplates(); }, [clientProfileId]);
+
+  const createTask = async () => {
+    const { error } = await supabase.from("tasks").insert({
+      title: form.title,
+      description: form.description || null,
+      priority: form.priority,
+      due_date: form.due_date || null,
+      assigned_to_name: form.assigned_to_name || null,
+      stage: form.stage || null,
+      client_profile_id: clientProfileId,
+      lead_id: leadId || null,
+      created_by: user?.id,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Task created");
+    setDialogOpen(false);
+    setForm({ title: "", description: "", priority: "medium", due_date: "", assigned_to_name: "", stage: "" });
+    fetchTasks();
+  };
+
+  const updateStatus = async (taskId: string, status: string) => {
+    const updates: any = { status };
+    if (status === "done") updates.completed_at = new Date().toISOString();
+    else updates.completed_at = null;
+    await supabase.from("tasks").update(updates).eq("id", taskId);
+    fetchTasks();
+  };
+
+  const deleteTask = async (taskId: string) => {
+    await supabase.from("tasks").delete().eq("id", taskId);
+    fetchTasks();
+  };
+
+  const applyTemplate = async (template: WorkflowTemplate) => {
+    const newTasks = template.tasks.map((t) => ({
+      title: t.title,
+      priority: t.priority || "medium",
+      assigned_to_name: t.assigned_to_name || null,
+      stage: template.stage,
+      template_name: template.name,
+      client_profile_id: clientProfileId,
+      lead_id: leadId || null,
+      created_by: user?.id,
+    }));
+    const { error } = await supabase.from("tasks").insert(newTasks);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Applied "${template.name}" template (${newTasks.length} tasks)`);
+    fetchTasks();
+  };
+
+  const saveTemplate = async () => {
+    const validTasks = templateForm.tasks.filter((t) => t.title.trim());
+    if (!templateForm.name || validTasks.length === 0) { toast.error("Name and at least one task required"); return; }
+    const { error } = await supabase.from("workflow_templates").insert({
+      name: templateForm.name,
+      stage: templateForm.stage,
+      tasks: validTasks as any,
+      created_by: user?.id,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Template saved");
+    setTemplateDialogOpen(false);
+    setTemplateForm({ name: "", stage: "Prospecting Stage", tasks: [{ title: "", assigned_to_name: "", priority: "medium" }] });
+    fetchTemplates();
+  };
+
+  const addTemplateTask = () => {
+    setTemplateForm((f) => ({ ...f, tasks: [...f.tasks, { title: "", assigned_to_name: "", priority: "medium" }] }));
+  };
+
+  const updateTemplateTask = (idx: number, field: string, value: string) => {
+    setTemplateForm((f) => ({
+      ...f,
+      tasks: f.tasks.map((t, i) => i === idx ? { ...t, [field]: value } : t),
+    }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Tasks</h3>
+        <div className="flex gap-2">
+          {templates.length > 0 && (
+            <Select onValueChange={(v) => {
+              const tmpl = templates.find((t) => t.id === v);
+              if (tmpl) applyTemplate(tmpl);
+            }}>
+              <SelectTrigger className="w-44 h-8 text-xs">
+                <SelectValue placeholder="Apply template..." />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name} ({t.stage.replace(" Stage", "")})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">Create Template</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>New Workflow Template</DialogTitle></DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Template Name</Label>
+                    <Input value={templateForm.name} onChange={(e) => setTemplateForm((f) => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Pipeline Stage</Label>
+                    <Select value={templateForm.stage} onValueChange={(v) => setTemplateForm((f) => ({ ...f, stage: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Prospecting Stage">Prospecting</SelectItem>
+                        <SelectItem value="Discovery Stage">Discovery</SelectItem>
+                        <SelectItem value="Solution Mapping Stage">Solution Mapping</SelectItem>
+                        <SelectItem value="Proposal/Contract Stage">Proposal/Contract</SelectItem>
+                        <SelectItem value="Onboarding/Kickoff Stage">Onboarding/Kickoff</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Label>Tasks</Label>
+                {templateForm.tasks.map((t, i) => (
+                  <div key={i} className="grid grid-cols-3 gap-2">
+                    <Input placeholder="Task title" value={t.title} onChange={(e) => updateTemplateTask(i, "title", e.target.value)} />
+                    <Input placeholder="Assign to" value={t.assigned_to_name} onChange={(e) => updateTemplateTask(i, "assigned_to_name", e.target.value)} />
+                    <Select value={t.priority} onValueChange={(v) => updateTemplateTask(i, "priority", v)}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {PRIORITY_OPTIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" onClick={addTemplateTask}><Plus className="mr-1 h-3 w-3" />Add Task</Button>
+                <Button onClick={saveTemplate}>Save Template</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><Plus className="mr-1 h-3 w-3" />Add Task</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>New Task</DialogTitle></DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label>Title *</Label>
+                  <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Priority</Label>
+                    <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {PRIORITY_OPTIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Due Date</Label>
+                    <Input type="date" value={form.due_date} onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Assign To</Label>
+                  <Input placeholder="Staff member name" value={form.assigned_to_name} onChange={(e) => setForm((f) => ({ ...f, assigned_to_name: e.target.value }))} />
+                </div>
+                <Button onClick={createTask}>Create Task</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {tasks.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">No tasks yet. Add a task or apply a workflow template.</p>
+      ) : (
+        <div className="space-y-2">
+          {tasks.map((task) => (
+            <Card key={task.id}>
+              <CardContent className="p-3 flex items-center gap-3">
+                <button onClick={() => updateStatus(task.id, task.status === "done" ? "todo" : "done")}>
+                  {task.status === "done" ? (
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                  ) : task.status === "in_progress" ? (
+                    <Clock className="h-5 w-5 text-amber-500" />
+                  ) : (
+                    <Circle className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                    {task.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {task.assigned_to_name && <span className="text-[10px] text-muted-foreground">→ {task.assigned_to_name}</span>}
+                    {task.due_date && <span className="text-[10px] text-muted-foreground">Due: {task.due_date}</span>}
+                    {task.template_name && <Badge variant="outline" className="text-[9px] h-4">{task.template_name}</Badge>}
+                  </div>
+                </div>
+                <Badge className={`text-[10px] ${priorityColors[task.priority]}`}>{task.priority}</Badge>
+                <Select value={task.status} onValueChange={(v) => updateStatus(task.id, v)}>
+                  <SelectTrigger className="w-28 h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteTask(task.id)}>
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
