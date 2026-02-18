@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { BrandingProvider } from "@/lib/branding";
 import { AppLayout } from "@/components/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -14,6 +15,7 @@ import MyProfile from "./pages/MyProfile";
 import Analytics from "./pages/Analytics";
 import CalendarPage from "./pages/CalendarPage";
 import Tasks from "./pages/Tasks";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,18 +51,21 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/auth" element={<AuthRoute />} />
-            <Route path="/" element={<ProtectedRoute><TeamRoute><Dashboard /></TeamRoute></ProtectedRoute>} />
-            <Route path="/leads" element={<ProtectedRoute><TeamRoute><Leads /></TeamRoute></ProtectedRoute>} />
-            <Route path="/clients" element={<ProtectedRoute><TeamRoute><Clients /></TeamRoute></ProtectedRoute>} />
-            <Route path="/clients/:id" element={<ProtectedRoute><TeamRoute><ClientProfile /></TeamRoute></ProtectedRoute>} />
-            <Route path="/analytics" element={<ProtectedRoute><TeamRoute><Analytics /></TeamRoute></ProtectedRoute>} />
-            <Route path="/calendar" element={<ProtectedRoute><TeamRoute><CalendarPage /></TeamRoute></ProtectedRoute>} />
-            <Route path="/tasks" element={<ProtectedRoute><TeamRoute><Tasks /></TeamRoute></ProtectedRoute>} />
-            <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <BrandingProvider>
+            <Routes>
+              <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/" element={<ProtectedRoute><TeamRoute><Dashboard /></TeamRoute></ProtectedRoute>} />
+              <Route path="/leads" element={<ProtectedRoute><TeamRoute><Leads /></TeamRoute></ProtectedRoute>} />
+              <Route path="/clients" element={<ProtectedRoute><TeamRoute><Clients /></TeamRoute></ProtectedRoute>} />
+              <Route path="/clients/:id" element={<ProtectedRoute><TeamRoute><ClientProfile /></TeamRoute></ProtectedRoute>} />
+              <Route path="/analytics" element={<ProtectedRoute><TeamRoute><Analytics /></TeamRoute></ProtectedRoute>} />
+              <Route path="/calendar" element={<ProtectedRoute><TeamRoute><CalendarPage /></TeamRoute></ProtectedRoute>} />
+              <Route path="/tasks" element={<ProtectedRoute><TeamRoute><Tasks /></TeamRoute></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><TeamRoute><Settings /></TeamRoute></ProtectedRoute>} />
+              <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrandingProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

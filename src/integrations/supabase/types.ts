@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      branding_settings: {
+        Row: {
+          accent_color: string | null
+          app_name: string | null
+          id: string
+          logo_url: string | null
+          primary_color: string | null
+          sidebar_color: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          accent_color?: string | null
+          app_name?: string | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          sidebar_color?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          accent_color?: string | null
+          app_name?: string | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          sidebar_color?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       client_profiles: {
         Row: {
           attitude: string | null
