@@ -79,7 +79,7 @@ export default function Settings() {
     const token = session.session?.access_token;
 
     const res = await supabase.functions.invoke("invite-client", {
-      body: { email: newUserEmail, name: newUserName },
+      body: { email: newUserEmail, name: newUserName, role: newUserRole },
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -89,12 +89,7 @@ export default function Settings() {
       return;
     }
 
-    // If it's a team_admin, update the role
-    if (newUserRole === "team_admin" && res.data?.userId) {
-      await supabase.from("user_roles").update({ role: "team_admin" }).eq("user_id", res.data.userId);
-    }
-
-    toast.success(`User ${newUserEmail} created successfully`);
+    toast.success(`Invite sent to ${newUserEmail}. They'll receive an email to set their password.`);
     setAddUserOpen(false);
     setNewUserEmail("");
     setNewUserName("");
