@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,9 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, CheckCircle2, Circle, Clock, AlertCircle } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
 interface Task {
@@ -33,10 +32,9 @@ interface Task {
   created_at: string;
 }
 
-interface Profile {
+interface Client {
   id: string;
-  user_id: string;
-  full_name: string | null;
+  name: string;
 }
 
 const STATUS_OPTIONS = ["todo", "in_progress", "done"];
@@ -59,12 +57,12 @@ export default function Tasks() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState({
     title: "", description: "", status: "todo", priority: "medium",
-    due_date: "", assigned_to_name: "", client_profile_id: "", stage: "",
+    due_date: "", client_profile_id: "", stage: "",
   });
 
   const fetchTasks = async () => {
@@ -74,40 +72,40 @@ export default function Tasks() {
     if (data) setTasks(data as Task[]);
   };
 
-  const fetchProfiles = async () => {
-    const { data } = await supabase.from("profiles").select("id, user_id, full_name");
-    if (data) setProfiles(data);
+  const fetchClients = async () => {
+    const { data } = await supabase.from("client_profiles").select("id, name").order("name");
+    if (data) setClients(data);
   };
 
-  useEffect(() => { fetchTasks(); fetchProfiles(); }, [statusFilter]);
+  useEffect(() => { fetchTasks(); fetchClients(); }, [statusFilter]);
 
   const handleCreate = async () => {
+    const selectedClient = clients.find((c) => c.id === form.client_profile_id);
     const { error } = await supabase.from("tasks").insert({
       title: form.title,
       description: form.description || null,
       status: form.status,
       priority: form.priority,
       due_date: form.due_date || null,
-      assigned_to_name: form.assigned_to_name || null,
+      assigned_to_name: selectedClient?.name || null,
       client_profile_id: form.client_profile_id || null,
       stage: form.stage || null,
       created_by: user?.id,
     });
     if (error) { toast.error(error.message); return; }
 
-    // Create notification for task assignment
-    if (user && form.assigned_to_name) {
+    if (user && selectedClient) {
       await supabase.from("notifications").insert({
         user_id: user.id,
         type: "task_assigned",
         title: "Task assigned",
-        message: `"${form.title}" assigned to ${form.assigned_to_name}${form.due_date ? ` (due ${form.due_date})` : ""}`,
+        message: `"${form.title}" assigned to ${selectedClient.name}${form.due_date ? ` (due ${form.due_date})` : ""}`,
       });
     }
 
     toast.success("Task created");
     setDialogOpen(false);
-    setForm({ title: "", description: "", status: "todo", priority: "medium", due_date: "", assigned_to_name: "", client_profile_id: "", stage: "" });
+    setForm({ title: "", description: "", status: "todo", priority: "medium", due_date: "", client_profile_id: "", stage: "" });
     fetchTasks();
   };
 
@@ -130,7 +128,6 @@ export default function Tasks() {
   const doneTasks = tasks.filter((t) => t.status === "done");
 
   const renderTaskCard = (task: Task) => {
-    const StatusIcon = statusIcons[task.status] || Circle;
     return (
       <Card key={task.id} className="hover:shadow-md transition-shadow">
         <CardContent className="p-3 space-y-2">
@@ -201,8 +198,13 @@ export default function Tasks() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Assign To</Label>
-                <Input placeholder="Staff member name" value={form.assigned_to_name} onChange={(e) => setForm((f) => ({ ...f, assigned_to_name: e.target.value }))} />
+                <Label>Assign to Client</Label>
+                <Select value={form.client_profile_id} onValueChange={(v) => setForm((f) => ({ ...f, client_profile_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Pipeline Stage (optional)</Label>
@@ -241,7 +243,7 @@ export default function Tasks() {
             </div>
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <Clock className="h-4 w-4 text-amber-500" />
+                <Clock className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-semibold text-sm">In Progress</h3>
                 <Badge variant="secondary" className="text-xs">{inProgressTasks.length}</Badge>
               </div>
@@ -249,7 +251,7 @@ export default function Tasks() {
             </div>
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-semibold text-sm">Done</h3>
                 <Badge variant="secondary" className="text-xs">{doneTasks.length}</Badge>
               </div>
@@ -267,7 +269,7 @@ export default function Tasks() {
                     <TableHead>Task</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
-                    <TableHead>Assigned</TableHead>
+                    <TableHead>Client</TableHead>
                     <TableHead>Due</TableHead>
                     <TableHead>Stage</TableHead>
                     <TableHead>Actions</TableHead>
