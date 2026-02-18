@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Mail } from "lucide-react";
+import { Search, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 interface ClientRow {
@@ -23,6 +24,7 @@ interface ClientRow {
 export default function Clients() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<ClientRow[]>([]);
+  const [taskCounts, setTaskCounts] = useState<Record<string, number>>({});
   const [search, setSearch] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -37,7 +39,27 @@ export default function Clients() {
     if (data) setClients(data);
   };
 
-  useEffect(() => { fetchClients(); }, [search]);
+  const fetchTaskCounts = async () => {
+    const { data } = await supabase
+      .from("tasks")
+      .select("client_profile_id")
+      .in("status", ["todo", "in_progress"])
+      .not("client_profile_id", "is", null);
+    if (data) {
+      const counts: Record<string, number> = {};
+      data.forEach((t) => {
+        if (t.client_profile_id) {
+          counts[t.client_profile_id] = (counts[t.client_profile_id] || 0) + 1;
+        }
+      });
+      setTaskCounts(counts);
+    }
+  };
+
+  useEffect(() => {
+    fetchClients();
+    fetchTaskCounts();
+  }, [search]);
 
   const handleInvite = async () => {
     if (!inviteEmail || !inviteName) { toast.error("Email and name are required"); return; }
@@ -102,7 +124,6 @@ export default function Clients() {
               </div>
             </DialogContent>
           </Dialog>
-          <Button onClick={() => navigate("/clients/new")}><Plus className="mr-2 h-4 w-4" />New Profile</Button>
         </div>
       </div>
 
@@ -120,14 +141,15 @@ export default function Clients() {
               <TableHead>Role</TableHead>
               <TableHead>Practice Area</TableHead>
               <TableHead>Stage</TableHead>
+              <TableHead>Open Tasks</TableHead>
               <TableHead>Health</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {clients.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  No client profiles yet.
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  No client profiles yet. Convert a lead to create a client profile.
                 </TableCell>
               </TableRow>
             ) : (
@@ -141,6 +163,13 @@ export default function Clients() {
                     <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
                       {c.stage}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    {taskCounts[c.id] ? (
+                      <Badge variant="secondary" className="text-xs">{taskCounts[c.id]} open</Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
                   </TableCell>
                   <TableCell>{c.client_health_score !== null ? `${c.client_health_score}/10` : "—"}</TableCell>
                 </TableRow>

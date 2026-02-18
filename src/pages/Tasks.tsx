@@ -14,6 +14,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, CheckCircle2, Circle, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+} from "@dnd-kit/core";
+import { useDraggable } from "@dnd-kit/core";
 
 interface Task {
   id: string;
@@ -40,18 +51,148 @@ interface Client {
 const STATUS_OPTIONS = ["todo", "in_progress", "done"];
 const PRIORITY_OPTIONS = ["low", "medium", "high", "urgent"];
 
-const statusIcons: Record<string, typeof Circle> = {
-  todo: Circle,
-  in_progress: Clock,
-  done: CheckCircle2,
-};
-
 const priorityColors: Record<string, string> = {
   low: "bg-muted text-muted-foreground",
   medium: "bg-blue-500/15 text-blue-700",
   high: "bg-amber-500/15 text-amber-700",
   urgent: "bg-destructive/15 text-destructive",
 };
+
+function getDueDateStyle(dueDate: string | null, status: string): string {
+  if (!dueDate || status === "done") return "text-muted-foreground";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate + "T00:00:00");
+  if (due < today) return "text-destructive font-medium";
+  if (due.getTime() === today.getTime()) return "text-amber-600 font-medium";
+  return "text-muted-foreground";
+}
+
+function getDueDateLabel(dueDate: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate + "T00:00:00");
+  if (due < today) return `Overdue: ${due.toLocaleDateString()}`;
+  if (due.getTime() === today.getTime()) return "Due today";
+  return `Due: ${due.toLocaleDateString()}`;
+}
+
+// Draggable task card
+function DraggableTaskCard({
+  task,
+  onStatusChange,
+  navigate,
+}: {
+  task: Task;
+  onStatusChange: (id: string, status: string) => void;
+  navigate: (path: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)`, opacity: isDragging ? 0.4 : 1 }
+    : undefined;
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={`hover:shadow-md transition-shadow ${isDragging ? "opacity-40" : ""}`}
+    >
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-start justify-between gap-1">
+          {/* drag handle */}
+          <span
+            {...listeners}
+            {...attributes}
+            className="cursor-grab active:cursor-grabbing text-muted-foreground mt-0.5 shrink-0"
+            title="Drag to move"
+          >
+            ⠿
+          </span>
+          <p className="font-medium text-sm flex-1">{task.title}</p>
+          <Badge className={`text-[10px] shrink-0 ${priorityColors[task.priority]}`}>
+            {task.priority}
+          </Badge>
+        </div>
+        {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
+        <div className="flex items-center gap-2 flex-wrap">
+          {task.client_profile_id && task.assigned_to_name && (
+            <button
+              onClick={() => navigate(`/clients/${task.client_profile_id}`)}
+              className="text-[10px] text-primary underline underline-offset-2 hover:opacity-80"
+            >
+              {task.assigned_to_name}
+            </button>
+          )}
+          {task.due_date && (
+            <span className={`text-[10px] ${getDueDateStyle(task.due_date, task.status)}`}>
+              {getDueDateLabel(task.due_date)}
+            </span>
+          )}
+          {task.stage && (
+            <Badge variant="secondary" className="text-[10px]">{task.stage.replace(" Stage", "")}</Badge>
+          )}
+        </div>
+        <div className="flex gap-1">
+          {STATUS_OPTIONS.filter((s) => s !== task.status).map((s) => (
+            <Button
+              key={s}
+              variant="ghost"
+              size="sm"
+              className="text-[10px] h-6 px-2"
+              onClick={() => onStatusChange(task.id, s)}
+            >
+              {s === "done" ? "✓ Done" : s === "in_progress" ? "→ In Progress" : "← Todo"}
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Droppable column
+function DroppableColumn({
+  id,
+  label,
+  icon: Icon,
+  tasks,
+  onStatusChange,
+  navigate,
+}: {
+  id: string;
+  label: string;
+  icon: typeof Circle;
+  tasks: Task[];
+  onStatusChange: (id: string, status: string) => void;
+  navigate: (path: string) => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-h-[200px] rounded-lg p-2 transition-colors ${isOver ? "bg-accent/40" : ""}`}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <h3 className="font-semibold text-sm">{label}</h3>
+        <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
+      </div>
+      <div className="space-y-2">
+        {tasks.map((task) => (
+          <DraggableTaskCard
+            key={task.id}
+            task={task}
+            onStatusChange={onStatusChange}
+            navigate={navigate}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Tasks() {
   const { user } = useAuth();
@@ -61,10 +202,13 @@ export default function Tasks() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [form, setForm] = useState({
     title: "", description: "", status: "todo", priority: "medium",
     due_date: "", client_profile_id: "", stage: "",
   });
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const fetchTasks = async () => {
     let q = supabase.from("tasks").select("*").order("created_at", { ascending: false });
@@ -117,7 +261,7 @@ export default function Tasks() {
     else updates.completed_at = null;
     const { error } = await supabase.from("tasks").update(updates).eq("id", taskId);
     if (error) { toast.error(error.message); return; }
-    fetchTasks();
+    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status, completed_at: updates.completed_at } : t));
   };
 
   const deleteTask = async (taskId: string) => {
@@ -125,50 +269,24 @@ export default function Tasks() {
     fetchTasks();
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t.id === event.active.id);
+    setActiveTask(task || null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+    if (!over) return;
+    const newStatus = over.id as string;
+    const task = tasks.find((t) => t.id === active.id);
+    if (!task || task.status === newStatus) return;
+    updateTaskStatus(task.id, newStatus);
+  };
+
   const todoTasks = tasks.filter((t) => t.status === "todo");
   const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
   const doneTasks = tasks.filter((t) => t.status === "done");
-
-  const renderTaskCard = (task: Task) => {
-    return (
-      <Card key={task.id} className="hover:shadow-md transition-shadow">
-        <CardContent className="p-3 space-y-2">
-          <div className="flex items-start justify-between">
-            <p className="font-medium text-sm flex-1">{task.title}</p>
-            <Badge className={`text-[10px] ${priorityColors[task.priority]}`}>
-              {task.priority}
-            </Badge>
-          </div>
-          {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
-          <div className="flex items-center gap-2 flex-wrap">
-            {task.client_profile_id && task.assigned_to_name && (
-              <button
-                onClick={() => navigate(`/clients/${task.client_profile_id}`)}
-                className="text-[10px] text-primary underline underline-offset-2 hover:opacity-80"
-              >
-                {task.assigned_to_name}
-              </button>
-            )}
-            {task.due_date && (
-              <span className="text-[10px] text-muted-foreground">
-                Due: {new Date(task.due_date + "T00:00:00").toLocaleDateString()}
-              </span>
-            )}
-            {task.stage && (
-              <Badge variant="secondary" className="text-[10px]">{task.stage.replace(" Stage", "")}</Badge>
-            )}
-          </div>
-          <div className="flex gap-1">
-            {STATUS_OPTIONS.filter((s) => s !== task.status).map((s) => (
-              <Button key={s} variant="ghost" size="sm" className="text-[10px] h-6 px-2" onClick={() => updateTaskStatus(task.id, s)}>
-                {s === "done" ? "✓ Done" : s === "in_progress" ? "→ In Progress" : "← Todo"}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
   return (
     <div>
@@ -266,32 +384,24 @@ export default function Tasks() {
         </TabsList>
 
         <TabsContent value="board">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Circle className="h-4 w-4 text-muted-foreground" />
-                <h3 className="font-semibold text-sm">To Do</h3>
-                <Badge variant="secondary" className="text-xs">{todoTasks.length}</Badge>
-              </div>
-              <div className="space-y-2">{todoTasks.map(renderTaskCard)}</div>
+          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="grid gap-4 md:grid-cols-3">
+              <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} navigate={navigate} />
+              <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} navigate={navigate} />
+              <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} navigate={navigate} />
             </div>
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <h3 className="font-semibold text-sm">In Progress</h3>
-                <Badge variant="secondary" className="text-xs">{inProgressTasks.length}</Badge>
-              </div>
-              <div className="space-y-2">{inProgressTasks.map(renderTaskCard)}</div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                <h3 className="font-semibold text-sm">Done</h3>
-                <Badge variant="secondary" className="text-xs">{doneTasks.length}</Badge>
-              </div>
-              <div className="space-y-2">{doneTasks.map(renderTaskCard)}</div>
-            </div>
-          </div>
+
+            <DragOverlay>
+              {activeTask && (
+                <Card className="shadow-xl rotate-1 w-64">
+                  <CardContent className="p-3 space-y-1">
+                    <p className="font-medium text-sm">{activeTask.title}</p>
+                    <Badge className={`text-[10px] ${priorityColors[activeTask.priority]}`}>{activeTask.priority}</Badge>
+                  </CardContent>
+                </Card>
+              )}
+            </DragOverlay>
+          </DndContext>
         </TabsContent>
 
         <TabsContent value="list">
@@ -333,7 +443,9 @@ export default function Tasks() {
                           </button>
                         ) : task.assigned_to_name || "—"}
                       </TableCell>
-                      <TableCell className="text-sm">{task.due_date || "—"}</TableCell>
+                      <TableCell className={`text-sm ${getDueDateStyle(task.due_date, task.status)}`}>
+                        {task.due_date ? getDueDateLabel(task.due_date) : "—"}
+                      </TableCell>
                       <TableCell className="text-sm">{task.stage?.replace(" Stage", "") || "—"}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => deleteTask(task.id)}>Delete</Button>
