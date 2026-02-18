@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, CheckCircle2, Circle, Clock } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Clock, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import {
@@ -23,8 +23,8 @@ import {
   useSensor,
   useSensors,
   useDroppable,
+  useDraggable,
 } from "@dnd-kit/core";
-import { useDraggable } from "@dnd-kit/core";
 
 interface Task {
   id: string;
@@ -46,6 +46,11 @@ interface Task {
 interface Client {
   id: string;
   name: string;
+}
+
+interface StaffMember {
+  id: string;
+  full_name: string | null;
 }
 
 const STATUS_OPTIONS = ["todo", "in_progress", "done"];
@@ -81,10 +86,12 @@ function getDueDateLabel(dueDate: string): string {
 function DraggableTaskCard({
   task,
   onStatusChange,
+  onEdit,
   navigate,
 }: {
   task: Task;
   onStatusChange: (id: string, status: string) => void;
+  onEdit: (task: Task) => void;
   navigate: (path: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
@@ -101,7 +108,6 @@ function DraggableTaskCard({
     >
       <CardContent className="p-3 space-y-2">
         <div className="flex items-start justify-between gap-1">
-          {/* drag handle */}
           <span
             {...listeners}
             {...attributes}
@@ -111,9 +117,18 @@ function DraggableTaskCard({
             ⠿
           </span>
           <p className="font-medium text-sm flex-1">{task.title}</p>
-          <Badge className={`text-[10px] shrink-0 ${priorityColors[task.priority]}`}>
-            {task.priority}
-          </Badge>
+          <div className="flex items-center gap-1 shrink-0">
+            <Badge className={`text-[10px] ${priorityColors[task.priority]}`}>
+              {task.priority}
+            </Badge>
+            <button
+              onClick={() => onEdit(task)}
+              className="text-muted-foreground hover:text-foreground p-0.5"
+              title="Edit task"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          </div>
         </div>
         {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
         <div className="flex items-center gap-2 flex-wrap">
@@ -129,9 +144,6 @@ function DraggableTaskCard({
             <span className={`text-[10px] ${getDueDateStyle(task.due_date, task.status)}`}>
               {getDueDateLabel(task.due_date)}
             </span>
-          )}
-          {task.stage && (
-            <Badge variant="secondary" className="text-[10px]">{task.stage.replace(" Stage", "")}</Badge>
           )}
         </div>
         <div className="flex gap-1">
@@ -159,6 +171,7 @@ function DroppableColumn({
   icon: Icon,
   tasks,
   onStatusChange,
+  onEdit,
   navigate,
 }: {
   id: string;
@@ -166,6 +179,7 @@ function DroppableColumn({
   icon: typeof Circle;
   tasks: Task[];
   onStatusChange: (id: string, status: string) => void;
+  onEdit: (task: Task) => void;
   navigate: (path: string) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
@@ -177,7 +191,6 @@ function DroppableColumn({
 
   return (
     <div className="flex flex-col rounded-xl border bg-muted/30 overflow-hidden shadow-sm">
-      {/* Column header */}
       <div className={`border-t-4 ${headerColor} bg-card px-4 py-3 flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-muted-foreground" />
@@ -185,7 +198,6 @@ function DroppableColumn({
         </div>
         <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
       </div>
-      {/* Drop zone */}
       <div
         ref={setNodeRef}
         className={`flex-1 min-h-[400px] p-3 space-y-2 transition-colors ${isOver ? "bg-accent/30" : ""}`}
@@ -198,6 +210,7 @@ function DroppableColumn({
             key={task.id}
             task={task}
             onStatusChange={onStatusChange}
+            onEdit={onEdit}
             navigate={navigate}
           />
         ))}
@@ -206,19 +219,25 @@ function DroppableColumn({
   );
 }
 
+const emptyForm = {
+  title: "", description: "", status: "todo", priority: "medium",
+  due_date: "", client_profile_id: "", assigned_to: "",
+};
+
 export default function Tasks() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-  const [form, setForm] = useState({
-    title: "", description: "", status: "todo", priority: "medium",
-    due_date: "", client_profile_id: "", stage: "",
-  });
+  const [form, setForm] = useState(emptyForm);
+  const [editForm, setEditForm] = useState(emptyForm);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -235,10 +254,29 @@ export default function Tasks() {
     if (data) setClients(data);
   };
 
-  useEffect(() => { fetchTasks(); fetchClients(); }, [statusFilter, clientFilter]);
+  const fetchStaff = async () => {
+    // Fetch team_admin and staff_member roles
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .in("role", ["team_admin", "staff_member"]);
+    if (!roles) return;
+    const ids = roles.map((r) => r.user_id);
+    if (ids.length === 0) return;
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name")
+      .in("user_id", ids);
+    if (profiles) {
+      setStaffMembers(profiles.map((p) => ({ id: p.user_id, full_name: p.full_name })));
+    }
+  };
+
+  useEffect(() => { fetchTasks(); fetchClients(); fetchStaff(); }, [statusFilter, clientFilter]);
 
   const handleCreate = async () => {
     const selectedClient = clients.find((c) => c.id === form.client_profile_id);
+    const selectedStaff = staffMembers.find((s) => s.id === form.assigned_to);
     const { error } = await supabase.from("tasks").insert({
       title: form.title,
       description: form.description || null,
@@ -247,7 +285,7 @@ export default function Tasks() {
       due_date: form.due_date || null,
       assigned_to_name: selectedClient?.name || null,
       client_profile_id: form.client_profile_id || null,
-      stage: form.stage || null,
+      assigned_to: form.assigned_to || null,
       created_by: user?.id,
     });
     if (error) { toast.error(error.message); return; }
@@ -263,7 +301,47 @@ export default function Tasks() {
 
     toast.success("Task created");
     setDialogOpen(false);
-    setForm({ title: "", description: "", status: "todo", priority: "medium", due_date: "", client_profile_id: "", stage: "" });
+    setForm(emptyForm);
+    fetchTasks();
+  };
+
+  const openEdit = (task: Task) => {
+    setEditingTask(task);
+    setEditForm({
+      title: task.title,
+      description: task.description || "",
+      status: task.status,
+      priority: task.priority,
+      due_date: task.due_date || "",
+      client_profile_id: task.client_profile_id || "",
+      assigned_to: task.assigned_to || "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!editingTask) return;
+    const selectedClient = clients.find((c) => c.id === editForm.client_profile_id);
+    const updates: any = {
+      title: editForm.title,
+      description: editForm.description || null,
+      status: editForm.status,
+      priority: editForm.priority,
+      due_date: editForm.due_date || null,
+      assigned_to_name: selectedClient?.name || null,
+      client_profile_id: editForm.client_profile_id || null,
+      assigned_to: editForm.assigned_to || null,
+    };
+    if (editForm.status === "done" && editingTask.status !== "done") {
+      updates.completed_at = new Date().toISOString();
+    } else if (editForm.status !== "done") {
+      updates.completed_at = null;
+    }
+    const { error } = await supabase.from("tasks").update(updates).eq("id", editingTask.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Task updated");
+    setEditDialogOpen(false);
+    setEditingTask(null);
     fetchTasks();
   };
 
@@ -300,6 +378,65 @@ export default function Tasks() {
   const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
   const doneTasks = tasks.filter((t) => t.status === "done");
 
+  const TaskFormFields = ({ f, setF }: { f: typeof emptyForm; setF: (fn: (prev: typeof emptyForm) => typeof emptyForm) => void }) => (
+    <>
+      <div className="space-y-2">
+        <Label>Title *</Label>
+        <Input value={f.title} onChange={(e) => setF((p) => ({ ...p, title: e.target.value }))} />
+      </div>
+      <div className="space-y-2">
+        <Label>Description</Label>
+        <Textarea value={f.description} onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))} />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Priority</Label>
+          <Select value={f.priority} onValueChange={(v) => setF((p) => ({ ...p, priority: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PRIORITY_OPTIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select value={f.status} onValueChange={(v) => setF((p) => ({ ...p, status: v }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2 col-span-2">
+          <Label>Due Date</Label>
+          <Input type="date" value={f.due_date} onChange={(e) => setF((p) => ({ ...p, due_date: e.target.value }))} />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Assign to Client</Label>
+        <Select value={f.client_profile_id} onValueChange={(v) => setF((p) => ({ ...p, client_profile_id: v }))}>
+          <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Assign to Staff Member</Label>
+        <Select value={f.assigned_to} onValueChange={(v) => setF((p) => ({ ...p, assigned_to: v }))}>
+          <SelectTrigger><SelectValue placeholder="Select staff member" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            {staffMembers.map((s) => (
+              <SelectItem key={s.id} value={s.id}>{s.full_name || s.id}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  );
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -311,43 +448,23 @@ export default function Tasks() {
           <DialogContent>
             <DialogHeader><DialogTitle>Create Task</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label>Title *</Label>
-                <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Priority</Label>
-                  <Select value={form.priority} onValueChange={(v) => setForm((f) => ({ ...f, priority: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PRIORITY_OPTIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Due Date</Label>
-                  <Input type="date" value={form.due_date} onChange={(e) => setForm((f) => ({ ...f, due_date: e.target.value }))} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Assign to Client</Label>
-                <Select value={form.client_profile_id} onValueChange={(v) => setForm((f) => ({ ...f, client_profile_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              <TaskFormFields f={form} setF={setForm} />
               <Button onClick={handleCreate}>Create Task</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Task</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4">
+            <TaskFormFields f={editForm} setF={setEditForm} />
+            <Button onClick={handleEdit}>Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-4">
@@ -385,9 +502,9 @@ export default function Tasks() {
         <TabsContent value="board">
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="grid gap-4 grid-cols-1 md:grid-cols-3 items-start">
-              <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} navigate={navigate} />
-              <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} navigate={navigate} />
-              <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} navigate={navigate} />
+              <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} navigate={navigate} />
+              <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} navigate={navigate} />
+              <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} navigate={navigate} />
             </div>
 
             <DragOverlay>
@@ -414,13 +531,12 @@ export default function Tasks() {
                     <TableHead>Priority</TableHead>
                     <TableHead>Client</TableHead>
                     <TableHead>Due</TableHead>
-                    <TableHead>Stage</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tasks.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
                   ) : tasks.map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.title}</TableCell>
@@ -445,9 +561,13 @@ export default function Tasks() {
                       <TableCell className={`text-sm ${getDueDateStyle(task.due_date, task.status)}`}>
                         {task.due_date ? getDueDateLabel(task.due_date) : "—"}
                       </TableCell>
-                      <TableCell className="text-sm">{task.stage?.replace(" Stage", "") || "—"}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => deleteTask(task.id)}>Delete</Button>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(task)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => deleteTask(task.id)}>Delete</Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

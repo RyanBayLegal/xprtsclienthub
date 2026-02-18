@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCheck, Clock, Star, Search, FileText } from "lucide-react";
+import { Users, UserCheck, Clock, Star, Search, FileText, AlertTriangle, CalendarClock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const STAGES = [
   "Prospecting Stage",
@@ -22,8 +23,11 @@ const stageIcons: Record<string, typeof Users> = {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stageCounts, setStageCounts] = useState<{ stage: string; count: number }[]>([]);
   const [totalLeads, setTotalLeads] = useState(0);
+  const [overdueCount, setOverdueCount] = useState(0);
+  const [dueTodayCount, setDueTodayCount] = useState(0);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -39,7 +43,28 @@ export default function Dashboard() {
         );
       }
     };
+
+    const fetchTaskAlerts = async () => {
+      const today = new Date().toISOString().split("T")[0];
+
+      const { data: overdue } = await supabase
+        .from("tasks")
+        .select("id")
+        .lt("due_date", today)
+        .neq("status", "done")
+        .not("due_date", "is", null);
+      setOverdueCount(overdue?.length ?? 0);
+
+      const { data: dueToday } = await supabase
+        .from("tasks")
+        .select("id")
+        .eq("due_date", today)
+        .neq("status", "done");
+      setDueTodayCount(dueToday?.length ?? 0);
+    };
+
     fetchCounts();
+    fetchTaskAlerts();
   }, []);
 
   // Follow-up due notifications
@@ -55,7 +80,6 @@ export default function Dashboard() {
 
       if (!dueLeads || dueLeads.length === 0) return;
 
-      // Check existing notifications for today to avoid duplicates
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const { data: existing } = await supabase
@@ -81,7 +105,6 @@ export default function Dashboard() {
         await supabase.from("notifications").insert(newNotifications);
       }
 
-      // Check for overdue tasks
       const { data: overdueTasks } = await supabase
         .from("tasks")
         .select("id, title, due_date, assigned_to_name")
@@ -120,6 +143,46 @@ export default function Dashboard() {
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight mb-6">Dashboard</h1>
+
+      {/* Task alert widgets */}
+      {(overdueCount > 0 || dueTodayCount > 0) && (
+        <div className="grid gap-4 md:grid-cols-2 mb-4">
+          {overdueCount > 0 && (
+            <button
+              onClick={() => navigate("/tasks")}
+              className="text-left w-full"
+            >
+              <Card className="border-destructive/40 bg-destructive/5 hover:bg-destructive/10 transition-colors cursor-pointer">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-destructive">Overdue Tasks</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-destructive">{overdueCount}</div>
+                  <p className="text-xs text-destructive/70 mt-1">Click to view tasks</p>
+                </CardContent>
+              </Card>
+            </button>
+          )}
+          {dueTodayCount > 0 && (
+            <button
+              onClick={() => navigate("/tasks")}
+              className="text-left w-full"
+            >
+              <Card className="border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-colors cursor-pointer">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-amber-600">Due Today</CardTitle>
+                  <CalendarClock className="h-4 w-4 text-amber-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-amber-600">{dueTodayCount}</div>
+                  <p className="text-xs text-amber-600/70 mt-1">Click to view tasks</p>
+                </CardContent>
+              </Card>
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
