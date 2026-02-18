@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import LeadsKanban from "./LeadsKanban";
 
@@ -39,6 +40,7 @@ interface Lead {
   follow_up_email_after: string | null;
   stage: string;
   notes: string | null;
+  stage_changed_at: string | null;
 }
 
 const emptyLead = {
@@ -236,6 +238,7 @@ export default function Leads() {
                   <TableHead>Date Reached</TableHead>
                   <TableHead>Booked</TableHead>
                   <TableHead>Next Steps</TableHead>
+                  <TableHead>Stage Changed</TableHead>
                   <TableHead className="w-20">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -260,6 +263,9 @@ export default function Leads() {
                       <TableCell>{lead.date_reached}</TableCell>
                       <TableCell>{lead.booked ? "✓" : "—"}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{lead.next_steps}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {lead.stage_changed_at ? formatDistanceToNow(new Date(lead.stage_changed_at), { addSuffix: true }) : "—"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>

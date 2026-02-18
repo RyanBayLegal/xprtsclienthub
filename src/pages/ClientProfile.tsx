@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Trash2, Save, FileText, Send } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import ScopingQuestionnaire from "@/components/ScopingQuestionnaire";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 
@@ -246,6 +247,7 @@ export default function ClientProfile() {
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="discovery">Discovery</TabsTrigger>
           {isTeam && <TabsTrigger value="agreements">Agreements</TabsTrigger>}
+          {isTeam && !isNew && <TabsTrigger value="scoping">Scoping</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="basic">
@@ -458,6 +460,12 @@ export default function ClientProfile() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {isTeam && !isNew && profile.id && (
+          <TabsContent value="scoping">
+            <ScopingQuestionnaire clientProfileId={profile.id} />
           </TabsContent>
         )}
       </Tabs>
