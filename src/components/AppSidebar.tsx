@@ -1,6 +1,7 @@
-import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Calendar, ListTodo } from "lucide-react";
+import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Calendar, ListTodo, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/lib/auth";
+import { useBranding } from "@/lib/branding";
 import {
   Sidebar,
   SidebarContent,
@@ -13,7 +14,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import xprtsLogo from "@/assets/xprts-logo-light.png";
+import xprtsLogoFallback from "@/assets/xprts-logo-light.png";
 
 const teamItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -22,6 +23,7 @@ const teamItems = [
   { title: "Tasks", url: "/tasks", icon: ListTodo },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 const clientItems = [
@@ -30,12 +32,14 @@ const clientItems = [
 
 export function AppSidebar() {
   const { role, signOut, user } = useAuth();
+  const { branding } = useBranding();
   const items = role === "team_admin" ? teamItems : clientItems;
+  const logoSrc = branding.logo_url || xprtsLogoFallback;
 
   return (
     <Sidebar className="border-r-0">
       <div className="p-4 border-b border-sidebar-border">
-        <img src={xprtsLogo} alt="XPRTS" className="h-8 mb-1" />
+        <img src={logoSrc} alt={branding.app_name} className="h-8 mb-1" />
         <p className="text-xs text-sidebar-foreground/60 mt-0.5">
           {role === "team_admin" ? "Team Dashboard" : "Client Portal"}
         </p>
