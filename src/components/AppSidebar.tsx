@@ -1,7 +1,11 @@
 import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Calendar, ListTodo, Settings, UsersRound } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useBranding } from "@/lib/branding";
+import { UserAvatar } from "@/components/UserAvatar";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
   SidebarContent,
@@ -34,8 +38,19 @@ const clientItems = [
 export function AppSidebar() {
   const { role, signOut, user } = useAuth();
   const { branding } = useBranding();
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
   const items = role === "team_admin" ? teamItems : clientItems;
   const logoSrc = branding.logo_url || xprtsLogoFallback;
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("full_name, avatar_url").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+      if (data) setProfile(data);
+    });
+  }, [user]);
+
+  const profilePath = role === "team_admin" ? "/settings" : "/my-profile";
 
   return (
     <Sidebar className="border-r-0">
@@ -74,9 +89,24 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
-        <p className="text-xs text-sidebar-foreground/60 truncate mb-2">
-          {user?.email}
-        </p>
+        <button
+          onClick={() => navigate(profilePath)}
+          className="flex items-center gap-3 w-full rounded-md p-2 hover:bg-sidebar-accent transition-colors text-left"
+        >
+          <UserAvatar
+            avatarUrl={profile?.avatar_url}
+            fullName={profile?.full_name || user?.email}
+            size="sm"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-sidebar-foreground truncate">
+              {profile?.full_name || "My Profile"}
+            </p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">
+              {user?.email}
+            </p>
+          </div>
+        </button>
         <Button
           variant="ghost"
           size="sm"
