@@ -12,6 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, CheckCircle2, Circle, Clock, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import TaskComments from "@/components/TaskComments";
+import { MessageSquare } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface ClientTasksProps {
   clientProfileId: string;
@@ -278,36 +281,48 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
         <div className="space-y-2">
           {tasks.map((task) => (
             <Card key={task.id}>
-              <CardContent className="p-3 flex items-center gap-3">
-                <button onClick={() => updateStatus(task.id, task.status === "done" ? "todo" : "done")}>
-                  {task.status === "done" ? (
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  ) : task.status === "in_progress" ? (
-                    <Clock className="h-5 w-5 text-amber-500" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-muted-foreground" />
-                  )}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
-                    {task.title}
-                  </p>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    {task.assigned_to_name && <span className="text-[10px] text-muted-foreground">→ {task.assigned_to_name}</span>}
-                    {task.due_date && <span className="text-[10px] text-muted-foreground">Due: {task.due_date}</span>}
-                    {task.template_name && <Badge variant="outline" className="text-[9px] h-4">{task.template_name}</Badge>}
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => updateStatus(task.id, task.status === "done" ? "todo" : "done")}>
+                    {task.status === "done" ? (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    ) : task.status === "in_progress" ? (
+                      <Clock className="h-5 w-5 text-amber-500" />
+                    ) : (
+                      <Circle className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                      {task.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {task.assigned_to_name && <span className="text-[10px] text-muted-foreground">→ {task.assigned_to_name}</span>}
+                      {task.due_date && <span className="text-[10px] text-muted-foreground">Due: {task.due_date}</span>}
+                      {task.template_name && <Badge variant="outline" className="text-[9px] h-4">{task.template_name}</Badge>}
+                    </div>
                   </div>
+                  <Badge className={`text-[10px] ${priorityColors[task.priority]}`}>{task.priority}</Badge>
+                  <Select value={task.status} onValueChange={(v) => updateStatus(task.id, v)}>
+                    <SelectTrigger className="w-28 h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteTask(task.id)}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
                 </div>
-                <Badge className={`text-[10px] ${priorityColors[task.priority]}`}>{task.priority}</Badge>
-                <Select value={task.status} onValueChange={(v) => updateStatus(task.id, v)}>
-                  <SelectTrigger className="w-28 h-7 text-[10px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteTask(task.id)}>
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </Button>
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] mt-1 text-muted-foreground">
+                      <MessageSquare className="h-3 w-3 mr-1" />Comments
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <TaskComments taskId={task.id} />
+                  </CollapsibleContent>
+                </Collapsible>
               </CardContent>
             </Card>
           ))}
