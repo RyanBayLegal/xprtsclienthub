@@ -16,6 +16,7 @@ import MyProfile from "./pages/MyProfile";
 import Analytics from "./pages/Analytics";
 import CalendarPage from "./pages/CalendarPage";
 import Tasks from "./pages/Tasks";
+import Staff from "./pages/Staff";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
@@ -65,6 +66,7 @@ const App = () => (
                 <Route path="/analytics" element={<ProtectedRoute><TeamRoute><Analytics /></TeamRoute></ProtectedRoute>} />
                 <Route path="/calendar" element={<ProtectedRoute><TeamRoute><CalendarPage /></TeamRoute></ProtectedRoute>} />
                 <Route path="/tasks" element={<ProtectedRoute><TeamRoute><Tasks /></TeamRoute></ProtectedRoute>} />
+                <Route path="/staff" element={<ProtectedRoute><TeamRoute><Staff /></TeamRoute></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><TeamRoute><Settings /></TeamRoute></ProtectedRoute>} />
                 <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
