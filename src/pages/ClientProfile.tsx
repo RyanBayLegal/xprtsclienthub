@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import ScopingQuestionnaire from "@/components/ScopingQuestionnaire";
 import ClientTasks from "@/components/ClientTasks";
+import SystemsAudit from "@/components/SystemsAudit";
+import AgreementBuilder from "@/components/AgreementBuilder";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 
@@ -218,21 +220,22 @@ export default function ClientProfile() {
           {isTeam && !isNew && (
             <Dialog open={agreementDialogOpen} onOpenChange={setAgreementDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Send Agreement</Button>
+                <Button variant="outline"><FileText className="mr-2 h-4 w-4" />Create Agreement</Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Send Engagement Agreement</DialogTitle></DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Agreement URL</Label>
-                    <Input placeholder="https://..." value={agreementForm.agreement_url} onChange={(e) => setAgreementForm((f) => ({ ...f, agreement_url: e.target.value }))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Notes</Label>
-                    <Textarea placeholder="Additional notes..." value={agreementForm.notes} onChange={(e) => setAgreementForm((f) => ({ ...f, notes: e.target.value }))} />
-                  </div>
-                  <Button onClick={sendAgreement}><Send className="mr-2 h-4 w-4" />Send Agreement</Button>
-                </div>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader><DialogTitle>XPRTS Staffing Services Agreement</DialogTitle></DialogHeader>
+                <AgreementBuilder
+                  clientProfileId={profile.id}
+                  leadId={profile.lead_id}
+                  clientName={profile.name}
+                  onCreated={() => {
+                    setAgreementDialogOpen(false);
+                    // Refresh agreements
+                    supabase.from("engagement_agreements").select("*").eq("client_profile_id", profile.id).order("created_at", { ascending: false }).then(({ data }) => {
+                      if (data) setAgreements(data as Agreement[]);
+                    });
+                  }}
+                />
               </DialogContent>
             </Dialog>
           )}
@@ -250,6 +253,7 @@ export default function ClientProfile() {
           {isTeam && <TabsTrigger value="agreements">Agreements</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="scoping">Scoping</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="tasks">Tasks</TabsTrigger>}
+          {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="basic">
@@ -474,6 +478,12 @@ export default function ClientProfile() {
         {isTeam && !isNew && profile.id && (
           <TabsContent value="tasks">
             <ClientTasks clientProfileId={profile.id} leadId={profile.lead_id} />
+          </TabsContent>
+        )}
+
+        {isTeam && !isNew && profile.id && (
+          <TabsContent value="audit">
+            <SystemsAudit clientProfileId={profile.id} />
           </TabsContent>
         )}
       </Tabs>

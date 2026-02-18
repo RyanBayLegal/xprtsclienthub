@@ -80,6 +80,39 @@ export default function Dashboard() {
       if (newNotifications.length > 0) {
         await supabase.from("notifications").insert(newNotifications);
       }
+
+      // Check for overdue tasks
+      const { data: overdueTasks } = await supabase
+        .from("tasks")
+        .select("id, title, due_date, assigned_to_name")
+        .lt("due_date", today)
+        .neq("status", "done")
+        .not("due_date", "is", null);
+
+      if (overdueTasks && overdueTasks.length > 0) {
+        const { data: existingTaskNotifs } = await supabase
+          .from("notifications")
+          .select("lead_id")
+          .eq("user_id", user.id)
+          .eq("type", "task_overdue")
+          .gte("created_at", todayStart.toISOString());
+
+        const existingTaskIds = new Set((existingTaskNotifs || []).map((n) => n.lead_id));
+
+        const taskNotifications = overdueTasks
+          .filter((t) => !existingTaskIds.has(t.id))
+          .map((t) => ({
+            user_id: user.id,
+            type: "task_overdue",
+            title: "Task overdue",
+            message: `"${t.title}"${t.assigned_to_name ? ` (${t.assigned_to_name})` : ""} was due ${t.due_date}`,
+            lead_id: t.id,
+          }));
+
+        if (taskNotifications.length > 0) {
+          await supabase.from("notifications").insert(taskNotifications);
+        }
+      }
     };
     checkFollowUps();
   }, [user]);

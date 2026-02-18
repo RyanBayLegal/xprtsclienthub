@@ -107,6 +107,9 @@ export type Database = {
         Row: {
           agreement_url: string | null
           client_profile_id: string | null
+          client_signature: string | null
+          client_signed_at: string | null
+          content_data: Json | null
           created_at: string
           id: string
           lead_id: string | null
@@ -115,10 +118,15 @@ export type Database = {
           sent_by: string | null
           status: string
           updated_at: string
+          xprts_signature: string | null
+          xprts_signed_at: string | null
         }
         Insert: {
           agreement_url?: string | null
           client_profile_id?: string | null
+          client_signature?: string | null
+          client_signed_at?: string | null
+          content_data?: Json | null
           created_at?: string
           id?: string
           lead_id?: string | null
@@ -127,10 +135,15 @@ export type Database = {
           sent_by?: string | null
           status?: string
           updated_at?: string
+          xprts_signature?: string | null
+          xprts_signed_at?: string | null
         }
         Update: {
           agreement_url?: string | null
           client_profile_id?: string | null
+          client_signature?: string | null
+          client_signed_at?: string | null
+          content_data?: Json | null
           created_at?: string
           id?: string
           lead_id?: string | null
@@ -139,6 +152,8 @@ export type Database = {
           sent_by?: string | null
           status?: string
           updated_at?: string
+          xprts_signature?: string | null
+          xprts_signed_at?: string | null
         }
         Relationships: [
           {
@@ -354,6 +369,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "scoping_questionnaires_client_profile_id_fkey"
+            columns: ["client_profile_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      systems_audits: {
+        Row: {
+          client_profile_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          section_data: Json
+          updated_at: string
+        }
+        Insert: {
+          client_profile_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          section_data?: Json
+          updated_at?: string
+        }
+        Update: {
+          client_profile_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          section_data?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "systems_audits_client_profile_id_fkey"
             columns: ["client_profile_id"]
             isOneToOne: false
             referencedRelation: "client_profiles"

@@ -94,6 +94,17 @@ export default function Tasks() {
       created_by: user?.id,
     });
     if (error) { toast.error(error.message); return; }
+
+    // Create notification for task assignment
+    if (user && form.assigned_to_name) {
+      await supabase.from("notifications").insert({
+        user_id: user.id,
+        type: "task_assigned",
+        title: "Task assigned",
+        message: `"${form.title}" assigned to ${form.assigned_to_name}${form.due_date ? ` (due ${form.due_date})` : ""}`,
+      });
+    }
+
     toast.success("Task created");
     setDialogOpen(false);
     setForm({ title: "", description: "", status: "todo", priority: "medium", due_date: "", assigned_to_name: "", client_profile_id: "", stage: "" });
