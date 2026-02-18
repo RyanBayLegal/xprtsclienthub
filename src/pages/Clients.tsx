@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Search, Mail } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,6 +20,27 @@ interface ClientRow {
   stage: string | null;
   practice_area: string | null;
   client_health_score: number | null;
+  stage_changed_at: string | null;
+}
+
+function getStageAgeDays(stageChangedAt: string | null): number {
+  if (!stageChangedAt) return 0;
+  const changed = new Date(stageChangedAt);
+  const now = new Date();
+  return Math.floor((now.getTime() - changed.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getStageAgeStyle(days: number): string {
+  if (days >= 30) return "bg-destructive/5";
+  if (days >= 14) return "bg-amber-500/5";
+  return "";
+}
+
+function getStageAgeBadge(days: number): { label: string; className: string } {
+  if (days >= 30) return { label: `${days}d — stale`, className: "bg-destructive/15 text-destructive" };
+  if (days >= 14) return { label: `${days}d`, className: "bg-amber-500/15 text-amber-700" };
+  if (days >= 1) return { label: `${days}d`, className: "bg-muted text-muted-foreground" };
+  return { label: "Today", className: "bg-primary/10 text-primary" };
 }
 
 export default function Clients() {
@@ -33,7 +55,7 @@ export default function Clients() {
   const [inviting, setInviting] = useState(false);
 
   const fetchClients = async () => {
-    let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score").order("created_at", { ascending: false });
+    let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score, stage_changed_at").order("created_at", { ascending: false }) as any;
     if (search) q = q.ilike("name", `%${search}%`);
     const { data } = await q;
     if (data) setClients(data);
