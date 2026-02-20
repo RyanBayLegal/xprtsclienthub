@@ -228,7 +228,12 @@ export default function ClientProfile() {
             editable={isTeam}
           />
         )}
-        <h1 className="text-2xl font-bold tracking-tight">{profile.name || "New Client Profile"}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight">{profile.name || "New Client Profile"}</h1>
+          {profile.stage && (
+            <Badge variant="secondary" className="text-xs">{profile.stage}</Badge>
+          )}
+        </div>
         <div className="ml-auto flex gap-2">
           {isTeam && !isNew && (
             <>
@@ -365,7 +370,14 @@ export default function ClientProfile() {
             <CardContent className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Repeat Customer Probability</Label>
-                <Input value={profile.repeat_customer_probability || ""} onChange={(e) => updateProfile("repeat_customer_probability", e.target.value)} />
+                <Select value={profile.repeat_customer_probability || ""} onValueChange={(v) => updateProfile("repeat_customer_probability", v)}>
+                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Mid">Mid</SelectItem>
+                    <SelectItem value="Low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Meeting Preferences</Label>
