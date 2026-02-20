@@ -41,7 +41,6 @@ function AuthRoute() {
   const { user, role, loading } = useAuth();
   if (loading) return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (user) {
-    if (role === "client") return <Navigate to="/my-profile" replace />;
     return <Navigate to="/" replace />;
   }
   return <Auth />;
@@ -59,7 +58,7 @@ const App = () => (
               <Routes>
                 <Route path="/auth" element={<AuthRoute />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/" element={<ProtectedRoute><TeamRoute><Dashboard /></TeamRoute></ProtectedRoute>} />
+                <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/leads" element={<ProtectedRoute><TeamRoute><Leads /></TeamRoute></ProtectedRoute>} />
                 <Route path="/clients" element={<ProtectedRoute><TeamRoute><Clients /></TeamRoute></ProtectedRoute>} />
                 <Route path="/clients/:id" element={<ProtectedRoute><TeamRoute><ClientProfile /></TeamRoute></ProtectedRoute>} />
