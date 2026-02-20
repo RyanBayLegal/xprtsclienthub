@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Search, Mail } from "lucide-react";
+import { UserAvatar } from "@/components/UserAvatar";
 import { toast } from "sonner";
 
 interface ClientRow {
@@ -21,6 +22,7 @@ interface ClientRow {
   practice_area: string | null;
   client_health_score: number | null;
   stage_changed_at: string | null;
+  avatar_url: string | null;
 }
 
 function getStageAgeDays(stageChangedAt: string | null): number {
@@ -55,7 +57,7 @@ export default function Clients() {
   const [inviting, setInviting] = useState(false);
 
   const fetchClients = async () => {
-    let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score, stage_changed_at").order("created_at", { ascending: false }) as any;
+    let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score, stage_changed_at, avatar_url").order("created_at", { ascending: false }) as any;
     if (search) q = q.ilike("name", `%${search}%`);
     const { data } = await q;
     if (data) setClients(data);
@@ -182,7 +184,12 @@ export default function Clients() {
                 const ageBadge = getStageAgeBadge(ageDays);
                 return (
                   <TableRow key={c.id} className={`cursor-pointer ${ageStyle}`} onClick={() => navigate(`/clients/${c.id}`)}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <UserAvatar avatarUrl={c.avatar_url} fullName={c.name} size="sm" />
+                        <span className="font-medium">{c.name}</span>
+                      </div>
+                    </TableCell>
                     <TableCell>{c.company}</TableCell>
                     <TableCell>{c.role}</TableCell>
                     <TableCell>{c.practice_area}</TableCell>

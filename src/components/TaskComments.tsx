@@ -57,6 +57,25 @@ export default function TaskComments({ taskId }: TaskCommentsProps) {
       content: newComment.trim(),
     });
     if (error) { toast.error(error.message); setSubmitting(false); return; }
+    
+    // Send notification for new comment
+    try {
+      const { data: taskData } = await supabase.from("tasks").select("title, assigned_to, created_by").eq("id", taskId).maybeSingle();
+      if (taskData) {
+        const notifyUserIds = new Set<string>();
+        if (taskData.assigned_to && taskData.assigned_to !== user.id) notifyUserIds.add(taskData.assigned_to);
+        if (taskData.created_by && taskData.created_by !== user.id) notifyUserIds.add(taskData.created_by);
+        for (const uid of notifyUserIds) {
+          await supabase.from("notifications").insert({
+            user_id: uid,
+            type: "task_comment",
+            title: "New comment on task",
+            message: `Comment on "${taskData.title}": ${newComment.trim().slice(0, 100)}`,
+          });
+        }
+      }
+    } catch (_) { /* non-critical */ }
+    
     setNewComment("");
     setSubmitting(false);
     fetchComments();
