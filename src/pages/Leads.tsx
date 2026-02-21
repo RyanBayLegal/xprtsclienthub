@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -61,6 +61,8 @@ const emptyLead = {
   email_sent_with_info: false, next_steps: "", follow_up_email_after: "", stage: "Prospecting Stage", notes: "",
 };
 
+const LEADS_PAGE_SIZE = 15;
+
 export default function Leads() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -70,6 +72,7 @@ export default function Leads() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyLead);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [leadsPage, setLeadsPage] = useState(0);
 
   // Convert to client state
   const [convertLead, setConvertLead] = useState<Lead | null>(null);
@@ -95,7 +98,7 @@ export default function Leads() {
     if (data) setLeads(data);
   };
 
-  useEffect(() => { fetchLeads(); }, [search, stageFilter]);
+  useEffect(() => { setLeadsPage(0); fetchLeads(); }, [search, stageFilter]);
 
   const handleSave = async () => {
     const payload = {
@@ -442,54 +445,75 @@ export default function Leads() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {leads.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                      No leads yet. Click "Add Lead" to get started.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  leads.map((lead) => (
-                    <TableRow key={lead.id} className="cursor-pointer" onClick={() => navigate(`/clients/${lead.id}`)}>
-                      <TableCell className="font-medium">{lead.name}</TableCell>
-                      <TableCell>{lead.contact}</TableCell>
-                      <TableCell>{lead.source}</TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
-                          {lead.stage}
-                        </span>
-                      </TableCell>
-                      <TableCell>{lead.date_reached}</TableCell>
-                      <TableCell>{lead.booked ? "✓" : "—"}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">{lead.next_steps}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {lead.stage_changed_at ? formatDistanceToNow(new Date(lead.stage_changed_at), { addSuffix: true }) : "—"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" title="Convert to Client" onClick={() => openConvert(lead)}>
-                            <UserCheck className="h-4 w-4 text-primary" />
-                          </Button>
-                          <Button variant="ghost" size="icon" title="NDA" onClick={() => openDocDialog(lead, "nda")}>
-                            <Shield className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                          <Button variant="ghost" size="icon" title="Agreement" onClick={() => openDocDialog(lead, "agreement")}>
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(lead.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
+                {(() => {
+                  const leadsTotalPages = Math.ceil(leads.length / LEADS_PAGE_SIZE);
+                  const paginatedLeads = leads.slice(leadsPage * LEADS_PAGE_SIZE, (leadsPage + 1) * LEADS_PAGE_SIZE);
+                  return paginatedLeads.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                        No leads yet. Click "Add Lead" to get started.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
+                  ) : (
+                    paginatedLeads.map((lead) => (
+                      <TableRow key={lead.id} className="cursor-pointer" onClick={() => navigate(`/clients/${lead.id}`)}>
+                        <TableCell className="font-medium">{lead.name}</TableCell>
+                        <TableCell>{lead.contact}</TableCell>
+                        <TableCell>{lead.source}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
+                            {lead.stage}
+                          </span>
+                        </TableCell>
+                        <TableCell>{lead.date_reached}</TableCell>
+                        <TableCell>{lead.booked ? "✓" : "—"}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{lead.next_steps}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {lead.stage_changed_at ? formatDistanceToNow(new Date(lead.stage_changed_at), { addSuffix: true }) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" title="Convert to Client" onClick={() => openConvert(lead)}>
+                              <UserCheck className="h-4 w-4 text-primary" />
+                            </Button>
+                            <Button variant="ghost" size="icon" title="NDA" onClick={() => openDocDialog(lead, "nda")}>
+                              <Shield className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                            <Button variant="ghost" size="icon" title="Agreement" onClick={() => openDocDialog(lead, "agreement")}>
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(lead)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(lead.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  );
+                })()}
               </TableBody>
             </Table>
           </div>
+          {/* Leads Pagination */}
+          {leads.length > LEADS_PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-xs text-muted-foreground">
+                Showing {leadsPage * LEADS_PAGE_SIZE + 1}–{Math.min((leadsPage + 1) * LEADS_PAGE_SIZE, leads.length)} of {leads.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={leadsPage === 0} onClick={() => setLeadsPage(leadsPage - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs px-2">{leadsPage + 1} / {Math.ceil(leads.length / LEADS_PAGE_SIZE)}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={(leadsPage + 1) * LEADS_PAGE_SIZE >= leads.length} onClick={() => setLeadsPage(leadsPage + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
