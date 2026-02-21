@@ -4,12 +4,14 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { formatDistanceToNow } from "date-fns";
-import { UserCheck } from "lucide-react";
+import { UserCheck, Plus, X } from "lucide-react";
 
-const STAGES = [
+const DEFAULT_STAGES = [
   "Prospecting Stage",
   "Discovery Stage",
   "Solution Mapping Stage",
@@ -18,6 +20,8 @@ const STAGES = [
   "Hired Stage",
   "Lost Stage",
 ];
+
+const KANBAN_STAGES_KEY = "kanban_custom_stages";
 
 const STAGE_COLORS: Record<string, string> = {
   "Prospecting Stage": "bg-blue-500/10 border-blue-500/30",
@@ -46,8 +50,18 @@ interface LeadsKanbanProps {
 export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [stages, setStages] = useState<string[]>(() => {
+    const stored = localStorage.getItem(KANBAN_STAGES_KEY);
+    return stored ? JSON.parse(stored) : DEFAULT_STAGES;
+  });
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newStageName, setNewStageName] = useState("");
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  useEffect(() => {
+    localStorage.setItem(KANBAN_STAGES_KEY, JSON.stringify(stages));
+  }, [stages]);
 
   const fetchLeads = async () => {
     const { data } = await supabase
@@ -101,67 +115,118 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
 
   const getLeadsByStage = (stage: string) => leads.filter((l) => l.stage === stage);
 
+  const handleAddStage = () => {
+    const name = newStageName.trim();
+    if (!name) { toast.error("Stage name is required"); return; }
+    if (stages.includes(name)) { toast.error("Stage already exists"); return; }
+    setStages([...stages, name]);
+    setNewStageName("");
+    setAddDialogOpen(false);
+    toast.success(`Added "${name}" stage`);
+  };
+
+  const handleRemoveStage = (stage: string) => {
+    const leadsInStage = getLeadsByStage(stage);
+    if (leadsInStage.length > 0) {
+      toast.error(`Cannot remove "${stage}" — it has ${leadsInStage.length} lead(s). Move them first.`);
+      return;
+    }
+    setStages(stages.filter((s) => s !== stage));
+    toast.success(`Removed "${stage}" stage`);
+  };
+
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-10rem)]">
-      {STAGES.map((stage) => {
-        const stageLeads = getLeadsByStage(stage);
-        return (
-          <div
-            key={stage}
-            className={`flex-shrink-0 w-72 rounded-lg border p-3 ${STAGE_COLORS[stage] || "bg-muted/30"}`}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, stage)}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-sm truncate">{stage.replace(" Stage", "")}</h3>
-              <Badge variant="secondary" className="text-xs">{stageLeads.length}</Badge>
-            </div>
-            <div className="space-y-2">
-              {stageLeads.map((lead) => (
-                <Card
-                  key={lead.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, lead.id)}
-                  className={`transition-shadow ${draggedId === lead.id ? "opacity-50" : "hover:shadow-md"}`}
-                >
-                  <CardContent className="p-3 space-y-1">
-                    <p
-                      className="font-medium text-sm cursor-pointer hover:text-primary"
-                      onClick={() => navigate(`/clients/${lead.id}`)}
-                    >
-                      {lead.name}
-                    </p>
-                    {lead.contact && <p className="text-xs text-muted-foreground">{lead.contact}</p>}
-                    {lead.source && <p className="text-xs text-muted-foreground">Source: {lead.source}</p>}
-                    {lead.next_steps && (
-                      <p className="text-xs text-muted-foreground truncate">Next: {lead.next_steps}</p>
-                    )}
-                    {lead.stage_changed_at && (
-                      <p className="text-[10px] text-muted-foreground/70 mt-1">
-                        Moved {formatDistanceToNow(new Date(lead.stage_changed_at), { addSuffix: true })}
-                      </p>
-                    )}
-                    {onConvert && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[10px] text-primary w-full mt-1"
-                        onClick={(e) => { e.stopPropagation(); onConvert(lead); }}
-                      >
-                        <UserCheck className="h-3 w-3 mr-1" />
-                        Convert to Client
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-              {stageLeads.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-8">Drop leads here</p>
-              )}
-            </div>
+    <>
+      <div className="flex items-center gap-2 mb-3">
+        <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(true)}>
+          <Plus className="h-3.5 w-3.5 mr-1" />Add Stage
+        </Button>
+        {JSON.stringify(stages) !== JSON.stringify(DEFAULT_STAGES) && (
+          <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setStages(DEFAULT_STAGES); toast.success("Reset to default stages"); }}>
+            Reset
+          </Button>
+        )}
+      </div>
+
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Add Custom Stage</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Input placeholder="Stage name, e.g. 'Negotiation Stage'" value={newStageName} onChange={(e) => setNewStageName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAddStage()} />
+            <Button onClick={handleAddStage} className="w-full">Add Stage</Button>
           </div>
-        );
-      })}
-    </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-10rem)]">
+        {stages.map((stage) => {
+          const stageLeads = getLeadsByStage(stage);
+          const isCustom = !DEFAULT_STAGES.includes(stage);
+          return (
+            <div
+              key={stage}
+              className={`flex-shrink-0 w-72 rounded-lg border p-3 ${STAGE_COLORS[stage] || "bg-muted/30 border-border"}`}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, stage)}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-sm truncate">{stage.replace(" Stage", "")}</h3>
+                <div className="flex items-center gap-1">
+                  <Badge variant="secondary" className="text-xs">{stageLeads.length}</Badge>
+                  {isCustom && (
+                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleRemoveStage(stage)} title="Remove stage">
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                {stageLeads.map((lead) => (
+                  <Card
+                    key={lead.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, lead.id)}
+                    className={`transition-shadow ${draggedId === lead.id ? "opacity-50" : "hover:shadow-md"}`}
+                  >
+                    <CardContent className="p-3 space-y-1">
+                      <p
+                        className="font-medium text-sm cursor-pointer hover:text-primary"
+                        onClick={() => navigate(`/clients/${lead.id}`)}
+                      >
+                        {lead.name}
+                      </p>
+                      {lead.contact && <p className="text-xs text-muted-foreground">{lead.contact}</p>}
+                      {lead.source && <p className="text-xs text-muted-foreground">Source: {lead.source}</p>}
+                      {lead.next_steps && (
+                        <p className="text-xs text-muted-foreground truncate">Next: {lead.next_steps}</p>
+                      )}
+                      {lead.stage_changed_at && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-1">
+                          Moved {formatDistanceToNow(new Date(lead.stage_changed_at), { addSuffix: true })}
+                        </p>
+                      )}
+                      {onConvert && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] text-primary w-full mt-1"
+                          onClick={(e) => { e.stopPropagation(); onConvert(lead); }}
+                        >
+                          <UserCheck className="h-3 w-3 mr-1" />
+                          Convert to Client
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+                {stageLeads.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-8">Drop leads here</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
