@@ -158,44 +158,6 @@ export default function Clients() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Client Profiles</h1>
         <div className="flex gap-2">
-          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline"><Mail className="mr-2 h-4 w-4" />Invite Client</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Invite Client by Email</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label>Client Name *</Label>
-                  <Input value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder="John Smith" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email Address *</Label>
-                  <Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="john@company.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Link to Existing Profile (optional)</Label>
-                  <Select value={inviteProfileId} onValueChange={setInviteProfileId}>
-                    <SelectTrigger><SelectValue placeholder="Select a profile..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {clients.filter(c => c.name).map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  An account will be created and the client will receive a login link via email.
-                </p>
-                <Button onClick={handleInvite} disabled={inviting}>
-                  {inviting ? "Sending..." : "Send Invitation"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 

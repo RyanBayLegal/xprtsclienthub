@@ -7,7 +7,7 @@ const DEFAULT_TIMEOUT_MINUTES = 30;
 const WARNING_BEFORE_MS = 2 * 60 * 1000; // warn 2 minutes before logout
 const SESSION_TIMEOUT_KEY = "session_timeout_minutes";
 
-type UserRole = "team_admin" | "client" | null;
+type UserRole = "team_admin" | "client" | "staff_member" | null;
 
 interface AuthContextType {
   user: User | null;
