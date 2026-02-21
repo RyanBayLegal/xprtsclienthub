@@ -20,19 +20,16 @@ import {
 import { Button } from "@/components/ui/button";
 import xprtsLogoFallback from "@/assets/xprts-logo-light.png";
 
-const teamItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Leads", url: "/leads", icon: Users },
-  { title: "Client Profiles", url: "/clients", icon: UserCircle },
-  { title: "Tasks", url: "/tasks", icon: ListTodo },
-  { title: "Staff", url: "/staff", icon: UsersRound },
-  { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Settings", url: "/settings", icon: Settings },
-];
-
-const clientItems = [
-  { title: "My Profile", url: "/my-profile", icon: UserCircle },
+const allItems = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["team_admin", "staff_member", "client"] },
+  { title: "Leads", url: "/leads", icon: Users, roles: ["team_admin"] },
+  { title: "Client Profiles", url: "/clients", icon: UserCircle, roles: ["team_admin"] },
+  { title: "Tasks", url: "/tasks", icon: ListTodo, roles: ["team_admin", "staff_member"] },
+  { title: "Staff", url: "/staff", icon: UsersRound, roles: ["team_admin"] },
+  { title: "Calendar", url: "/calendar", icon: Calendar, roles: ["team_admin", "staff_member"] },
+  { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["team_admin"] },
+  { title: "Settings", url: "/settings", icon: Settings, roles: ["team_admin"] },
+  { title: "My Profile", url: "/my-profile", icon: UserCircle, roles: ["client", "staff_member"] },
 ];
 
 export function AppSidebar() {
@@ -40,7 +37,7 @@ export function AppSidebar() {
   const { branding } = useBranding();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
-  const items = role === "team_admin" ? teamItems : clientItems;
+  const items = allItems.filter((item) => role && item.roles.includes(role));
   const logoSrc = branding.logo_url || xprtsLogoFallback;
 
   useEffect(() => {
@@ -51,13 +48,14 @@ export function AppSidebar() {
   }, [user]);
 
   const profilePath = role === "team_admin" ? "/settings" : "/my-profile";
+  const portalLabel = role === "team_admin" ? "Team Dashboard" : role === "staff_member" ? "Staff Portal" : "Client Portal";
 
   return (
     <Sidebar className="border-r-0">
       <div className="p-4 border-b border-sidebar-border">
         <img src={logoSrc} alt={branding.app_name} className="h-8 mb-1" />
         <p className="text-xs text-sidebar-foreground/60 mt-0.5">
-          {role === "team_admin" ? "Team Dashboard" : "Client Portal"}
+          {portalLabel}
         </p>
       </div>
 

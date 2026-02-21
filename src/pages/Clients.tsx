@@ -4,14 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, Mail, ArrowUpDown, Trash2, X } from "lucide-react";
+import { Search, ArrowUpDown, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { toast } from "sonner";
 
@@ -28,7 +26,7 @@ interface ClientRow {
 }
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
-const PRACTICE_AREAS_SET = new Set<string>();
+const PAGE_SIZE = 15;
 
 type SortField = "name" | "client_health_score" | "stage";
 type SortDir = "asc" | "desc";
@@ -64,13 +62,9 @@ export default function Clients() {
   const [practiceFilter, setPracticeFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteName, setInviteName] = useState("");
-  const [inviteProfileId, setInviteProfileId] = useState("");
-  const [inviting, setInviting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ClientRow | null>(null);
   const [practiceAreas, setPracticeAreas] = useState<string[]>([]);
+  const [page, setPage] = useState(0);
 
   const fetchClients = async () => {
     let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score, stage_changed_at, avatar_url").order("created_at", { ascending: false }) as any;
@@ -79,7 +73,6 @@ export default function Clients() {
     if (practiceFilter !== "all") q = q.eq("practice_area", practiceFilter);
     const { data } = await q;
     if (data) {
-      // Collect unique practice areas
       const areas = new Set<string>();
       data.forEach((c: ClientRow) => { if (c.practice_area) areas.add(c.practice_area); });
       setPracticeAreas(Array.from(areas).sort());
@@ -96,38 +89,17 @@ export default function Clients() {
     if (data) {
       const counts: Record<string, number> = {};
       data.forEach((t) => {
-        if (t.client_profile_id) {
-          counts[t.client_profile_id] = (counts[t.client_profile_id] || 0) + 1;
-        }
+        if (t.client_profile_id) counts[t.client_profile_id] = (counts[t.client_profile_id] || 0) + 1;
       });
       setTaskCounts(counts);
     }
   };
 
   useEffect(() => {
+    setPage(0);
     fetchClients();
     fetchTaskCounts();
   }, [search, stageFilter, practiceFilter]);
-
-  const handleInvite = async () => {
-    if (!inviteEmail || !inviteName) { toast.error("Email and name are required"); return; }
-    setInviting(true);
-    const { data, error } = await supabase.functions.invoke("invite-client", {
-      body: { email: inviteEmail, name: inviteName, clientProfileId: inviteProfileId || undefined },
-    });
-    if (error) {
-      toast.error(error.message || "Failed to invite client");
-    } else if (data?.error) {
-      toast.error(data.error);
-    } else {
-      toast.success(`Invitation sent to ${inviteEmail}`);
-      setInviteOpen(false);
-      setInviteEmail("");
-      setInviteName("");
-      setInviteProfileId("");
-    }
-    setInviting(false);
-  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -151,14 +123,14 @@ export default function Clients() {
     return 0;
   });
 
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const hasFilters = stageFilter !== "all" || practiceFilter !== "all";
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Client Profiles</h1>
-        <div className="flex gap-2">
-        </div>
       </div>
 
       {/* Search + Filters */}
@@ -168,18 +140,14 @@ export default function Clients() {
           <Input placeholder="Search clients..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <Select value={stageFilter} onValueChange={setStageFilter}>
-          <SelectTrigger className="w-36 h-9 text-xs">
-            <SelectValue placeholder="Stage" />
-          </SelectTrigger>
+          <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Stage" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Stages</SelectItem>
             {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={practiceFilter} onValueChange={setPracticeFilter}>
-          <SelectTrigger className="w-44 h-9 text-xs">
-            <SelectValue placeholder="Practice Area" />
-          </SelectTrigger>
+          <SelectTrigger className="w-44 h-9 text-xs"><SelectValue placeholder="Practice Area" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Practice Areas</SelectItem>
             {practiceAreas.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
@@ -214,14 +182,14 @@ export default function Clients() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.length === 0 ? (
+            {paginated.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-muted-foreground py-8">
                   No client profiles found.
                 </TableCell>
               </TableRow>
             ) : (
-              sorted.map((c) => {
+              paginated.map((c) => {
                 const ageDays = getStageAgeDays(c.stage_changed_at);
                 const ageStyle = getStageAgeStyle(ageDays);
                 const ageBadge = getStageAgeBadge(ageDays);
@@ -265,12 +233,7 @@ export default function Clients() {
                     <TableCell>{c.client_health_score !== null ? `${c.client_health_score}/10` : "—"}</TableCell>
                     {isAdmin && (
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}
-                        >
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}>
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
                       </TableCell>
@@ -282,6 +245,24 @@ export default function Clients() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-xs text-muted-foreground">
+            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} of {sorted.length}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(page - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs px-2">{page + 1} / {totalPages}</span>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
