@@ -1,0 +1,1 @@
+ALTER TABLE public.client_profiles ADD COLUMN email text, ADD COLUMN phone text;

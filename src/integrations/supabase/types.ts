@@ -98,6 +98,7 @@ export type Database = {
           created_by: string | null
           discovery_notes: string | null
           discovery_source: string | null
+          email: string | null
           future_plans: string | null
           how_they_found_us: string | null
           id: string
@@ -109,6 +110,7 @@ export type Database = {
           motivators: string | null
           name: string
           pain_points: string | null
+          phone: string | null
           practice_area: string | null
           repeat_customer_probability: string | null
           role: string | null
@@ -126,6 +128,7 @@ export type Database = {
           created_by?: string | null
           discovery_notes?: string | null
           discovery_source?: string | null
+          email?: string | null
           future_plans?: string | null
           how_they_found_us?: string | null
           id?: string
@@ -137,6 +140,7 @@ export type Database = {
           motivators?: string | null
           name: string
           pain_points?: string | null
+          phone?: string | null
           practice_area?: string | null
           repeat_customer_probability?: string | null
           role?: string | null
@@ -154,6 +158,7 @@ export type Database = {
           created_by?: string | null
           discovery_notes?: string | null
           discovery_source?: string | null
+          email?: string | null
           future_plans?: string | null
           how_they_found_us?: string | null
           id?: string
@@ -165,6 +170,7 @@ export type Database = {
           motivators?: string | null
           name?: string
           pain_points?: string | null
+          phone?: string | null
           practice_area?: string | null
           repeat_customer_probability?: string | null
           role?: string | null
