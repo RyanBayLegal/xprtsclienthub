@@ -48,6 +48,8 @@ interface ClientProfileData {
   discovery_source: string | null;
   how_they_found_us: string | null;
   discovery_notes: string | null;
+  email: string | null;
+  phone: string | null;
 }
 
 interface RoleOpen {
@@ -91,6 +93,7 @@ export default function ClientProfile() {
           pain_points: "", influences: "", motivators: "", repeat_customer_probability: "",
           meeting_preferences: "", client_health_score: null, future_plans: "",
           discovery_source: "", how_they_found_us: "", discovery_notes: "",
+          email: "", phone: "",
         });
         setLoading(false);
         return;
@@ -120,7 +123,7 @@ export default function ClientProfile() {
           stage: "Prospect", pain_points: "", influences: "", motivators: "",
           repeat_customer_probability: "", meeting_preferences: "", client_health_score: null,
           future_plans: "", discovery_source: lead?.source || "", how_they_found_us: "",
-          discovery_notes: "",
+          discovery_notes: "", email: "", phone: "",
         });
       }
       setLoading(false);
@@ -314,6 +317,14 @@ export default function ClientProfile() {
               <div className="space-y-2">
                 <Label>Practice Area</Label>
                 <Input value={profile.practice_area || ""} onChange={(e) => updateProfile("practice_area", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" value={profile.email || ""} onChange={(e) => updateProfile("email", e.target.value)} placeholder="client@example.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input type="tel" value={profile.phone || ""} onChange={(e) => updateProfile("phone", e.target.value)} placeholder="+1 (555) 000-0000" />
               </div>
               <div className="flex items-center gap-2 col-span-2">
                 <Checkbox checked={profile.is_economic_buyer || false} onCheckedChange={(v) => updateProfile("is_economic_buyer", !!v)} />
