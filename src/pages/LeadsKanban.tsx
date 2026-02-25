@@ -45,9 +45,10 @@ interface Lead {
 
 interface LeadsKanbanProps {
   onConvert?: (lead: Lead) => void;
+  refreshKey?: number;
 }
 
-export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
+export default function LeadsKanban({ onConvert, refreshKey }: LeadsKanbanProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -73,7 +74,7 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
     if (data) setLeads(data as Lead[]);
   };
 
-  useEffect(() => { fetchLeads(); }, []);
+  useEffect(() => { fetchLeads(); }, [refreshKey]);
 
   const handleDragStart = (e: DragEvent, id: string) => {
     setDraggedId(id);

@@ -67,6 +67,7 @@ export default function Leads() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [kanbanKey, setKanbanKey] = useState(0);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -122,6 +123,7 @@ export default function Leads() {
     setForm(emptyLead);
     setEditingId(null);
     fetchLeads();
+    setKanbanKey((k) => k + 1);
   };
 
   const handleEdit = (lead: Lead) => {
@@ -143,6 +145,7 @@ export default function Leads() {
     if (error) { toast.error(error.message); return; }
     toast.success("Lead deleted");
     fetchLeads();
+    setKanbanKey((k) => k + 1);
   };
 
   const openConvert = (lead: Lead) => {
@@ -410,8 +413,8 @@ export default function Leads() {
           <TabsTrigger value="table">Table</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="kanban">
-          <LeadsKanban onConvert={openConvert} />
+        <TabsContent value="kanban" className="mt-0">
+          <LeadsKanban onConvert={openConvert} refreshKey={kanbanKey} />
         </TabsContent>
 
         <TabsContent value="table">
