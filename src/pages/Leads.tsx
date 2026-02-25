@@ -437,10 +437,10 @@ export default function Leads() {
                   <TableHead>Contact</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Stage</TableHead>
+                  <TableHead>Stage Age</TableHead>
                   <TableHead>Date Reached</TableHead>
                   <TableHead>Booked</TableHead>
                   <TableHead>Next Steps</TableHead>
-                  <TableHead>Stage Changed</TableHead>
                   <TableHead className="w-44">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -449,11 +449,11 @@ export default function Leads() {
                   const leadsTotalPages = Math.ceil(leads.length / LEADS_PAGE_SIZE);
                   const paginatedLeads = leads.slice(leadsPage * LEADS_PAGE_SIZE, (leadsPage + 1) * LEADS_PAGE_SIZE);
                   return paginatedLeads.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                        No leads yet. Click "Add Lead" to get started.
-                      </TableCell>
-                    </TableRow>
+                      <TableRow>
+                       <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                         No leads yet. Click &quot;Add Lead&quot; to get started.
+                       </TableCell>
+                     </TableRow>
                   ) : (
                     paginatedLeads.map((lead) => (
                       <TableRow key={lead.id} className="cursor-pointer" onClick={() => navigate(`/clients/${lead.id}`)}>
@@ -465,12 +465,17 @@ export default function Leads() {
                             {lead.stage}
                           </span>
                         </TableCell>
+                        <TableCell>
+                          {(() => {
+                            if (!lead.stage_changed_at) return <span className="text-muted-foreground">—</span>;
+                            const days = Math.floor((Date.now() - new Date(lead.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24));
+                            const color = days < 7 ? "text-green-600" : days < 14 ? "text-amber-600" : "text-destructive";
+                            return <span className={`text-xs font-medium ${color}`}>{days}d</span>;
+                          })()}
+                        </TableCell>
                         <TableCell>{lead.date_reached}</TableCell>
                         <TableCell>{lead.booked ? "✓" : "—"}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{lead.next_steps}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {lead.stage_changed_at ? formatDistanceToNow(new Date(lead.stage_changed_at), { addSuffix: true }) : "—"}
-                        </TableCell>
                         <TableCell>
                           <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="icon" title="Convert to Client" onClick={() => openConvert(lead)}>

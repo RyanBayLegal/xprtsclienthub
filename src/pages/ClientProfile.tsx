@@ -296,6 +296,7 @@ export default function ClientProfile() {
           {isTeam && !isNew && <TabsTrigger value="tasks">Tasks</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="attachments">Attachments</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
+          {isTeam && !isNew && <TabsTrigger value="notes">Notes</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="basic">
@@ -549,7 +550,73 @@ export default function ClientProfile() {
             <SystemsAudit clientProfileId={profile.id} />
           </TabsContent>
         )}
+
+        {isTeam && !isNew && profile.id && (
+          <TabsContent value="notes">
+            <ClientNotes clientProfileId={profile.id} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
+  );
+}
+
+function ClientNotes({ clientProfileId }: { clientProfileId: string }) {
+  const { user } = useAuth();
+  const [notes, setNotes] = useState<{ id: string; content: string; created_by_name: string | null; created_at: string }[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const fetchNotes = async () => {
+    const { data } = await supabase.from("client_notes").select("*").eq("client_profile_id", clientProfileId).order("created_at", { ascending: false });
+    if (data) setNotes(data as any);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchNotes(); }, [clientProfileId]);
+
+  const addNote = async () => {
+    if (!newNote.trim() || !user) return;
+    const { data: profileData } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+    const { error } = await supabase.from("client_notes").insert({
+      client_profile_id: clientProfileId,
+      content: newNote.trim(),
+      created_by: user.id,
+      created_by_name: profileData?.full_name || user.email || "Unknown",
+    } as any);
+    if (error) { toast.error(error.message); return; }
+    setNewNote("");
+    fetchNotes();
+    toast.success("Note added");
+  };
+
+  if (loading) return <p className="text-muted-foreground text-center py-8">Loading...</p>;
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <Textarea placeholder="Add a note..." value={newNote} onChange={(e) => setNewNote(e.target.value)} className="min-h-[60px]" />
+          <Button onClick={addNote} disabled={!newNote.trim()} className="shrink-0">Add Note</Button>
+        </div>
+        {notes.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">No notes yet</p>
+        ) : (
+          <div className="space-y-3">
+            {notes.map((note) => (
+              <div key={note.id} className="border rounded-lg p-3 space-y-1">
+                <p className="text-sm">{note.content}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-medium">{note.created_by_name || "Unknown"}</span>
+                  <span>•</span>
+                  <span>{formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
