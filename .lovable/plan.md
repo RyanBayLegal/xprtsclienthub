@@ -1,198 +1,129 @@
 
 
-# Follow-Up Notifications, Stage Timestamps, Funnel Analytics, and Scoping Questionnaire
+## Plan: Pipeline Ageing, Client Notes, Vendors Tab, Kanban Pagination, Staff Dropdown in Tasks, and Task Assignment Email
 
-## Overview
-
-This plan adds four capabilities to XPRTS CRM:
-1. **Automatic follow-up due notifications** on dashboard load
-2. **Stage change timestamps** recorded on the leads table
-3. **Funnel visualization** in Analytics showing conversion between pipeline stages
-4. **Client Discovery & Scoping Questionnaire** -- a digital version of the uploaded Scoping Framework document, stored per client profile
+This plan covers six features across database changes, new pages/components, and UI updates.
 
 ---
 
-## 1. Follow-Up Due Notifications
+### 1. Database Migrations
 
-When the Dashboard loads, the app will check for any leads with `follow_up_date <= today`. For each overdue/due lead, it will automatically create a notification (if one hasn't already been created that day) so the bell icon shows an alert.
+Three new tables and one column addition are needed:
 
-**Changes:**
-- `src/pages/Dashboard.tsx` -- Add a `useEffect` that queries leads where `follow_up_date <= today`, then inserts notifications for each (deduplicating by checking existing notifications of type `follow_up_due` for the same lead created today).
-
----
-
-## 2. Stage Change Timestamps
-
-Add a `stage_changed_at` column to the `leads` table. Every time a lead's stage is updated (via Kanban drag-and-drop or manual edit), this timestamp is automatically set.
-
-**Database migration:**
-- Add `stage_changed_at timestamptz` column to `leads` (default `now()`)
-- Create a trigger `set_stage_changed_at` that sets `stage_changed_at = now()` whenever `stage` changes on UPDATE
-
-**UI changes:**
-- `src/pages/LeadsKanban.tsx` -- Show `stage_changed_at` on lead cards as a small relative timestamp (e.g., "moved 2d ago")
-- Lead table in `src/pages/Leads.tsx` -- Add a "Stage Changed" column
-
----
-
-## 3. Funnel Analytics
-
-Add a funnel chart to the Analytics page showing how many leads are in each stage in pipeline order (Prospecting -> Discovery -> Solution Mapping -> Proposal/Contract -> Onboarding/Kickoff), with stage-to-stage conversion percentages.
-
-**Changes:**
-- `src/pages/Analytics.tsx`:
-  - Update `STAGE_COLORS` to use the new 5 stages
-  - Add a funnel/horizontal bar chart showing leads per stage in pipeline order
-  - Show conversion rates between consecutive stages (e.g., "Prospecting -> Discovery: 60%")
-  - Update the existing conversion rate cards to reflect new stages (replace "Signed"/"Lost"/"Booked" with stage-based metrics like "Proposal Rate" and "Onboarding Rate")
-
----
-
-## 4. Client Discovery & Scoping Questionnaire
-
-Implement the full Scoping Framework from the uploaded document as a new tab on the Client Profile page. This stores all questionnaire data in a new `scoping_questionnaires` database table.
-
-**Sections from the document:**
-1. Firm Overview (name, practice area, jurisdiction, hours, size, contact, challenges, goals)
-2. Roles Requested (role title, headcount, schedule, responsibilities, independence level)
-3. Experience & Skill Requirements (level, languages, skills checklist, certifications)
-4. Training & Onboarding (firm training, SOPs, onboarding contact)
-5. Systems & Technology (case management, CRM, billing, phone, communication tools, security)
-6. Performance Expectations (success metrics, reporting preferences, escalation process)
-7. Communication & Oversight (point of contact, preferred method)
-8. Compliance & Confidentiality (NDA, HIPAA/GDPR, ethical boundaries)
-9. Flexibility & Growth (scaling needs, temp vs long-term, coverage)
-10. Defining Success (30/60/90 day goals, top outcomes, concerns)
-
-**Database migration:**
-- Create `scoping_questionnaires` table with `id`, `client_profile_id` (FK), `section_data` (jsonb -- stores all sections as structured JSON), `created_by`, `created_at`, `updated_at`
-- RLS: Team can full CRUD; clients can view their own
-
-**UI changes:**
-- `src/pages/ClientProfile.tsx` -- Add a "Scoping" tab with an accordion-based form covering all 10 sections
-- Each section is collapsible and auto-saves when the user clicks Save
-
----
-
-## Technical Details
-
-### Database Migration SQL
-
+**a. `client_notes` table** — timestamped notes on client profiles
 ```sql
--- Stage change timestamp
-ALTER TABLE public.leads
-  ADD COLUMN IF NOT EXISTS stage_changed_at timestamptz DEFAULT now();
-
--- Trigger to auto-update stage_changed_at
-CREATE OR REPLACE FUNCTION public.set_stage_changed_at()
-RETURNS trigger LANGUAGE plpgsql
-SET search_path TO 'public'
-AS $$
-BEGIN
-  IF OLD.stage IS DISTINCT FROM NEW.stage THEN
-    NEW.stage_changed_at = now();
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER trg_stage_changed_at
-  BEFORE UPDATE ON public.leads
-  FOR EACH ROW
-  EXECUTE FUNCTION public.set_stage_changed_at();
-
--- Scoping questionnaires table
-CREATE TABLE public.scoping_questionnaires (
+CREATE TABLE public.client_notes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  client_profile_id uuid NOT NULL REFERENCES public.client_profiles(id) ON DELETE CASCADE,
-  section_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  client_profile_id uuid NOT NULL,
+  content text NOT NULL,
+  created_by uuid NOT NULL,
+  created_by_name text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.client_notes ENABLE ROW LEVEL SECURITY;
+-- Team admin full access
+CREATE POLICY "Team can manage client_notes" ON public.client_notes FOR ALL TO authenticated
+  USING (has_role(auth.uid(), 'team_admin'::app_role))
+  WITH CHECK (has_role(auth.uid(), 'team_admin'::app_role));
+-- Clients can view notes on their own profile
+CREATE POLICY "Clients can view own notes" ON public.client_notes FOR SELECT TO authenticated
+  USING (client_profile_id IN (SELECT id FROM client_profiles WHERE user_id = auth.uid()));
+```
+
+**b. `vendors` table** — new CRM tab
+```sql
+CREATE TABLE public.vendors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  subscribed_date date,
+  subscribed_by text,
+  fee text,
   created_by uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-ALTER TABLE public.scoping_questionnaires ENABLE ROW LEVEL SECURITY;
-
--- RLS policies
-CREATE POLICY "Team can manage scoping_questionnaires"
-  ON public.scoping_questionnaires FOR ALL
-  USING (has_role(auth.uid(), 'team_admin'))
-  WITH CHECK (has_role(auth.uid(), 'team_admin'));
-
-CREATE POLICY "Clients can view own scoping questionnaire"
-  ON public.scoping_questionnaires FOR SELECT
-  USING (client_profile_id IN (
-    SELECT id FROM public.client_profiles WHERE user_id = auth.uid()
-  ));
-
--- Trigger for updated_at
-CREATE TRIGGER set_scoping_updated_at
-  BEFORE UPDATE ON public.scoping_questionnaires
-  FOR EACH ROW
-  EXECUTE FUNCTION public.update_updated_at_column();
+ALTER TABLE public.vendors ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Team can manage vendors" ON public.vendors FOR ALL TO authenticated
+  USING (has_role(auth.uid(), 'team_admin'::app_role))
+  WITH CHECK (has_role(auth.uid(), 'team_admin'::app_role));
+-- Staff can view vendors
+CREATE POLICY "Staff can view vendors" ON public.vendors FOR SELECT TO authenticated
+  USING (has_role(auth.uid(), 'staff_member'::app_role));
 ```
 
-### Files to Modify
+---
 
-| File | Changes |
-|------|---------|
-| `src/pages/Dashboard.tsx` | Add follow-up due notification check on load |
-| `src/pages/LeadsKanban.tsx` | Display `stage_changed_at` timestamp on cards |
-| `src/pages/Leads.tsx` | Add "Stage Changed" column to table view |
-| `src/pages/Analytics.tsx` | Update stage colors, add funnel chart with conversion percentages between stages |
-| `src/pages/ClientProfile.tsx` | Add "Scoping" tab with accordion form for all 10 questionnaire sections |
+### 2. Pipeline Ageing (Leads Table + Kanban)
 
-### Scoping Questionnaire Data Shape (jsonb)
+- In the **Leads table view**, add a "Stage Age" column showing how long each lead has been in its current stage, calculated from `stage_changed_at` using `formatDistanceToNow`.
+- In the **Kanban board**, display the stage age on each lead card (e.g., "In stage 5 days").
+- Color-code: green < 7 days, amber 7-14 days, red > 14 days.
 
-```text
-{
-  "firm_overview": {
-    "firm_name", "practice_areas", "jurisdiction",
-    "business_hours", "attorney_count", "staff_count",
-    "contact_name", "contact_email", "contact_title",
-    "staffing_challenges", "outsourcing_goals"
-  },
-  "roles_requested": [{
-    "role_title", "headcount", "full_or_part_time",
-    "schedule", "timezone", "work_days", "time",
-    "weekend_coverage", "primary_responsibilities",
-    "weekly_responsibilities", "internal_tasks",
-    "independence_level"
-  }],
-  "experience_skills": {
-    "experience_level", "languages", "law_firm_experience",
-    "practice_area_experience", "skills_checklist",
-    "certifications"
-  },
-  "training_onboarding": {
-    "firm_provides_training", "onboarding_contact",
-    "start_date_skills", "has_sops", "share_sops",
-    "ongoing_training"
-  },
-  "systems_technology": {
-    "case_management", "crm_tools", "billing_systems",
-    "phone_systems", "communication_tools",
-    "time_tracking", "licenses_provided",
-    "security_requirements"
-  },
-  "performance": {
-    "success_metrics", "reporting_preference",
-    "escalation_process"
-  },
-  "communication": {
-    "primary_contact", "preferred_method"
-  },
-  "compliance": {
-    "confidentiality", "nda_required", "regulatory",
-    "ethical_boundaries", "conflict_screening"
-  },
-  "flexibility_growth": {
-    "anticipated_changes", "scale_ability",
-    "temp_vs_longterm", "coverage_expectations"
-  },
-  "defining_success": {
-    "first_30_days", "first_60_days", "first_90_days",
-    "top_outcomes", "concerns"
-  }
-}
-```
+**Files modified:** `src/pages/Leads.tsx`, `src/pages/LeadsKanban.tsx`
+
+---
+
+### 3. Notes Section in Client Profile
+
+- Add a new **"Notes"** tab in `ClientProfile.tsx` (visible to team admins).
+- Displays a list of notes with timestamp, author name, and content.
+- A textarea + "Add Note" button at the top to create new notes.
+- Fetches from `client_notes` table, inserts with `created_by` = current user ID and `created_by_name` fetched from profiles.
+
+**Files modified:** `src/pages/ClientProfile.tsx`
+
+---
+
+### 4. Vendors Tab
+
+- Create a new page `src/pages/Vendors.tsx` with a table: Vendor Name, Description, Subscribed Date, Subscribed By, Fee.
+- Include Add/Edit/Delete dialogs (admin only).
+- Add pagination (15 per page).
+- Add route in `src/App.tsx` under TeamRoute: `/vendors`.
+- Add sidebar nav item in `src/components/AppSidebar.tsx` for `team_admin` and `staff_member` roles.
+
+**Files created:** `src/pages/Vendors.tsx`
+**Files modified:** `src/App.tsx`, `src/components/AppSidebar.tsx`
+
+---
+
+### 5. Kanban Pagination
+
+- Add pagination to the Kanban board in `LeadsKanban.tsx`.
+- Each stage column will show up to 10 leads at a time, with a "Show more" / "Show less" toggle or a small page control per column.
+
+**Files modified:** `src/pages/LeadsKanban.tsx`
+
+---
+
+### 6. Staff Dropdown in Task "Assign To" Field
+
+The task form already has a staff dropdown fetching from `user_roles` + `profiles`. This is already implemented in `Tasks.tsx` (lines 294-310, 462-473). No changes needed here — it already works.
+
+---
+
+### 7. Auto-Send Email on Task Assignment
+
+- Create a new edge function `supabase/functions/send-task-assignment/index.ts` that:
+  - Receives `{ assignee_email, assignee_name, task_title, task_description, due_date }`.
+  - Logs the email content to console (ready for SMTP integration later, since no RESEND_API_KEY is configured).
+- In `Tasks.tsx`, after a task is created or edited with an `assigned_to` value, call `supabase.functions.invoke("send-task-assignment", ...)` with the staff member's email (fetched from `auth` via profiles or passed from the form).
+- Since there is no Resend API key configured, the edge function will log the email. The user will be informed they need to set up Resend for actual email delivery.
+
+**Files created:** `supabase/functions/send-task-assignment/index.ts`
+**Files modified:** `src/pages/Tasks.tsx`
+
+---
+
+### Summary of All Changes
+
+| Area | Files | Type |
+|------|-------|------|
+| Database | Migration SQL | 2 new tables (`client_notes`, `vendors`) |
+| Pipeline Ageing | `Leads.tsx`, `LeadsKanban.tsx` | Stage age column + color coding |
+| Client Notes | `ClientProfile.tsx` | New "Notes" tab |
+| Vendors | `Vendors.tsx` (new), `App.tsx`, `AppSidebar.tsx` | New page + routing + nav |
+| Kanban Pagination | `LeadsKanban.tsx` | Per-column pagination |
+| Task Assignment Email | `send-task-assignment/index.ts` (new), `Tasks.tsx` | Edge function + invoke on assign |
 
