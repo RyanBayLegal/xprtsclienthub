@@ -1,4 +1,4 @@
-import { useState, useEffect, DragEvent } from "react";
+import { useState, useEffect, DragEvent, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -66,15 +66,42 @@ export default function LeadsKanban({ onConvert, refreshKey }: LeadsKanbanProps)
     localStorage.setItem(KANBAN_STAGES_KEY, JSON.stringify(stages));
   }, [stages]);
 
-  const fetchLeads = async () => {
+
+  const fetchLeads = useCallback(async () => {
     const { data } = await supabase
       .from("leads")
       .select("id, name, contact, source, next_steps, stage, stage_changed_at")
       .order("created_at", { ascending: false });
     if (data) setLeads(data as Lead[]);
-  };
+  }, []);
 
-  useEffect(() => { fetchLeads(); }, [refreshKey]);
+  useEffect(() => { fetchLeads(); }, [refreshKey, fetchLeads]);
+
+  // Realtime subscription for cross-user updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("leads_kanban_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "leads" },
+        (payload) => {
+          setLeads((current) => {
+            if (payload.eventType === "DELETE") {
+              return current.filter((l) => l.id !== (payload.old as Lead).id);
+            }
+            const updated = payload.new as Lead;
+            const exists = current.find((l) => l.id === updated.id);
+            if (exists) {
+              return current.map((l) => l.id === updated.id ? updated : l);
+            }
+            return [updated, ...current];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const handleDragStart = (e: DragEvent, id: string) => {
     setDraggedId(id);
@@ -209,7 +236,18 @@ export default function LeadsKanban({ onConvert, refreshKey }: LeadsKanbanProps)
                     <CardContent className="p-3 space-y-1">
                       <p
                         className="font-medium text-sm cursor-pointer hover:text-primary"
-                        onClick={() => navigate(`/clients/${lead.id}`)}
+                        onClick={async () => {
+                          const { data: cp } = await supabase
+                            .from("client_profiles")
+                            .select("id")
+                            .eq("lead_id", lead.id)
+                            .maybeSingle();
+                          if (cp) {
+                            navigate(`/clients/${cp.id}`);
+                          } else {
+                            toast.info("No client profile yet. Convert this lead first.");
+                          }
+                        }}
                       >
                         {lead.name}
                       </p>
