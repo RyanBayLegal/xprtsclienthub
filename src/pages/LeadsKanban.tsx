@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { formatDistanceToNow } from "date-fns";
-import { UserCheck, Plus, X } from "lucide-react";
+import { UserCheck, Plus, X, Search } from "lucide-react";
 
 const DEFAULT_STAGES = [
   "Prospecting Stage",
@@ -49,6 +49,7 @@ interface LeadsKanbanProps {
 
 export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [stages, setStages] = useState<string[]>(() => {
     const stored = localStorage.getItem(KANBAN_STAGES_KEY);
@@ -114,7 +115,13 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
     toast.success(`Moved to ${newStage}`);
   };
 
-  const getLeadsByStage = (stage: string) => leads.filter((l) => l.stage === stage);
+  const filteredLeads = leads.filter((l) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return l.name.toLowerCase().includes(q) || (l.contact || "").toLowerCase().includes(q) || (l.source || "").toLowerCase().includes(q);
+  });
+
+  const getLeadsByStage = (stage: string) => filteredLeads.filter((l) => l.stage === stage);
 
   const handleAddStage = () => {
     const name = newStageName.trim();
@@ -139,6 +146,15 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
   return (
     <>
       <div className="flex items-center gap-2 mb-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Search leads..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-8 text-xs"
+          />
+        </div>
         <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(true)}>
           <Plus className="h-3.5 w-3.5 mr-1" />Add Stage
         </Button>
