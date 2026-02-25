@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 
 interface Vendor {
@@ -33,6 +33,8 @@ export default function Vendors() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [feeFilter, setFeeFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"name" | "subscribed_date" | "fee">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const fetchVendors = async () => {
     const { data } = await supabase.from("vendors").select("id, name, description, subscribed_date, subscribed_by, fee").order("created_at", { ascending: false });
@@ -91,8 +93,16 @@ export default function Vendors() {
     return matchesSearch && matchesFee;
   });
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const sorted = [...filtered].sort((a, b) => {
+    let cmp = 0;
+    if (sortBy === "name") cmp = a.name.localeCompare(b.name);
+    else if (sortBy === "subscribed_date") cmp = (a.subscribed_date || "").localeCompare(b.subscribed_date || "");
+    else if (sortBy === "fee") cmp = (a.fee || "").localeCompare(b.fee || "");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div>
@@ -161,11 +171,17 @@ export default function Vendors() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Vendor Name</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("name"); setSortDir(sortBy === "name" && sortDir === "asc" ? "desc" : "asc"); }}>
+                <span className="flex items-center gap-1">Vendor Name {sortBy === "name" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
+              </TableHead>
               <TableHead>Description</TableHead>
-              <TableHead>Subscribed Date</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("subscribed_date"); setSortDir(sortBy === "subscribed_date" && sortDir === "asc" ? "desc" : "asc"); }}>
+                <span className="flex items-center gap-1">Subscribed Date {sortBy === "subscribed_date" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
+              </TableHead>
               <TableHead>Subscribed By</TableHead>
-              <TableHead>Fee</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("fee"); setSortDir(sortBy === "fee" && sortDir === "asc" ? "desc" : "asc"); }}>
+                <span className="flex items-center gap-1">Fee {sortBy === "fee" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
+              </TableHead>
               {isAdmin && <TableHead className="w-24">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -201,10 +217,10 @@ export default function Vendors() {
         </Table>
       </div>
 
-      {filtered.length > PAGE_SIZE && (
+      {sorted.length > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-xs text-muted-foreground">
-            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} of {sorted.length}
           </p>
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(page - 1)}>

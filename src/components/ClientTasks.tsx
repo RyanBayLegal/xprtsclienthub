@@ -56,10 +56,11 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
+  const [staffMembers, setStaffMembers] = useState<{ id: string; full_name: string | null }[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [form, setForm] = useState({
-    title: "", description: "", priority: "medium", due_date: "", assigned_to_name: "", stage: "",
+    title: "", description: "", priority: "medium", due_date: "", assigned_to: "", assigned_to_name: "", stage: "",
   });
   const [templateForm, setTemplateForm] = useState({
     name: "", stage: "Prospecting Stage",
@@ -80,15 +81,32 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
     if (data) setTemplates(data.map((t) => ({ ...t, tasks: (t.tasks as any) || [] })) as WorkflowTemplate[]);
   };
 
-  useEffect(() => { fetchTasks(); fetchTemplates(); }, [clientProfileId]);
+  const fetchStaff = async () => {
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .in("role", ["team_admin", "staff_member"]);
+    if (!roles) return;
+    const ids = roles.map((r) => r.user_id);
+    if (ids.length === 0) return;
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name")
+      .in("user_id", ids);
+    if (profiles) setStaffMembers(profiles.map((p) => ({ id: p.user_id, full_name: p.full_name })));
+  };
+
+  useEffect(() => { fetchTasks(); fetchTemplates(); fetchStaff(); }, [clientProfileId]);
 
   const createTask = async () => {
+    const selectedStaff = staffMembers.find((s) => s.id === form.assigned_to);
     const { error } = await supabase.from("tasks").insert({
       title: form.title,
       description: form.description || null,
       priority: form.priority,
       due_date: form.due_date || null,
-      assigned_to_name: form.assigned_to_name || null,
+      assigned_to: form.assigned_to || null,
+      assigned_to_name: selectedStaff?.full_name || form.assigned_to_name || null,
       stage: form.stage || null,
       client_profile_id: clientProfileId,
       lead_id: leadId || null,
@@ -109,7 +127,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
 
     toast.success("Task created");
     setDialogOpen(false);
-    setForm({ title: "", description: "", priority: "medium", due_date: "", assigned_to_name: "", stage: "" });
+    setForm({ title: "", description: "", priority: "medium", due_date: "", assigned_to: "", assigned_to_name: "", stage: "" });
     fetchTasks();
   };
 
@@ -266,7 +284,18 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
                 </div>
                 <div className="space-y-2">
                   <Label>Assign To</Label>
-                  <Input placeholder="Staff member name" value={form.assigned_to_name} onChange={(e) => setForm((f) => ({ ...f, assigned_to_name: e.target.value }))} />
+                  <Select value={form.assigned_to} onValueChange={(v) => {
+                    const staff = staffMembers.find((s) => s.id === v);
+                    setForm((f) => ({ ...f, assigned_to: v === "none" ? "" : v, assigned_to_name: staff?.full_name || "" }));
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="Select staff member" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {staffMembers.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.full_name || s.id}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button onClick={createTask}>Create Task</Button>
               </div>
