@@ -54,6 +54,7 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
     const stored = localStorage.getItem(KANBAN_STAGES_KEY);
     return stored ? JSON.parse(stored) : DEFAULT_STAGES;
   });
+  const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const navigate = useNavigate();
@@ -181,7 +182,7 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
                 </div>
               </div>
               <div className="space-y-2">
-                {stageLeads.slice(0, 10).map((lead) => (
+                {(expandedStages[stage] ? stageLeads : stageLeads.slice(0, 10)).map((lead) => (
                   <Card
                     key={lead.id}
                     draggable
@@ -224,9 +225,14 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
                   </Card>
                 ))}
                 {stageLeads.length > 10 && (
-                  <p className="text-[10px] text-muted-foreground text-center py-1">
-                    Showing 10 of {stageLeads.length} leads
-                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-[10px] h-6"
+                    onClick={() => setExpandedStages((prev) => ({ ...prev, [stage]: !prev[stage] }))}
+                  >
+                    {expandedStages[stage] ? `Show less` : `Show all ${stageLeads.length} leads`}
+                  </Button>
                 )}
                 {stageLeads.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-8">Drop leads here</p>
