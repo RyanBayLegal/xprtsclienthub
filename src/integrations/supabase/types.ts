@@ -88,6 +88,41 @@ export type Database = {
           },
         ]
       }
+      client_notes: {
+        Row: {
+          client_profile_id: string
+          content: string
+          created_at: string
+          created_by: string
+          created_by_name: string | null
+          id: string
+        }
+        Insert: {
+          client_profile_id: string
+          content: string
+          created_at?: string
+          created_by: string
+          created_by_name?: string | null
+          id?: string
+        }
+        Update: {
+          client_profile_id?: string
+          content?: string
+          created_at?: string
+          created_by?: string
+          created_by_name?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_notes_client_profile_id_fkey"
+            columns: ["client_profile_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_profiles: {
         Row: {
           attitude: string | null
@@ -619,6 +654,42 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      vendors: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          fee: string | null
+          id: string
+          name: string
+          subscribed_by: string | null
+          subscribed_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fee?: string | null
+          id?: string
+          name: string
+          subscribed_by?: string | null
+          subscribed_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fee?: string | null
+          id?: string
+          name?: string
+          subscribed_by?: string | null
+          subscribed_date?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

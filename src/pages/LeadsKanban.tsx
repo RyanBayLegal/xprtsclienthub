@@ -181,7 +181,7 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
                 </div>
               </div>
               <div className="space-y-2">
-                {stageLeads.map((lead) => (
+                {stageLeads.slice(0, 10).map((lead) => (
                   <Card
                     key={lead.id}
                     draggable
@@ -200,11 +200,15 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
                       {lead.next_steps && (
                         <p className="text-xs text-muted-foreground truncate">Next: {lead.next_steps}</p>
                       )}
-                      {lead.stage_changed_at && (
-                        <p className="text-[10px] text-muted-foreground/70 mt-1">
-                          Moved {formatDistanceToNow(new Date(lead.stage_changed_at), { addSuffix: true })}
-                        </p>
-                      )}
+                      {lead.stage_changed_at && (() => {
+                        const days = Math.floor((Date.now() - new Date(lead.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24));
+                        const color = days < 7 ? "text-green-600" : days < 14 ? "text-amber-600" : "text-destructive";
+                        return (
+                          <p className={`text-[10px] font-medium mt-1 ${color}`}>
+                            In stage {days}d
+                          </p>
+                        );
+                      })()}
                       {onConvert && (
                         <Button
                           variant="ghost"
@@ -219,6 +223,11 @@ export default function LeadsKanban({ onConvert }: LeadsKanbanProps) {
                     </CardContent>
                   </Card>
                 ))}
+                {stageLeads.length > 10 && (
+                  <p className="text-[10px] text-muted-foreground text-center py-1">
+                    Showing 10 of {stageLeads.length} leads
+                  </p>
+                )}
                 {stageLeads.length === 0 && (
                   <p className="text-xs text-muted-foreground text-center py-8">Drop leads here</p>
                 )}

@@ -336,6 +336,20 @@ export default function Tasks() {
       });
     }
 
+    // Send task assignment email
+    if (selectedStaff && form.assigned_to) {
+      const { data: staffAuth } = await supabase.from("profiles").select("full_name").eq("user_id", form.assigned_to).maybeSingle();
+      supabase.functions.invoke("send-task-assignment", {
+        body: {
+          assignee_email: selectedStaff.full_name || form.assigned_to,
+          assignee_name: staffAuth?.full_name || selectedStaff.full_name || "Staff",
+          task_title: form.title,
+          task_description: form.description,
+          due_date: form.due_date,
+        },
+      });
+    }
+
     toast.success("Task created");
     setDialogOpen(false);
     setForm(emptyForm);
@@ -376,6 +390,23 @@ export default function Tasks() {
     }
     const { error } = await supabase.from("tasks").update(updates).eq("id", editingTask.id);
     if (error) { toast.error(error.message); return; }
+
+    // Send email if assigned_to changed
+    if (editForm.assigned_to && editForm.assigned_to !== editingTask.assigned_to) {
+      const selectedStaff = staffMembers.find((s) => s.id === editForm.assigned_to);
+      if (selectedStaff) {
+        supabase.functions.invoke("send-task-assignment", {
+          body: {
+            assignee_email: selectedStaff.full_name || editForm.assigned_to,
+            assignee_name: selectedStaff.full_name || "Staff",
+            task_title: editForm.title,
+            task_description: editForm.description,
+            due_date: editForm.due_date,
+          },
+        });
+      }
+    }
+
     toast.success("Task updated");
     setEditDialogOpen(false);
     setEditingTask(null);
