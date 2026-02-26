@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { exportToCSV } from "@/lib/csv-export";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -219,10 +220,24 @@ export default function Leads() {
 
   const updateField = (field: string, value: string | boolean) => setForm((f) => ({ ...f, [field]: value }));
 
+  const exportLeads = () => {
+    const headers = ["Name", "Contact", "Source", "Website", "Stage", "Date Reached", "Follow-up Date", "Booked", "Needs", "Next Steps", "Notes"];
+    const rows = leads.map((l) => [
+      l.name, l.contact, l.source, l.website, l.stage, l.date_reached,
+      l.follow_up_date, l.booked ? "Yes" : "No", l.needs, l.next_steps, l.notes,
+    ]);
+    exportToCSV("leads-export", headers, rows);
+    toast.success(`Exported ${rows.length} leads`);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportLeads}>
+            <Download className="mr-2 h-4 w-4" />Export CSV
+          </Button>
         <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setForm(emptyLead); setEditingId(null); } }}>
           <DialogTrigger asChild>
             <Button><Plus className="mr-2 h-4 w-4" />Add Lead</Button>
@@ -303,6 +318,7 @@ export default function Leads() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Convert to Client Dialog */}
