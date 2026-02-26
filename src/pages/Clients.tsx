@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Search, ArrowUpDown, Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ArrowUpDown, Trash2, X, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { exportToCSV } from "@/lib/csv-export";
 import { UserAvatar } from "@/components/UserAvatar";
 import { toast } from "sonner";
 
@@ -127,10 +128,24 @@ export default function Clients() {
   const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const hasFilters = stageFilter !== "all" || practiceFilter !== "all";
 
+  const exportClients = () => {
+    const headers = ["Name", "Company", "Role", "Practice Area", "Stage", "Health Score", "Stage Changed At", "Open Tasks"];
+    const rows = sorted.map((c) => [
+      c.name, c.company, c.role, c.practice_area, c.stage,
+      c.client_health_score, c.stage_changed_at ? new Date(c.stage_changed_at).toLocaleDateString() : "",
+      taskCounts[c.id] || 0,
+    ]);
+    exportToCSV("clients-export", headers, rows);
+    toast.success(`Exported ${rows.length} clients`);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Client Profiles</h1>
+        <Button variant="outline" size="sm" onClick={exportClients}>
+          <Download className="mr-2 h-4 w-4" />Export CSV
+        </Button>
       </div>
 
       {/* Search + Filters */}
