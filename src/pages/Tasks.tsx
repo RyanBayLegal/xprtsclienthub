@@ -446,7 +446,7 @@ export default function Tasks() {
   const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
   const doneTasks = tasks.filter((t) => t.status === "done");
 
-  const TaskFormFields = ({ f, setF }: { f: typeof emptyForm; setF: (fn: (prev: typeof emptyForm) => typeof emptyForm) => void }) => (
+  const renderFormFields = (f: typeof emptyForm, setF: (fn: (prev: typeof emptyForm) => typeof emptyForm) => void) => (
     <>
       <div className="space-y-2">
         <Label>Title *</Label>
@@ -516,7 +516,7 @@ export default function Tasks() {
           <DialogContent>
             <DialogHeader><DialogTitle>Create Task</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-4">
-              <TaskFormFields f={form} setF={setForm} />
+              {renderFormFields(form, setForm)}
               <Button onClick={handleCreate}>Create Task</Button>
             </div>
           </DialogContent>
@@ -528,7 +528,7 @@ export default function Tasks() {
         <DialogContent>
           <DialogHeader><DialogTitle>Edit Task</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
-            <TaskFormFields f={editForm} setF={setEditForm} />
+            {renderFormFields(editForm, setEditForm)}
             <Button onClick={handleEdit}>Save Changes</Button>
           </div>
         </DialogContent>
