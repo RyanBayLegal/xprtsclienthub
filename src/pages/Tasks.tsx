@@ -247,6 +247,7 @@ export default function Tasks() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
+  const [assignedFilter, setAssignedFilter] = useState("all");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
@@ -257,6 +258,7 @@ export default function Tasks() {
     let q = supabase.from("tasks").select("*").order("created_at", { ascending: false });
     if (statusFilter !== "all") q = q.eq("status", statusFilter);
     if (clientFilter !== "all") q = q.eq("client_profile_id", clientFilter);
+    if (assignedFilter !== "all") q = q.eq("assigned_to", assignedFilter);
     const { data } = await q;
     if (!data) return;
 
@@ -309,7 +311,7 @@ export default function Tasks() {
     }
   };
 
-  useEffect(() => { fetchTasks(); fetchClients(); fetchStaff(); }, [statusFilter, clientFilter]);
+  useEffect(() => { fetchTasks(); fetchClients(); fetchStaff(); }, [statusFilter, clientFilter, assignedFilter]);
 
   const handleCreate = async () => {
     const selectedClient = clients.find((c) => c.id === form.client_profile_id);
@@ -557,7 +559,16 @@ export default function Tasks() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All clients</SelectItem>
-            {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+           {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={assignedFilter} onValueChange={setAssignedFilter}>
+          <SelectTrigger className="w-48 h-8 text-xs">
+            <SelectValue placeholder="All staff" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All staff</SelectItem>
+            {staffMembers.map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name || s.id}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -569,8 +580,8 @@ export default function Tasks() {
             {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
-        {(clientFilter !== "all" || statusFilter !== "all") && (
-          <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={() => { setClientFilter("all"); setStatusFilter("all"); }}>
+        {(clientFilter !== "all" || statusFilter !== "all" || assignedFilter !== "all") && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={() => { setClientFilter("all"); setStatusFilter("all"); setAssignedFilter("all"); }}>
             Clear filters
           </Button>
         )}
