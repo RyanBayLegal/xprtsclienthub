@@ -327,12 +327,16 @@ export default function Tasks() {
     });
     if (error) { toast.error(error.message); return; }
 
-    if (user && selectedClient) {
+    // Notify the assigned staff member (not the creator)
+    if (user && form.assigned_to) {
+      const { data: creatorProfile } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+      const creatorName = creatorProfile?.full_name || "Someone";
+      const clientName = selectedClient?.name || "No client";
       await supabase.from("notifications").insert({
-        user_id: user.id,
+        user_id: form.assigned_to,
         type: "task_assigned",
-        title: "Task assigned",
-        message: `"${form.title}" assigned to ${selectedClient.name}${form.due_date ? ` (due ${form.due_date})` : ""}`,
+        title: "New task assigned to you",
+        message: `"${form.title}" — Client: ${clientName}${form.due_date ? ` | Due: ${form.due_date}` : ""} | Created by: ${creatorName}`,
       });
     }
 
@@ -391,9 +395,20 @@ export default function Tasks() {
     const { error } = await supabase.from("tasks").update(updates).eq("id", editingTask.id);
     if (error) { toast.error(error.message); return; }
 
-    // Send email if assigned_to changed
+    // Notify newly assigned staff member + send email
     if (editForm.assigned_to && editForm.assigned_to !== editingTask.assigned_to) {
       const selectedStaff = staffMembers.find((s) => s.id === editForm.assigned_to);
+      if (user) {
+        const { data: creatorProfile } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+        const creatorName = creatorProfile?.full_name || "Someone";
+        const clientName = selectedClient?.name || "No client";
+        await supabase.from("notifications").insert({
+          user_id: editForm.assigned_to,
+          type: "task_assigned",
+          title: "Task reassigned to you",
+          message: `"${editForm.title}" — Client: ${clientName}${editForm.due_date ? ` | Due: ${editForm.due_date}` : ""} | Assigned by: ${creatorName}`,
+        });
+      }
       if (selectedStaff) {
         supabase.functions.invoke("send-task-assignment", {
           body: {

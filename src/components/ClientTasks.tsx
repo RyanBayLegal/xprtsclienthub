@@ -114,13 +114,17 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
     });
     if (error) { toast.error(error.message); return; }
 
-    // Create notification for task assignment
-    if (user && form.assigned_to_name) {
+    // Notify the assigned staff member (not the creator)
+    if (user && form.assigned_to) {
+      const { data: creatorProfile } = await supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+      const { data: clientProfile } = await supabase.from("client_profiles").select("name").eq("id", clientProfileId).maybeSingle();
+      const creatorName = creatorProfile?.full_name || "Someone";
+      const clientName = clientProfile?.name || "Unknown client";
       await supabase.from("notifications").insert({
-        user_id: user.id,
+        user_id: form.assigned_to,
         type: "task_assigned",
-        title: "Task assigned",
-        message: `"${form.title}" assigned to ${form.assigned_to_name}${form.due_date ? ` (due ${form.due_date})` : ""}`,
+        title: "New task assigned to you",
+        message: `"${form.title}" — Client: ${clientName}${form.due_date ? ` | Due: ${form.due_date}` : ""} | Created by: ${creatorName}`,
         lead_id: leadId || null,
       });
     }
