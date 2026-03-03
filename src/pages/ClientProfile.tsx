@@ -563,9 +563,11 @@ export default function ClientProfile() {
 
 function ClientNotes({ clientProfileId }: { clientProfileId: string }) {
   const { user } = useAuth();
-  const [notes, setNotes] = useState<{ id: string; content: string; created_by_name: string | null; created_at: string }[]>([]);
+  const [notes, setNotes] = useState<{ id: string; content: string; created_by_name: string | null; created_at: string; created_by: string }[]>([]);
   const [newNote, setNewNote] = useState("");
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
 
   const fetchNotes = async () => {
     const { data } = await supabase.from("client_notes").select("*").eq("client_profile_id", clientProfileId).order("created_at", { ascending: false });
@@ -590,6 +592,16 @@ function ClientNotes({ clientProfileId }: { clientProfileId: string }) {
     toast.success("Note added");
   };
 
+  const saveEdit = async (noteId: string) => {
+    if (!editContent.trim()) return;
+    const { error } = await supabase.from("client_notes").update({ content: editContent.trim() } as any).eq("id", noteId);
+    if (error) { toast.error(error.message); return; }
+    setEditingId(null);
+    setEditContent("");
+    fetchNotes();
+    toast.success("Note updated");
+  };
+
   if (loading) return <p className="text-muted-foreground text-center py-8">Loading...</p>;
 
   return (
@@ -606,12 +618,25 @@ function ClientNotes({ clientProfileId }: { clientProfileId: string }) {
           <div className="space-y-3">
             {notes.map((note) => (
               <div key={note.id} className="border rounded-lg p-3 space-y-1">
-                <p className="text-sm">{note.content}</p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="font-medium">{note.created_by_name || "Unknown"}</span>
-                  <span>•</span>
-                  <span>{formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}</span>
-                </div>
+                {editingId === note.id ? (
+                  <div className="space-y-2">
+                    <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="min-h-[60px]" />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => saveEdit(note.id)} disabled={!editContent.trim()}>Save</Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setEditContent(""); }}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm">{note.content}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-medium">{note.created_by_name || "Unknown"}</span>
+                      <span>•</span>
+                      <span>{formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}</span>
+                      <Button variant="ghost" size="sm" className="h-5 px-1 text-xs ml-auto" onClick={() => { setEditingId(note.id); setEditContent(note.content); }}>Edit</Button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
