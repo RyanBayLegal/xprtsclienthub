@@ -1,0 +1,1 @@
+ALTER TABLE public.team_links ADD COLUMN category text DEFAULT 'General';
