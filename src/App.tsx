@@ -19,6 +19,7 @@ import Tasks from "./pages/Tasks";
 import Staff from "./pages/Staff";
 import Settings from "./pages/Settings";
 import Vendors from "./pages/Vendors";
+import Links from "./pages/Links";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 
