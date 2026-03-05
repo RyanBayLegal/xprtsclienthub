@@ -247,7 +247,7 @@ export default function Links() {
                     {link.title}
                     <ExternalLink className="h-3 w-3" />
                   </a>
-                  <p className="text-xs text-muted-foreground truncate">{link.url}</p>
+                  <p className="text-xs text-muted-foreground truncate">{new URL(link.url).hostname}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {link.created_by_name && `Added by ${link.created_by_name} · `}
                     {format(new Date(link.created_at), "MMM d, yyyy")}
