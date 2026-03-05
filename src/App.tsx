@@ -19,6 +19,7 @@ import Tasks from "./pages/Tasks";
 import Staff from "./pages/Staff";
 import Settings from "./pages/Settings";
 import Vendors from "./pages/Vendors";
+import Links from "./pages/Links";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -69,6 +70,7 @@ const App = () => (
                 <Route path="/staff" element={<ProtectedRoute><TeamRoute><Staff /></TeamRoute></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><TeamRoute><Settings /></TeamRoute></ProtectedRoute>} />
                 <Route path="/vendors" element={<ProtectedRoute><Vendors /></ProtectedRoute>} />
+                <Route path="/links" element={<ProtectedRoute><TeamRoute><Links /></TeamRoute></ProtectedRoute>} />
                 <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

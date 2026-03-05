@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Calendar, ListTodo, Settings, UsersRound, Store } from "lucide-react";
+import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Calendar, ListTodo, Settings, UsersRound, Store, Link2 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -28,6 +28,7 @@ const allItems = [
   { title: "Staff", url: "/staff", icon: UsersRound, roles: ["team_admin"] },
   { title: "Calendar", url: "/calendar", icon: Calendar, roles: ["team_admin", "staff_member"] },
   { title: "Vendors", url: "/vendors", icon: Store, roles: ["team_admin", "staff_member"] },
+  { title: "Links", url: "/links", icon: Link2, roles: ["team_admin"] },
   { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["team_admin"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["team_admin"] },
   { title: "My Profile", url: "/my-profile", icon: UserCircle, roles: ["client", "staff_member"] },

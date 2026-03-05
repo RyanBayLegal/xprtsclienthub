@@ -1,29 +1,34 @@
 
 
-## Plan: Add Internal Team "Links" Page
+## Plan: Notify Assigned Staff on Task Creation
 
-### Overview
-Create a standalone "Links" page accessible from the sidebar for team admins only. This is an internal resource board where the team can save and organize clickable links to external files, tools, or resources.
+### Problem
+Currently, when a task is created, the notification is sent to the **creator's own** `user_id` (line 331: `user_id: user.id`), not to the assigned staff member. The assigned person never sees it on their dashboard.
 
-### Database Changes
-Create a new `team_links` table:
-- `id` (uuid, PK, default gen_random_uuid())
-- `title` (text, not null) — display name
-- `url` (text, not null) — the link URL
-- `created_by` (uuid) — who added it
-- `created_by_name` (text) — cached creator name
-- `created_at` (timestamptz, default now())
+### Changes
 
-RLS: Team admins only (ALL policy using `has_role`).
+**1. `src/pages/Tasks.tsx` — `handleCreate` function (around lines 330-337)**
+- Change the notification insert to target the **assigned staff member** (`form.assigned_to`) instead of the creator (`user.id`)
+- Include richer details in the message: task title, due date, creator name, and client name
+- Fetch the creator's profile name to include "Created by: X"
 
-### Code Changes
+**2. `src/pages/Tasks.tsx` — `handleEdit` function (around lines 394-408)**
+- When `assigned_to` changes on edit, also insert a notification for the newly assigned staff member with the same rich details
 
-**1. New page `src/pages/Links.tsx`**
-- Form at top: title + URL inputs, "Add Link" button
-- List of links below, each showing title as a clickable anchor (`target="_blank"`), URL preview, who added it, when, and a delete button
-- Fetches from `team_links` table ordered by `created_at` desc
+**3. `src/components/ClientTasks.tsx` — `createTask` function (around lines 101-112)**
+- Same fix: send the notification to `form.assigned_to` (the assignee) instead of `user.id` (the creator)
+- Include due date, creator name, and client name in the message
 
-**2. `src/App.tsx`** — Add route `/links` wrapped in `ProtectedRoute` + `TeamRoute`
+### Notification Message Format
+```
+"Task Title" — Client: ClientName | Due: 2026-03-05 | Created by: AdminName
+```
 
-**3. `src/components/AppSidebar.tsx`** — Add "Links" nav item for `team_admin` role (using `Link2` icon from lucide-react)
+### What Already Works
+- The `notifications` table and `NotificationBell` component already display notifications per user
+- Staff and Client dashboards already query tasks by `assigned_to`
+- RLS on `notifications` allows team_admin to INSERT and users to SELECT/UPDATE their own
+
+### No Database Changes Needed
+The existing `notifications` table schema already supports all required fields.
 
