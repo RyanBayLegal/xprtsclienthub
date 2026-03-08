@@ -197,7 +197,7 @@ const TimePlanner = () => {
     }
   }, [isAdmin, allSchedules, selectedStaffIds.length]);
 
-  const isLoading = roleLoading || (isAdmin ? allSchedsLoading : ownSchedLoading);
+  const isLoading = roleLoading || (isAdmin ? (allSchedsLoading && allSchedsFetching) : ownSchedLoading);
 
   const toggleStaff = (userId: string) => {
     setSelectedStaffIds(prev =>
