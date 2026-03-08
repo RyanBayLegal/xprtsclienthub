@@ -52,13 +52,13 @@ export function useScheduleClients() {
       if (!user) return [];
       const { data, error } = await supabase
         .from('client_profiles')
-        .select('id, name')
+        .select('id, name, schedule_color')
         .order('name');
       if (error) throw error;
-      return (data ?? []).map((c, i) => ({
+      return (data ?? []).map((c: any, i: number) => ({
         id: c.id,
         name: c.name,
-        color: CLIENT_COLORS[i % CLIENT_COLORS.length],
+        color: c.schedule_color || CLIENT_COLORS[i % CLIENT_COLORS.length],
         timezone: 'America/New_York',
       }));
     },
