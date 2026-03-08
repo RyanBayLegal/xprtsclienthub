@@ -116,10 +116,10 @@ export function useBlocks(scheduleId: string | undefined, weekStartDate?: string
       const { data, error } = await (supabase
         .from('schedule_blocks' as any)
         .insert({ ...rest, user_id: _owner_id ?? user.id })
-        .select('*, schedule_clients(*)')
+        .select('*, client_profiles(id, name)')
         .single() as any);
       if (error) throw error;
-      return { ...data, clients: data.schedule_clients };
+      return { ...data, clients: data.client_profiles };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule-blocks'] }),
   });
