@@ -122,6 +122,18 @@ const TimePlanner = () => {
   const isAdmin = role === 'team_admin';
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
 
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ['all-profiles-for-schedule', isAdmin],
+    queryFn: async () => {
+      const { data: profiles } = await supabase.from('profiles').select('*');
+      const { data: roles } = await (supabase.from('user_roles').select('user_id, role') as any);
+      // Only staff_member and team_admin roles
+      const staffUserIds = new Set((roles ?? []).filter((r: any) => r.role === 'staff_member' || r.role === 'team_admin').map((r: any) => r.user_id));
+      return (profiles ?? []).filter((p: any) => staffUserIds.has(p.user_id));
+    },
+    enabled: !!user && isAdmin,
+  });
+
   const { data: allSchedules = [], isLoading: allSchedsLoading } = useQuery({
     queryKey: ['all-staff-schedules', isAdmin],
     queryFn: async () => {
@@ -137,6 +149,24 @@ const TimePlanner = () => {
       }));
     },
     enabled: !!user && isAdmin,
+  });
+
+  const staffWithoutSchedule = allProfiles.filter(
+    (p: any) => !allSchedules.some((s: any) => s.user_id === p.user_id)
+  );
+
+  const createScheduleForStaff = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await (supabase
+        .from('staff_schedules' as any)
+        .insert({ user_id: userId }) as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-staff-schedules'] });
+      toast.success('Schedule created');
+    },
+    onError: () => toast.error('Failed to create schedule'),
   });
 
   const { schedule: ownSchedule, isLoading: ownSchedLoading, createSchedule } = useSchedule();
