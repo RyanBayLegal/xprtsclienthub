@@ -88,11 +88,23 @@ export function useBlocks(scheduleId: string | undefined, weekStartDate?: string
       const { data, error } = await query;
       if (error) throw error;
       // Map joined client_profiles to the clients shape expected by ScheduleGrid
-      return (data ?? []).map((b: any, _i: number) => ({
+      // Fetch client colors
+      const clientIds = [...new Set((data ?? []).filter((b: any) => b.client_profiles?.id).map((b: any) => b.client_profiles.id))];
+      let colorMap: Record<string, string> = {};
+      if (clientIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('client_profiles')
+          .select('id, schedule_color')
+          .in('id', clientIds);
+        (profiles ?? []).forEach((p: any, i: number) => {
+          colorMap[p.id] = p.schedule_color || CLIENT_COLORS[i % CLIENT_COLORS.length];
+        });
+      }
+      return (data ?? []).map((b: any) => ({
         ...b,
         clients: b.client_profiles ? {
           ...b.client_profiles,
-          color: CLIENT_COLORS[(data ?? []).findIndex((x: any) => x.client_profiles?.id === b.client_profiles?.id) % CLIENT_COLORS.length],
+          color: colorMap[b.client_profiles.id] || '#60A5FA',
           timezone: 'America/New_York',
         } : null,
       }));

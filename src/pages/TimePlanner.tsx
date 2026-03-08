@@ -95,10 +95,10 @@ const TimePlanner = () => {
   const approvedTimeOff = timeOffRequests.filter(r => r.status === 'approved');
 
   useEffect(() => {
-    if (user && !ownSchedLoading && !ownSchedule && !isAdmin) {
+    if (user && !ownSchedLoading && !ownSchedule) {
       createSchedule.mutate();
     }
-  }, [user, ownSchedLoading, ownSchedule, isAdmin]);
+  }, [user, ownSchedLoading, ownSchedule]);
 
   useEffect(() => {
     if (isAdmin && allSchedules.length > 0 && selectedStaffIds.length === 0) {
