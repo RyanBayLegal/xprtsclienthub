@@ -20,6 +20,7 @@ import Staff from "./pages/Staff";
 import Settings from "./pages/Settings";
 import Vendors from "./pages/Vendors";
 import Links from "./pages/Links";
+import TimePlanner from "./pages/TimePlanner";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 
