@@ -71,12 +71,14 @@ export default function WorkflowAutomations() {
   });
 
   const fetchAll = async () => {
-    const [{ data: autos }, { data: profiles }] = await Promise.all([
+    const [{ data: autos }, { data: profiles }, { data: logData }] = await Promise.all([
       (supabase.from("workflow_automations" as any).select("*").order("created_at", { ascending: false }) as any),
       supabase.from("profiles").select("user_id, full_name"),
+      (supabase.from("workflow_automation_logs" as any).select("*").order("executed_at", { ascending: false }).limit(50) as any),
     ]);
     if (autos) setAutomations(autos as Automation[]);
     if (profiles) setStaff(profiles);
+    if (logData) setLogs(logData as AutomationLog[]);
   };
 
   useEffect(() => { fetchAll(); }, []);
