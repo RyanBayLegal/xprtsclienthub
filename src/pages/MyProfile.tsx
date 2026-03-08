@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UserAvatar } from "@/components/UserAvatar";
+import AvatarCropDialog from "@/components/AvatarCropDialog";
 import { Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 
