@@ -55,9 +55,24 @@ export function ScheduleColorPicker({ clients }: ScheduleColorPickerProps) {
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="mt-2 max-h-32 overflow-y-auto rounded-md border border-border bg-card/50 p-2">
-          <div className="flex flex-wrap gap-1.5">
-            {clients.map(client => (
+        <div className="mt-2 rounded-md border border-border bg-card/50 p-2 space-y-2">
+          {clients.length > 5 && (
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search clients..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="h-7 pl-7 text-xs"
+              />
+            </div>
+          )}
+          <div className="max-h-32 overflow-y-auto">
+            <div className="flex flex-wrap gap-1.5">
+              {filteredClients.length === 0 && (
+                <p className="text-xs text-muted-foreground py-1 px-1">No clients found</p>
+              )}
+              {filteredClients.map(client => (
               <Popover key={client.id}>
                 <PopoverTrigger asChild>
                   <button
