@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { formatDistanceToNow } from "date-fns";
 import { UserCheck, Plus, X, Search } from "lucide-react";
+import { executeWorkflows } from "@/lib/workflow-engine";
 
 const DEFAULT_STAGES = [
   "Prospecting Stage",
