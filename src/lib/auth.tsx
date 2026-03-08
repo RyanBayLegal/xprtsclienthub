@@ -27,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   role: null,
   loading: true,
+  roleLoading: true,
   signOut: async () => {},
   sessionTimeoutMinutes: DEFAULT_TIMEOUT_MINUTES,
   setSessionTimeoutMinutes: () => {},
