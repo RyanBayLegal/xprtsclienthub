@@ -541,6 +541,10 @@ export default function Leads() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="automations" className="mt-0">
+          <WorkflowAutomations />
+        </TabsContent>
       </Tabs>
     </div>
   );
