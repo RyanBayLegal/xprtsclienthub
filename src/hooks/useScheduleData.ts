@@ -50,10 +50,10 @@ export function useScheduleClients() {
     queryKey: ['schedule-clients-from-profiles', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
-        .from('client_profiles')
+      const { data, error } = await (supabase
+        .from('client_profiles' as any)
         .select('id, name, schedule_color')
-        .order('name');
+        .order('name') as any);
       if (error) throw error;
       return (data ?? []).map((c: any, i: number) => ({
         id: c.id,
