@@ -132,10 +132,10 @@ const TimePlanner = () => {
       const staffUserIds = new Set((roles ?? []).filter((r: any) => r.role === 'staff_member' || r.role === 'team_admin').map((r: any) => r.user_id));
       return (profiles ?? []).filter((p: any) => staffUserIds.has(p.user_id));
     },
-    enabled: !!user && isAdmin,
+    enabled: !!user && !roleLoading && isAdmin,
   });
 
-  const { data: allSchedules = [], isLoading: allSchedsLoading } = useQuery({
+  const { data: allSchedules = [], isLoading: allSchedsLoading, isFetching: allSchedsFetching } = useQuery({
     queryKey: ['all-staff-schedules', isAdmin],
     queryFn: async () => {
       const { data: scheds, error } = await (supabase
@@ -149,7 +149,7 @@ const TimePlanner = () => {
         _displayName: profiles?.find((p: any) => p.user_id === s.user_id)?.full_name ?? s.name,
       }));
     },
-    enabled: !!user && isAdmin,
+    enabled: !!user && !roleLoading && isAdmin,
   });
 
   const staffWithoutSchedule = allProfiles.filter(
@@ -165,9 +165,27 @@ const TimePlanner = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-staff-schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['all-profiles-for-schedule'] });
       toast.success('Schedule created');
     },
     onError: () => toast.error('Failed to create schedule'),
+  });
+
+  const createAllMissing = useMutation({
+    mutationFn: async () => {
+      const inserts = staffWithoutSchedule.map((p: any) => ({ user_id: p.user_id }));
+      if (inserts.length === 0) return;
+      const { error } = await (supabase
+        .from('staff_schedules' as any)
+        .insert(inserts) as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-staff-schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['all-profiles-for-schedule'] });
+      toast.success('All schedules created');
+    },
+    onError: () => toast.error('Failed to create schedules'),
   });
 
   const { schedule: ownSchedule, isLoading: ownSchedLoading, createSchedule } = useSchedule();
@@ -197,7 +215,7 @@ const TimePlanner = () => {
     }
   }, [isAdmin, allSchedules, selectedStaffIds.length]);
 
-  const isLoading = roleLoading || (isAdmin ? allSchedsLoading : ownSchedLoading);
+  const isLoading = roleLoading || (isAdmin ? (allSchedsLoading && allSchedsFetching) : ownSchedLoading);
 
   const toggleStaff = (userId: string) => {
     setSelectedStaffIds(prev =>
@@ -254,7 +272,18 @@ const TimePlanner = () => {
 
       {isAdmin && staffWithoutSchedule.length > 0 && (
         <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3">
-          <p className="text-sm font-medium text-muted-foreground mb-2">Staff without schedules:</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-muted-foreground">Staff without schedules:</p>
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => createAllMissing.mutate()}
+              disabled={createAllMissing.isPending}
+            >
+              <UserPlus className="h-3.5 w-3.5" /> Create All ({staffWithoutSchedule.length})
+            </Button>
+          </div>
           <div className="flex flex-wrap gap-2">
             {staffWithoutSchedule.map((p: any) => (
               <Button
