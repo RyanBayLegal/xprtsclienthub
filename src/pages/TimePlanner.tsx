@@ -123,6 +123,7 @@ const TimePlanner = () => {
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const queryClient = useQueryClient();
 
+  const { data: allProfiles = [] } = useQuery({
     queryKey: ['all-profiles-for-schedule', isAdmin],
     queryFn: async () => {
       const { data: profiles } = await supabase.from('profiles').select('*');
