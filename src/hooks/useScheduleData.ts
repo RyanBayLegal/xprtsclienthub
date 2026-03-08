@@ -89,7 +89,7 @@ export function useBlocks(scheduleId: string | undefined, weekStartDate?: string
       if (error) throw error;
       // Map joined client_profiles to the clients shape expected by ScheduleGrid
       // Fetch client colors
-      const clientIds = [...new Set((data ?? []).filter((b: any) => b.client_profiles?.id).map((b: any) => b.client_profiles.id))];
+      const clientIds: string[] = [...new Set((data ?? []).filter((b: any) => b.client_profiles?.id).map((b: any) => b.client_profiles.id as string))];
       let colorMap: Record<string, string> = {};
       if (clientIds.length > 0) {
         const { data: profiles } = await supabase
