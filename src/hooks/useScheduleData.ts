@@ -87,8 +87,15 @@ export function useBlocks(scheduleId: string | undefined, weekStartDate?: string
 
       const { data, error } = await query;
       if (error) throw error;
-      // Rename joined key from schedule_clients to clients for ScheduleGrid compatibility
-      return (data ?? []).map((b: any) => ({ ...b, clients: b.schedule_clients }));
+      // Map joined client_profiles to the clients shape expected by ScheduleGrid
+      return (data ?? []).map((b: any, _i: number) => ({
+        ...b,
+        clients: b.client_profiles ? {
+          ...b.client_profiles,
+          color: CLIENT_COLORS[(data ?? []).findIndex((x: any) => x.client_profiles?.id === b.client_profiles?.id) % CLIENT_COLORS.length],
+          timezone: 'America/New_York',
+        } : null,
+      }));
     },
     enabled: !!scheduleId,
   });
