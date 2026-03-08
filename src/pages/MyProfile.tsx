@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { UserAvatar } from "@/components/UserAvatar";
+import AvatarCropDialog from "@/components/AvatarCropDialog";
 import { Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,6 +19,8 @@ export default function MyProfile() {
   const [roles, setRoles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -45,24 +48,31 @@ export default function MyProfile() {
     setProfile((p: any) => p ? { ...p, [field]: value } : p);
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
     if (!file.type.startsWith("image/")) { toast.error("Please upload an image"); return; }
-    
+    setCropFile(file);
+    setCropOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleCroppedUpload = async (blob: Blob) => {
+    if (!user) return;
+    setCropOpen(false);
+    setCropFile(null);
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/avatar.${ext}`;
-    
+
+    const path = `${user.id}/avatar.png`;
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(path, file, { upsert: true });
-    
+      .upload(path, blob, { upsert: true, contentType: "image/png" });
+
     if (uploadError) { toast.error(uploadError.message); setUploading(false); return; }
-    
+
     const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
     const avatarUrl = urlData.publicUrl + "?t=" + Date.now();
-    
+
     await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("user_id", user.id);
     setUserProfile((p) => p ? { ...p, avatar_url: avatarUrl } : { full_name: null, avatar_url: avatarUrl });
     toast.success("Avatar updated");
@@ -107,11 +117,13 @@ export default function MyProfile() {
                 {uploading ? "Uploading..." : "Change Photo"}
               </Button>
               <p className="text-xs text-muted-foreground mt-1">JPG, PNG, or WebP. Max 5MB.</p>
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedUpload} />
 
       {!profile ? (
         <div className="text-center py-12">

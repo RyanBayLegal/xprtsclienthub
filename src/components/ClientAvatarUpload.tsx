@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import AvatarCropDialog from "@/components/AvatarCropDialog";
 import { Camera } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,23 +16,31 @@ interface ClientAvatarUploadProps {
 
 export default function ClientAvatarUpload({ clientProfileId, clientName, avatarUrl, onAvatarChange, editable = true }: ClientAvatarUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const initials = clientName
     ? clientName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "?";
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
     if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    setCropFile(file);
+    setCropOpen(true);
+    if (fileRef.current) fileRef.current.value = "";
+  };
 
+  const handleCroppedUpload = async (blob: Blob) => {
+    setCropOpen(false);
+    setCropFile(null);
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${clientProfileId}/avatar.${ext}`;
 
-    const { error: uploadError } = await supabase.storage.from("client-attachments").upload(path, file, { upsert: true });
+    const path = `${clientProfileId}/avatar.png`;
+    const { error: uploadError } = await supabase.storage.from("client-attachments").upload(path, blob, { upsert: true, contentType: "image/png" });
     if (uploadError) { toast.error(uploadError.message); setUploading(false); return; }
 
     const { data: { publicUrl } } = supabase.storage.from("client-attachments").getPublicUrl(path);
@@ -53,7 +62,7 @@ export default function ClientAvatarUpload({ clientProfileId, clientName, avatar
       </Avatar>
       {editable && (
         <>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
           <Button
             variant="secondary"
             size="icon"
@@ -63,6 +72,7 @@ export default function ClientAvatarUpload({ clientProfileId, clientName, avatar
           >
             <Camera className="h-3.5 w-3.5" />
           </Button>
+          <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedUpload} />
         </>
       )}
     </div>
