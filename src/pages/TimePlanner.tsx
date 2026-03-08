@@ -135,7 +135,7 @@ const TimePlanner = () => {
     enabled: !!user && isAdmin,
   });
 
-  const { data: allSchedules = [], isLoading: allSchedsLoading } = useQuery({
+  const { data: allSchedules = [], isLoading: allSchedsLoading, isFetching: allSchedsFetching } = useQuery({
     queryKey: ['all-staff-schedules', isAdmin],
     queryFn: async () => {
       const { data: scheds, error } = await (supabase
@@ -149,7 +149,7 @@ const TimePlanner = () => {
         _displayName: profiles?.find((p: any) => p.user_id === s.user_id)?.full_name ?? s.name,
       }));
     },
-    enabled: !!user && isAdmin,
+    enabled: !!user && !roleLoading && isAdmin,
   });
 
   const staffWithoutSchedule = allProfiles.filter(
