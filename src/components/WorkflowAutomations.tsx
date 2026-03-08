@@ -291,6 +291,53 @@ export default function WorkflowAutomations() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Execution History */}
+      <div className="pt-4 border-t">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-sm text-muted-foreground"
+          onClick={() => setShowLogs(!showLogs)}
+        >
+          <History className="h-4 w-4 mr-2" />
+          Execution History ({logs.length})
+        </Button>
+        {showLogs && (
+          <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
+            {logs.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No executions yet.</p>
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} className="flex items-start gap-3 p-3 rounded-md border bg-card text-sm">
+                  {log.status === "success" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium truncate">{log.automation_name}</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {ACTION_TYPES.find((a) => a.value === log.action_type)?.label || log.action_type}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Lead: <span className="font-medium">{log.lead_name}</span> → {log.trigger_stage.replace(" Stage", "")}
+                    </p>
+                    {log.result && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{log.result}</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {formatDistanceToNow(new Date(log.executed_at), { addSuffix: true })}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
