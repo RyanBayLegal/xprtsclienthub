@@ -285,37 +285,6 @@ const TimePlanner = () => {
         </div>
       )}
 
-      {isAdmin && staffWithoutSchedule.length > 0 && (
-        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-muted-foreground">Staff without schedules:</p>
-            <Button
-              variant="default"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => createAllMissing.mutate()}
-              disabled={createAllMissing.isPending}
-            >
-              <UserPlus className="h-3.5 w-3.5" /> Create All ({staffWithoutSchedule.length})
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {staffWithoutSchedule.map((p: any) => (
-              <Button
-                key={p.user_id}
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => createScheduleForStaff.mutate(p.user_id)}
-                disabled={createScheduleForStaff.isPending}
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                {p.full_name || 'Unknown'}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {isAdmin && clients.length > 0 && (
         <ScheduleColorPicker clients={clients} />
