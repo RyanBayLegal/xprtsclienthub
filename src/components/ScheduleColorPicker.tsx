@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Palette } from 'lucide-react';
+import { ChevronDown, Palette, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 const PRESET_COLORS = [
