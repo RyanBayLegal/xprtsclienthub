@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { TimeOffRequestForm } from '@/components/TimeOffRequestForm';
 import { TimeOffAdmin } from '@/components/TimeOffAdmin';
+import { ScheduleColorPicker } from '@/components/ScheduleColorPicker';
 
 
 interface ScheduleWithName {
@@ -95,10 +96,10 @@ const TimePlanner = () => {
   const approvedTimeOff = timeOffRequests.filter(r => r.status === 'approved');
 
   useEffect(() => {
-    if (user && !ownSchedLoading && !ownSchedule && !isAdmin) {
+    if (user && !ownSchedLoading && !ownSchedule) {
       createSchedule.mutate();
     }
-  }, [user, ownSchedLoading, ownSchedule, isAdmin]);
+  }, [user, ownSchedLoading, ownSchedule]);
 
   useEffect(() => {
     if (isAdmin && allSchedules.length > 0 && selectedStaffIds.length === 0) {
@@ -161,7 +162,9 @@ const TimePlanner = () => {
         </div>
       )}
 
-      
+      {isAdmin && clients.length > 0 && (
+        <ScheduleColorPicker clients={clients} />
+      )}
 
       {isLoading ? (
         <Skeleton className="h-96 w-full" />

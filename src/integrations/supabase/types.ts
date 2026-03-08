@@ -149,6 +149,7 @@ export type Database = {
           practice_area: string | null
           repeat_customer_probability: string | null
           role: string | null
+          schedule_color: string | null
           stage: string | null
           stage_changed_at: string | null
           updated_at: string
@@ -179,6 +180,7 @@ export type Database = {
           practice_area?: string | null
           repeat_customer_probability?: string | null
           role?: string | null
+          schedule_color?: string | null
           stage?: string | null
           stage_changed_at?: string | null
           updated_at?: string
@@ -209,6 +211,7 @@ export type Database = {
           practice_area?: string | null
           repeat_customer_probability?: string | null
           role?: string | null
+          schedule_color?: string | null
           stage?: string | null
           stage_changed_at?: string | null
           updated_at?: string
