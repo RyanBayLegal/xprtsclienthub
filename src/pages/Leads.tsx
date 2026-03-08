@@ -19,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import LeadsKanban from "./LeadsKanban";
 import NDABuilder from "@/components/NDABuilder";
 import AgreementBuilder from "@/components/AgreementBuilder";
+import WorkflowAutomations from "@/components/WorkflowAutomations";
 
 
 const STAGES = [
