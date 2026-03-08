@@ -113,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           resetInactivityTimer();
         } else {
           setRole(null);
+          setRoleLoading(false);
           clearTimers();
         }
         setLoading(false);
