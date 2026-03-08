@@ -78,7 +78,7 @@ export function useBlocks(scheduleId: string | undefined, weekStartDate?: string
       if (!scheduleId) return [];
       let query = (supabase
         .from('schedule_blocks' as any)
-        .select('*, schedule_clients(*)') as any)
+        .select('*, client_profiles(id, name)') as any)
         .eq('schedule_id', scheduleId);
       
       if (weekStartDate && weekEndDate) {
