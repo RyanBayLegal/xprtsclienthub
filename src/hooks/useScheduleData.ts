@@ -93,7 +93,7 @@ export function useBlocks(scheduleId: string | undefined, weekStartDate?: string
       let colorMap: Record<string, string> = {};
       if (clientIds.length > 0) {
         const { data: profiles } = await (supabase
-          .from('client_profiles')
+          .from('client_profiles' as any)
           .select('id, schedule_color')
           .in('id', clientIds) as any);
         (profiles ?? []).forEach((p: any, i: number) => {
