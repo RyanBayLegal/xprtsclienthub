@@ -1,0 +1,2 @@
+ALTER TABLE public.schedule_blocks DROP CONSTRAINT IF EXISTS schedule_blocks_client_id_fkey;
+ALTER TABLE public.schedule_blocks ADD CONSTRAINT schedule_blocks_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.client_profiles(id) ON DELETE SET NULL;

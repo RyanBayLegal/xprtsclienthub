@@ -504,7 +504,7 @@ export type Database = {
             foreignKeyName: "schedule_blocks_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
-            referencedRelation: "schedule_clients"
+            referencedRelation: "client_profiles"
             referencedColumns: ["id"]
           },
           {

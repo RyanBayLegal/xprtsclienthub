@@ -161,7 +161,7 @@ const TimePlanner = () => {
         </div>
       )}
 
-      {isAdmin && <ScheduleClientManager />}
+      
 
       {isLoading ? (
         <Skeleton className="h-96 w-full" />
