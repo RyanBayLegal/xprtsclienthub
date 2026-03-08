@@ -11,7 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Zap, ListTodo, Bell, UserCheck } from "lucide-react";
+import { Plus, Trash2, Zap, ListTodo, Bell, UserCheck, History, CheckCircle2, XCircle } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 const ALL_STAGES = [
   "Prospecting Stage",
@@ -44,9 +45,22 @@ interface StaffMember {
   full_name: string | null;
 }
 
+interface AutomationLog {
+  id: string;
+  automation_name: string;
+  trigger_stage: string;
+  action_type: string;
+  lead_name: string;
+  result: string | null;
+  status: string;
+  executed_at: string;
+}
+
 export default function WorkflowAutomations() {
   const { user } = useAuth();
   const [automations, setAutomations] = useState<Automation[]>([]);
+  const [logs, setLogs] = useState<AutomationLog[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
@@ -57,12 +71,14 @@ export default function WorkflowAutomations() {
   });
 
   const fetchAll = async () => {
-    const [{ data: autos }, { data: profiles }] = await Promise.all([
+    const [{ data: autos }, { data: profiles }, { data: logData }] = await Promise.all([
       (supabase.from("workflow_automations" as any).select("*").order("created_at", { ascending: false }) as any),
       supabase.from("profiles").select("user_id, full_name"),
+      (supabase.from("workflow_automation_logs" as any).select("*").order("executed_at", { ascending: false }).limit(50) as any),
     ]);
     if (autos) setAutomations(autos as Automation[]);
     if (profiles) setStaff(profiles);
+    if (logData) setLogs(logData as AutomationLog[]);
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -275,6 +291,53 @@ export default function WorkflowAutomations() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Execution History */}
+      <div className="pt-4 border-t">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-sm text-muted-foreground"
+          onClick={() => setShowLogs(!showLogs)}
+        >
+          <History className="h-4 w-4 mr-2" />
+          Execution History ({logs.length})
+        </Button>
+        {showLogs && (
+          <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
+            {logs.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No executions yet.</p>
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} className="flex items-start gap-3 p-3 rounded-md border bg-card text-sm">
+                  {log.status === "success" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium truncate">{log.automation_name}</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {ACTION_TYPES.find((a) => a.value === log.action_type)?.label || log.action_type}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Lead: <span className="font-medium">{log.lead_name}</span> → {log.trigger_stage.replace(" Stage", "")}
+                    </p>
+                    {log.result && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{log.result}</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {formatDistanceToNow(new Date(log.executed_at), { addSuffix: true })}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

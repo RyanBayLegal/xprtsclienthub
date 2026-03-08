@@ -723,6 +723,56 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_automation_logs: {
+        Row: {
+          action_type: string
+          automation_id: string | null
+          automation_name: string
+          executed_at: string
+          executed_by: string | null
+          id: string
+          lead_id: string | null
+          lead_name: string
+          result: string | null
+          status: string
+          trigger_stage: string
+        }
+        Insert: {
+          action_type: string
+          automation_id?: string | null
+          automation_name: string
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          lead_id?: string | null
+          lead_name: string
+          result?: string | null
+          status?: string
+          trigger_stage: string
+        }
+        Update: {
+          action_type?: string
+          automation_id?: string | null
+          automation_name?: string
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          lead_id?: string | null
+          lead_name?: string
+          result?: string | null
+          status?: string
+          trigger_stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_automation_logs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workflow_automations: {
         Row: {
           action_config: Json

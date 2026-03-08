@@ -9,6 +9,31 @@ interface WorkflowAutomation {
   is_active: boolean;
 }
 
+async function logExecution(
+  auto: WorkflowAutomation,
+  leadId: string,
+  leadName: string,
+  userId: string,
+  result: string,
+  status: "success" | "error"
+) {
+  try {
+    await (supabase.from("workflow_automation_logs" as any).insert({
+      automation_id: auto.id,
+      automation_name: auto.name,
+      trigger_stage: auto.trigger_stage,
+      action_type: auto.action_type,
+      lead_id: leadId,
+      lead_name: leadName,
+      result,
+      status,
+      executed_by: userId,
+    }) as any);
+  } catch (e) {
+    console.error("Failed to log workflow execution:", e);
+  }
+}
+
 export async function executeWorkflows(
   leadId: string,
   leadName: string,
@@ -27,6 +52,7 @@ export async function executeWorkflows(
 
   for (const auto of automations as WorkflowAutomation[]) {
     try {
+      let resultMsg = "";
       switch (auto.action_type) {
         case "create_task": {
           const cfg = auto.action_config;
@@ -45,7 +71,7 @@ export async function executeWorkflows(
             created_by: userId,
             status: "todo",
           });
-          results.push(`Task "${cfg.title || "Follow up"}" created`);
+          resultMsg = `Task "${cfg.title || "Follow up"}" created`;
           break;
         }
 
@@ -76,7 +102,7 @@ export async function executeWorkflows(
               lead_id: leadId,
             });
           }
-          results.push(`Notification sent`);
+          resultMsg = "Notification sent";
           break;
         }
 
@@ -95,15 +121,21 @@ export async function executeWorkflows(
               stage: cfg.default_stage || "Prospect",
               created_by: userId,
             });
-            results.push(`Converted "${leadName}" to client`);
+            resultMsg = `Converted "${leadName}" to client`;
           } else {
-            results.push(`Client profile already exists`);
+            resultMsg = "Client profile already exists";
           }
           break;
         }
       }
+
+      results.push(resultMsg);
+      await logExecution(auto, leadId, leadName, userId, resultMsg, "success");
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Unknown error";
       console.error(`Workflow "${auto.name}" failed:`, err);
+      results.push(`Failed: ${auto.name}`);
+      await logExecution(auto, leadId, leadName, userId, errMsg, "error");
     }
   }
 
