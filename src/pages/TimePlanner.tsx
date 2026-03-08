@@ -5,7 +5,7 @@ import { useSchedule, useScheduleClients, useBlocks, useTimeOffRequests, type Ti
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Copy, Settings2, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Settings2, Trash2, UserPlus } from 'lucide-react';
 import { StaffMultiSelect } from '@/components/StaffMultiSelect';
 import { getWeekDates, toDateString } from '@/lib/timezones';
 import { supabase } from '@/integrations/supabase/client';
