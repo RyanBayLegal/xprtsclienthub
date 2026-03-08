@@ -92,10 +92,10 @@ export function useBlocks(scheduleId: string | undefined, weekStartDate?: string
       const clientIds = Array.from(new Set((data ?? []).filter((b: any) => b.client_profiles?.id).map((b: any) => String(b.client_profiles.id))));
       let colorMap: Record<string, string> = {};
       if (clientIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await (supabase
           .from('client_profiles')
           .select('id, schedule_color')
-          .in('id', clientIds);
+          .in('id', clientIds) as any);
         (profiles ?? []).forEach((p: any, i: number) => {
           colorMap[p.id] = p.schedule_color || CLIENT_COLORS[i % CLIENT_COLORS.length];
         });
