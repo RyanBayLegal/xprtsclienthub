@@ -225,9 +225,17 @@ const TimePlanner = () => {
   const isLoading = roleLoading || (isAdmin ? (allSchedsLoading && allSchedsFetching) : ownSchedLoading);
 
   const toggleStaff = (userId: string) => {
+    const isSelecting = !selectedStaffIds.includes(userId);
     setSelectedStaffIds(prev =>
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
+    // Auto-create schedule if selecting a staff member without one
+    if (isSelecting) {
+      const staff = allStaffList.find(s => s.user_id === userId);
+      if (staff && !staff.hasSchedule) {
+        createScheduleForStaff.mutate(userId);
+      }
+    }
   };
 
   const selectAll = () => setSelectedStaffIds(allStaffList.map(s => s.user_id));
