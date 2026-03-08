@@ -96,3 +96,25 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .schedule-grid {
+    @apply w-full border-collapse;
+  }
+  .schedule-grid th,
+  .schedule-grid td {
+    @apply border border-border px-2 py-1.5 text-xs;
+  }
+  .schedule-grid th {
+    @apply bg-primary/90 text-primary-foreground font-semibold text-center;
+  }
+  .schedule-grid td {
+    @apply bg-card text-card-foreground transition-colors;
+  }
+  .schedule-grid td:hover {
+    @apply bg-muted cursor-pointer;
+  }
+  .schedule-grid .tz-col {
+    @apply font-mono text-center text-[11px] bg-muted text-muted-foreground;
+  }
+}

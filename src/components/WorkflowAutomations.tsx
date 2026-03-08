@@ -10,8 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Plus, Trash2, Zap, ListTodo, Bell, UserCheck, History, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Trash2, Zap, ListTodo, Bell, UserCheck, History, CheckCircle2, XCircle, Pencil } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 const ALL_STAGES = [
@@ -45,6 +46,15 @@ interface StaffMember {
   full_name: string | null;
 }
 
+interface TaskOption {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: string;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+}
+
 interface AutomationLog {
   id: string;
   automation_name: string;
@@ -56,46 +66,86 @@ interface AutomationLog {
   executed_at: string;
 }
 
+const emptyForm = {
+  name: "",
+  trigger_stage: "Hired Stage",
+  action_type: "create_task",
+  action_config: {} as Record<string, any>,
+};
+
 export default function WorkflowAutomations() {
   const { user } = useAuth();
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [logs, setLogs] = useState<AutomationLog[]>([]);
   const [showLogs, setShowLogs] = useState(false);
   const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [existingTasks, setExistingTasks] = useState<TaskOption[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    trigger_stage: "Hired Stage",
-    action_type: "create_task",
-    action_config: {} as Record<string, any>,
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [taskMode, setTaskMode] = useState<"new" | "existing">("new");
+  const [form, setForm] = useState({ ...emptyForm });
 
   const fetchAll = async () => {
-    const [{ data: autos }, { data: profiles }, { data: logData }] = await Promise.all([
+    const [{ data: autos }, { data: profiles }, { data: logData }, { data: tasks }] = await Promise.all([
       (supabase.from("workflow_automations" as any).select("*").order("created_at", { ascending: false }) as any),
       supabase.from("profiles").select("user_id, full_name"),
       (supabase.from("workflow_automation_logs" as any).select("*").order("executed_at", { ascending: false }).limit(50) as any),
+      supabase.from("tasks").select("id, title, description, priority, assigned_to, assigned_to_name").order("created_at", { ascending: false }).limit(100),
     ]);
     if (autos) setAutomations(autos as Automation[]);
     if (profiles) setStaff(profiles);
     if (logData) setLogs(logData as AutomationLog[]);
+    if (tasks) setExistingTasks(tasks as TaskOption[]);
   };
 
   useEffect(() => { fetchAll(); }, []);
 
-  const handleCreate = async () => {
+  const openCreate = () => {
+    setEditingId(null);
+    setForm({ ...emptyForm });
+    setTaskMode("new");
+    setDialogOpen(true);
+  };
+
+  const openEdit = (auto: Automation) => {
+    setEditingId(auto.id);
+    setForm({
+      name: auto.name,
+      trigger_stage: auto.trigger_stage,
+      action_type: auto.action_type,
+      action_config: { ...auto.action_config },
+    });
+    setTaskMode(auto.action_config.existing_task_id ? "existing" : "new");
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
     if (!form.name.trim()) { toast.error("Name is required"); return; }
-    const { error } = await (supabase.from("workflow_automations" as any).insert({
-      name: form.name,
-      trigger_stage: form.trigger_stage,
-      action_type: form.action_type,
-      action_config: form.action_config,
-      created_by: user?.id,
-    }) as any);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Automation created");
+
+    if (editingId) {
+      const { error } = await (supabase.from("workflow_automations" as any).update({
+        name: form.name,
+        trigger_stage: form.trigger_stage,
+        action_type: form.action_type,
+        action_config: form.action_config,
+      }).eq("id", editingId) as any);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Automation updated");
+    } else {
+      const { error } = await (supabase.from("workflow_automations" as any).insert({
+        name: form.name,
+        trigger_stage: form.trigger_stage,
+        action_type: form.action_type,
+        action_config: form.action_config,
+        created_by: user?.id,
+      }) as any);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Automation created");
+    }
+
     setDialogOpen(false);
-    setForm({ name: "", trigger_stage: "Hired Stage", action_type: "create_task", action_config: {} });
+    setEditingId(null);
+    setForm({ ...emptyForm });
     fetchAll();
   };
 
@@ -112,6 +162,23 @@ export default function WorkflowAutomations() {
 
   const updateConfig = (key: string, value: any) => {
     setForm((f) => ({ ...f, action_config: { ...f.action_config, [key]: value } }));
+  };
+
+  const selectExistingTask = (taskId: string) => {
+    const task = existingTasks.find(t => t.id === taskId);
+    if (!task) return;
+    setForm(f => ({
+      ...f,
+      action_config: {
+        ...f.action_config,
+        existing_task_id: taskId,
+        title: task.title,
+        description: task.description || "",
+        priority: task.priority,
+        assigned_to: task.assigned_to,
+        assigned_to_name: task.assigned_to_name,
+      },
+    }));
   };
 
   const actionIcon = (type: string) => {
@@ -131,7 +198,7 @@ export default function WorkflowAutomations() {
             Trigger actions automatically when leads move to a stage. Use <code className="text-xs bg-muted px-1 rounded">{"{{lead_name}}"}</code> as a placeholder.
           </p>
         </div>
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
+        <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4 mr-1" />Add Rule
         </Button>
       </div>
@@ -156,6 +223,9 @@ export default function WorkflowAutomations() {
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Switch checked={auto.is_active} onCheckedChange={() => toggleActive(auto.id, auto.is_active)} />
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(auto)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(auto.id)}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
@@ -165,10 +235,10 @@ export default function WorkflowAutomations() {
         ))}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm({ ...emptyForm }); } }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>New Automation Rule</DialogTitle>
+            <DialogTitle>{editingId ? "Edit Automation Rule" : "New Automation Rule"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
@@ -198,6 +268,40 @@ export default function WorkflowAutomations() {
             {form.action_type === "create_task" && (
               <div className="space-y-3 rounded-md border p-3">
                 <p className="text-xs font-medium text-muted-foreground uppercase">Task Config</p>
+                
+                <RadioGroup value={taskMode} onValueChange={(v) => {
+                  setTaskMode(v as "new" | "existing");
+                  if (v === "new") {
+                    const { existing_task_id, ...rest } = form.action_config;
+                    setForm(f => ({ ...f, action_config: rest }));
+                  }
+                }} className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="new" id="task-new" />
+                    <Label htmlFor="task-new" className="text-sm">Create new task</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="existing" id="task-existing" />
+                    <Label htmlFor="task-existing" className="text-sm">Use existing task</Label>
+                  </div>
+                </RadioGroup>
+
+                {taskMode === "existing" && (
+                  <div className="space-y-2">
+                    <Label>Select Task Template</Label>
+                    <Select value={form.action_config.existing_task_id || ""} onValueChange={selectExistingTask}>
+                      <SelectTrigger><SelectValue placeholder="Choose a task..." /></SelectTrigger>
+                      <SelectContent>
+                        {existingTasks.map(t => (
+                          <SelectItem key={t.id} value={t.id}>
+                            <span className="truncate">{t.title}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label>Task Title</Label>
                   <Input placeholder='e.g. "Onboard {{lead_name}}"' value={form.action_config.title || ""} onChange={(e) => updateConfig("title", e.target.value)} />
@@ -287,7 +391,9 @@ export default function WorkflowAutomations() {
               </div>
             )}
 
-            <Button onClick={handleCreate} className="w-full">Create Automation</Button>
+            <Button onClick={handleSave} className="w-full">
+              {editingId ? "Update Automation" : "Create Automation"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
