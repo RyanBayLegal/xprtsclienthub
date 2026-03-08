@@ -162,7 +162,9 @@ const TimePlanner = () => {
         </div>
       )}
 
-      
+      {isAdmin && clients.length > 0 && (
+        <ScheduleColorPicker clients={clients} />
+      )}
 
       {isLoading ? (
         <Skeleton className="h-96 w-full" />
