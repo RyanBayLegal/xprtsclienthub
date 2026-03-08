@@ -14,6 +14,7 @@ interface AuthContextType {
   session: Session | null;
   role: UserRole;
   loading: boolean;
+  roleLoading: boolean;
   signOut: () => Promise<void>;
   sessionTimeoutMinutes: number;
   setSessionTimeoutMinutes: (minutes: number) => void;
