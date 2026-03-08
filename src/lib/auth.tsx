@@ -42,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(true);
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const [sessionTimeoutMinutes, setSessionTimeoutMinutesState] = useState<number>(() => {
     const stored = localStorage.getItem(SESSION_TIMEOUT_KEY);
