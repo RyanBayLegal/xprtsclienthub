@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap } from "lucide-react";
 import { exportToCSV } from "@/lib/csv-export";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -19,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import LeadsKanban from "./LeadsKanban";
 import NDABuilder from "@/components/NDABuilder";
 import AgreementBuilder from "@/components/AgreementBuilder";
+import WorkflowAutomations from "@/components/WorkflowAutomations";
 
 
 const STAGES = [
@@ -427,6 +428,7 @@ export default function Leads() {
         <TabsList className="mb-4">
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="table">Table</TabsTrigger>
+          <TabsTrigger value="automations"><Zap className="h-3.5 w-3.5 mr-1" />Automations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="kanban" className="mt-0">
@@ -538,6 +540,10 @@ export default function Leads() {
               </div>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="automations" className="mt-0">
+          <WorkflowAutomations />
         </TabsContent>
       </Tabs>
     </div>

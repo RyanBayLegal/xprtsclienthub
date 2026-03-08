@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { formatDistanceToNow } from "date-fns";
 import { UserCheck, Plus, X, Search } from "lucide-react";
+import { executeWorkflows } from "@/lib/workflow-engine";
 
 const DEFAULT_STAGES = [
   "Prospecting Stage",
@@ -139,6 +140,12 @@ export default function LeadsKanban({ onConvert, refreshKey }: LeadsKanbanProps)
         message: `${lead.name} moved from ${oldStage} to ${newStage}`,
         lead_id: lead.id,
       });
+
+      // Execute workflow automations
+      const results = await executeWorkflows(lead.id, lead.name, newStage, user.id);
+      if (results && results.length > 0) {
+        results.forEach((r) => toast.info(r));
+      }
     }
     toast.success(`Moved to ${newStage}`);
   };
