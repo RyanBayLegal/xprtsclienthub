@@ -5,7 +5,7 @@ import { useSchedule, useScheduleClients, useBlocks, useTimeOffRequests, type Ti
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Copy, Settings2, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Settings2, Trash2, UserPlus } from 'lucide-react';
 import { StaffMultiSelect } from '@/components/StaffMultiSelect';
 import { getWeekDates, toDateString } from '@/lib/timezones';
 import { supabase } from '@/integrations/supabase/client';
@@ -121,6 +121,19 @@ const TimePlanner = () => {
   const { user, role, roleLoading } = useAuth();
   const isAdmin = role === 'team_admin';
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+  const queryClient = useQueryClient();
+
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ['all-profiles-for-schedule', isAdmin],
+    queryFn: async () => {
+      const { data: profiles } = await supabase.from('profiles').select('*');
+      const { data: roles } = await (supabase.from('user_roles').select('user_id, role') as any);
+      // Only staff_member and team_admin roles
+      const staffUserIds = new Set((roles ?? []).filter((r: any) => r.role === 'staff_member' || r.role === 'team_admin').map((r: any) => r.user_id));
+      return (profiles ?? []).filter((p: any) => staffUserIds.has(p.user_id));
+    },
+    enabled: !!user && isAdmin,
+  });
 
   const { data: allSchedules = [], isLoading: allSchedsLoading } = useQuery({
     queryKey: ['all-staff-schedules', isAdmin],
@@ -137,6 +150,24 @@ const TimePlanner = () => {
       }));
     },
     enabled: !!user && isAdmin,
+  });
+
+  const staffWithoutSchedule = allProfiles.filter(
+    (p: any) => !allSchedules.some((s: any) => s.user_id === p.user_id)
+  );
+
+  const createScheduleForStaff = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await (supabase
+        .from('staff_schedules' as any)
+        .insert({ user_id: userId }) as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-staff-schedules'] });
+      toast.success('Schedule created');
+    },
+    onError: () => toast.error('Failed to create schedule'),
   });
 
   const { schedule: ownSchedule, isLoading: ownSchedLoading, createSchedule } = useSchedule();
@@ -218,6 +249,27 @@ const TimePlanner = () => {
             onSelectAll={selectAll}
             onSelectNone={selectNone}
           />
+        </div>
+      )}
+
+      {isAdmin && staffWithoutSchedule.length > 0 && (
+        <div className="rounded-lg border border-dashed border-muted-foreground/30 p-3">
+          <p className="text-sm font-medium text-muted-foreground mb-2">Staff without schedules:</p>
+          <div className="flex flex-wrap gap-2">
+            {staffWithoutSchedule.map((p: any) => (
+              <Button
+                key={p.user_id}
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => createScheduleForStaff.mutate(p.user_id)}
+                disabled={createScheduleForStaff.isPending}
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                {p.full_name || 'Unknown'}
+              </Button>
+            ))}
+          </div>
         </div>
       )}
 
