@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { convertHour, formatHour, getTimezoneShort, toDateString } from '@/lib/timezones';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -68,6 +68,10 @@ export function ScheduleGrid({
   const [selectedClient, setSelectedClient] = useState('');
   const [customLabel, setCustomLabel] = useState('');
 
+  // Drag-to-select state
+  const isDragging = useRef(false);
+  const dragStartSlot = useRef<SelectedSlot | null>(null);
+
   const slots: number[] = [];
   for (let h = hourStart; h < hourEnd; h += SLOT_STEP) {
     slots.push(h);
@@ -92,16 +96,43 @@ export function ScheduleGrid({
   const isSlotSelected = (dateStr: string, slot: number): boolean =>
     selectedSlots.some(s => s.dateStr === dateStr && s.slot === slot);
 
+  const addSlotToSelection = (dateStr: string, slot: number) => {
+    if (readOnly) return;
+    if (getBlockAt(dateStr, slot)) return;
+    if (getTimeOffAt(dateStr, slot)) return;
+    setSelectedSlots(prev => {
+      if (prev.some(s => s.dateStr === dateStr && s.slot === slot)) return prev;
+      return [...prev, { dateStr, slot }];
+    });
+  };
+
   const toggleSlot = (dateStr: string, slot: number) => {
     if (readOnly) return;
     if (getBlockAt(dateStr, slot)) return;
     if (getTimeOffAt(dateStr, slot)) return;
-
     setSelectedSlots(prev => {
       const exists = prev.some(s => s.dateStr === dateStr && s.slot === slot);
       if (exists) return prev.filter(s => !(s.dateStr === dateStr && s.slot === slot));
       return [...prev, { dateStr, slot }];
     });
+  };
+
+  const handleCellMouseDown = (dateStr: string, slot: number) => {
+    if (readOnly) return;
+    if (getBlockAt(dateStr, slot) || getTimeOffAt(dateStr, slot)) return;
+    isDragging.current = true;
+    dragStartSlot.current = { dateStr, slot };
+    toggleSlot(dateStr, slot);
+  };
+
+  const handleCellMouseEnter = (dateStr: string, slot: number) => {
+    if (!isDragging.current || readOnly) return;
+    addSlotToSelection(dateStr, slot);
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+    dragStartSlot.current = null;
   };
 
   const openAssignDialog = () => {
@@ -151,7 +182,11 @@ export function ScheduleGrid({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border shadow-sm select-none">
+      <div
+        className="overflow-x-auto rounded-lg border border-border shadow-sm select-none"
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
         <table className="schedule-grid w-full">
           <thead>
             <tr>
@@ -207,7 +242,8 @@ export function ScheduleGrid({
                         backgroundColor: blockColor,
                         color: getContrastColor(blockColor),
                       } : undefined}
-                      onClick={() => !block && !timeOff && toggleSlot(dateStr, slot)}
+                      onMouseDown={() => !block && !timeOff && handleCellMouseDown(dateStr, slot)}
+                      onMouseEnter={() => !block && !timeOff && handleCellMouseEnter(dateStr, slot)}
                     >
                       {block ? (
                         <div className="flex items-center justify-center gap-1">
