@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { Palette } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, Palette } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PRESET_COLORS = [
@@ -20,6 +20,7 @@ interface ScheduleColorPickerProps {
 export function ScheduleColorPicker({ clients }: ScheduleColorPickerProps) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   const updateColor = async (clientId: string, color: string) => {
     setSaving(clientId);
@@ -40,41 +41,49 @@ export function ScheduleColorPicker({ clients }: ScheduleColorPickerProps) {
   if (clients.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-        <Palette className="h-4 w-4" /> Colors:
-      </span>
-      {clients.map(client => (
-        <Popover key={client.id}>
-          <PopoverTrigger asChild>
-            <button
-              className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium hover:bg-accent transition-colors"
-              disabled={saving === client.id}
-            >
-              <div
-                className="w-3 h-3 rounded-full ring-1 ring-border"
-                style={{ backgroundColor: client.color }}
-              />
-              {client.name}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-3" align="start">
-            <p className="text-xs font-medium mb-2">{client.name}</p>
-            <div className="grid grid-cols-5 gap-1.5">
-              {PRESET_COLORS.map(color => (
-                <button
-                  key={color}
-                  className={`w-7 h-7 rounded-md border-2 transition-transform hover:scale-110 ${
-                    client.color === color ? 'border-foreground scale-110' : 'border-transparent'
-                  }`}
-                  style={{ backgroundColor: color }}
-                  onClick={() => updateColor(client.id, color)}
-                />
-              ))}
-            </div>
-          </PopoverContent>
-        </Popover>
-      ))}
-    </div>
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+        <Palette className="h-4 w-4" />
+        Client Colors ({clients.length})
+        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-2 max-h-32 overflow-y-auto rounded-md border border-border bg-card/50 p-2">
+          <div className="flex flex-wrap gap-1.5">
+            {clients.map(client => (
+              <Popover key={client.id}>
+                <PopoverTrigger asChild>
+                  <button
+                    className="flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs font-medium hover:bg-accent transition-colors"
+                    disabled={saving === client.id}
+                  >
+                    <div
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: client.color }}
+                    />
+                    <span className="truncate max-w-[120px]">{client.name}</span>
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-3" align="start">
+                  <p className="text-xs font-medium mb-2">{client.name}</p>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {PRESET_COLORS.map(color => (
+                      <button
+                        key={color}
+                        className={`w-7 h-7 rounded-md border-2 transition-transform hover:scale-110 ${
+                          client.color === color ? 'border-foreground scale-110' : 'border-transparent'
+                        }`}
+                        style={{ backgroundColor: color }}
+                        onClick={() => updateColor(client.id, color)}
+                      />
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            ))}
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
