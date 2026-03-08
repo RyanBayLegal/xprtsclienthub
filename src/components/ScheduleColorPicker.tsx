@@ -100,6 +100,12 @@ export function ScheduleColorPicker({ clients }: ScheduleColorPickerProps) {
                       />
                     ))}
                   </div>
+                  <button
+                    className="mt-2 w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1 rounded-md hover:bg-accent"
+                    onClick={() => updateColor(client.id, '')}
+                  >
+                    Reset to default
+                  </button>
                 </PopoverContent>
               </Popover>
             ))}
