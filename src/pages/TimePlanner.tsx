@@ -132,7 +132,7 @@ const TimePlanner = () => {
       const staffUserIds = new Set((roles ?? []).filter((r: any) => r.role === 'staff_member' || r.role === 'team_admin').map((r: any) => r.user_id));
       return (profiles ?? []).filter((p: any) => staffUserIds.has(p.user_id));
     },
-    enabled: !!user && isAdmin,
+    enabled: !!user && !roleLoading && isAdmin,
   });
 
   const { data: allSchedules = [], isLoading: allSchedsLoading, isFetching: allSchedsFetching } = useQuery({
