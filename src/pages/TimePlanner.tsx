@@ -276,7 +276,7 @@ const TimePlanner = () => {
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-muted-foreground">Staff:</span>
           <StaffMultiSelect
-            staff={allStaffList.map(s => ({ user_id: s.user_id, displayName: s.displayName + (s.hasSchedule ? '' : ' (no schedule)') }))}
+            staff={allStaffList.map(s => ({ user_id: s.user_id, displayName: s.displayName }))}
             selectedIds={selectedStaffIds}
             onToggle={toggleStaff}
             onSelectAll={selectAll}
