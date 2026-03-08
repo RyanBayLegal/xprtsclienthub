@@ -38,48 +38,34 @@ export function useSchedule() {
   return { schedule: scheduleQuery.data, isLoading: scheduleQuery.isLoading, createSchedule };
 }
 
+const CLIENT_COLORS = [
+  '#FBBF24', '#F472B6', '#60A5FA', '#34D399', '#A78BFA',
+  '#FB923C', '#F87171', '#2DD4BF', '#E879F9', '#818CF8',
+];
+
 export function useScheduleClients() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
 
   const clientsQuery = useQuery({
-    queryKey: ['schedule-clients', user?.id],
+    queryKey: ['schedule-clients-from-profiles', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      // Admins see all schedule clients
-      const { data, error } = await (supabase
-        .from('schedule_clients' as any)
-        .select('*')
-        .order('created_at') as any);
+      const { data, error } = await supabase
+        .from('client_profiles')
+        .select('id, name')
+        .order('name');
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map((c, i) => ({
+        id: c.id,
+        name: c.name,
+        color: CLIENT_COLORS[i % CLIENT_COLORS.length],
+        timezone: 'America/New_York',
+      }));
     },
     enabled: !!user,
   });
 
-  const addClient = useMutation({
-    mutationFn: async (client: { name: string; color: string; timezone: string }) => {
-      if (!user) throw new Error('Not authenticated');
-      const { data, error } = await (supabase
-        .from('schedule_clients' as any)
-        .insert({ ...client, user_id: user.id })
-        .select()
-        .single() as any);
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule-clients'] }),
-  });
-
-  const deleteClient = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await (supabase.from('schedule_clients' as any).delete().eq('id', id) as any);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['schedule-clients'] }),
-  });
-
-  return { clients: clientsQuery.data ?? [], isLoading: clientsQuery.isLoading, addClient, deleteClient };
+  return { clients: clientsQuery.data ?? [], isLoading: clientsQuery.isLoading };
 }
 
 export function useBlocks(scheduleId: string | undefined, weekStartDate?: string, weekEndDate?: string) {
