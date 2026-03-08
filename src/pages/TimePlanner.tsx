@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { TimeOffRequestForm } from '@/components/TimeOffRequestForm';
 import { TimeOffAdmin } from '@/components/TimeOffAdmin';
-import { ScheduleClientManager } from '@/components/ScheduleClientManager';
+
 
 interface ScheduleWithName {
   id: string;
@@ -161,7 +161,7 @@ const TimePlanner = () => {
         </div>
       )}
 
-      {isAdmin && <ScheduleClientManager />}
+      
 
       {isLoading ? (
         <Skeleton className="h-96 w-full" />
