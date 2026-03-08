@@ -165,9 +165,27 @@ const TimePlanner = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-staff-schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['all-profiles-for-schedule'] });
       toast.success('Schedule created');
     },
     onError: () => toast.error('Failed to create schedule'),
+  });
+
+  const createAllMissing = useMutation({
+    mutationFn: async () => {
+      const inserts = staffWithoutSchedule.map((p: any) => ({ user_id: p.user_id }));
+      if (inserts.length === 0) return;
+      const { error } = await (supabase
+        .from('staff_schedules' as any)
+        .insert(inserts) as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-staff-schedules'] });
+      queryClient.invalidateQueries({ queryKey: ['all-profiles-for-schedule'] });
+      toast.success('All schedules created');
+    },
+    onError: () => toast.error('Failed to create schedules'),
   });
 
   const { schedule: ownSchedule, isLoading: ownSchedLoading, createSchedule } = useSchedule();
