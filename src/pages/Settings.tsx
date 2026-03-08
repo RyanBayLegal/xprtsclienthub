@@ -136,19 +136,30 @@ export default function Settings() {
     setResendingId(null);
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
+
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    const userId = avatarTargetUser.current;
-    if (!file || !userId) return;
+    if (!file) return;
     if (!file.type.startsWith("image/")) { toast.error("Please upload an image"); return; }
+    setCropFile(file);
+    setCropOpen(true);
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
+  };
+
+  const handleCroppedAvatarUpload = async (blob: Blob) => {
+    const userId = avatarTargetUser.current;
+    if (!userId) return;
+    setCropOpen(false);
+    setCropFile(null);
 
     setUploadingAvatarId(userId);
-    const ext = file.name.split(".").pop();
-    const path = `${userId}/avatar.${ext}`;
+    const path = `${userId}/avatar.png`;
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(path, file, { upsert: true });
+      .upload(path, blob, { upsert: true, contentType: "image/png" });
 
     if (uploadError) { toast.error(uploadError.message); setUploadingAvatarId(null); return; }
 
@@ -159,7 +170,6 @@ export default function Settings() {
     setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, avatar_url: avatarUrl } : u));
     toast.success("Avatar updated");
     setUploadingAvatarId(null);
-    if (avatarInputRef.current) avatarInputRef.current.value = "";
   };
 
   const handleRoleChange = async (userId: string, newRole: "team_admin" | "client" | "staff_member") => {
