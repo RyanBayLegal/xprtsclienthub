@@ -103,6 +103,7 @@ export function ScheduleColorPicker({ clients }: ScheduleColorPickerProps) {
                 </PopoverContent>
               </Popover>
             ))}
+            </div>
           </div>
         </div>
       </CollapsibleContent>
