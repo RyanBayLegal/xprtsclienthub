@@ -15,11 +15,11 @@ export async function executeWorkflows(
   newStage: string,
   userId: string
 ) {
-  const { data: automations } = await supabase
-    .from("workflow_automations")
+  const { data: automations } = await (supabase
+    .from("workflow_automations" as any)
     .select("*")
     .eq("trigger_stage", newStage)
-    .eq("is_active", true);
+    .eq("is_active", true) as any);
 
   if (!automations || automations.length === 0) return;
 

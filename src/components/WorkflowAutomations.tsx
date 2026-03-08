@@ -58,7 +58,7 @@ export default function WorkflowAutomations() {
 
   const fetchAll = async () => {
     const [{ data: autos }, { data: profiles }] = await Promise.all([
-      supabase.from("workflow_automations").select("*").order("created_at", { ascending: false }),
+      (supabase.from("workflow_automations" as any).select("*").order("created_at", { ascending: false }) as any),
       supabase.from("profiles").select("user_id, full_name"),
     ]);
     if (autos) setAutomations(autos as Automation[]);
@@ -69,13 +69,13 @@ export default function WorkflowAutomations() {
 
   const handleCreate = async () => {
     if (!form.name.trim()) { toast.error("Name is required"); return; }
-    const { error } = await supabase.from("workflow_automations").insert({
+    const { error } = await (supabase.from("workflow_automations" as any).insert({
       name: form.name,
       trigger_stage: form.trigger_stage,
       action_type: form.action_type,
       action_config: form.action_config,
       created_by: user?.id,
-    });
+    }) as any);
     if (error) { toast.error(error.message); return; }
     toast.success("Automation created");
     setDialogOpen(false);
@@ -84,12 +84,12 @@ export default function WorkflowAutomations() {
   };
 
   const toggleActive = async (id: string, current: boolean) => {
-    await supabase.from("workflow_automations").update({ is_active: !current }).eq("id", id);
+    await (supabase.from("workflow_automations" as any).update({ is_active: !current }).eq("id", id) as any);
     setAutomations((prev) => prev.map((a) => a.id === id ? { ...a, is_active: !current } : a));
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("workflow_automations").delete().eq("id", id);
+    await (supabase.from("workflow_automations" as any).delete().eq("id", id) as any);
     setAutomations((prev) => prev.filter((a) => a.id !== id));
     toast.success("Automation deleted");
   };
@@ -179,7 +179,6 @@ export default function WorkflowAutomations() {
               </Select>
             </div>
 
-            {/* Dynamic config fields */}
             {form.action_type === "create_task" && (
               <div className="space-y-3 rounded-md border p-3">
                 <p className="text-xs font-medium text-muted-foreground uppercase">Task Config</p>
