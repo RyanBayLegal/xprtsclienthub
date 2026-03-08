@@ -5,7 +5,7 @@ import { useSchedule, useScheduleClients, useBlocks, useTimeOffRequests, type Ti
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Settings2 } from 'lucide-react';
 import { StaffMultiSelect } from '@/components/StaffMultiSelect';
 import { getWeekDates, toDateString } from '@/lib/timezones';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,8 @@ import { useQuery } from '@tanstack/react-query';
 import { TimeOffRequestForm } from '@/components/TimeOffRequestForm';
 import { TimeOffAdmin } from '@/components/TimeOffAdmin';
 import { ScheduleColorPicker } from '@/components/ScheduleColorPicker';
+import { CopyWeekDialog } from '@/components/CopyWeekDialog';
+import { ScheduleConfigDialog } from '@/components/ScheduleConfigDialog';
 
 
 interface ScheduleWithName {
@@ -37,24 +39,50 @@ function StaffScheduleGrid({ schedule, weekStart, weekEnd, weekDates, clients, i
 }) {
   const { blocks, addBlock, deleteBlock } = useBlocks(schedule.id, weekStart, weekEnd);
   const displayTimezones = (schedule.display_timezones as string[]) ?? ['America/Los_Angeles', 'America/Chicago', 'America/New_York'];
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
 
   return (
-    <ScheduleGrid
-      name={schedule._displayName}
-      baseTimezone={schedule.base_timezone}
-      displayTimezones={displayTimezones}
-      hourStart={schedule.hour_start}
-      hourEnd={schedule.hour_end}
-      blocks={blocks}
-      clients={clients}
-      weekDates={weekDates}
-      onAddBlock={(block) => {
-        addBlock.mutate({ ...block, schedule_id: schedule.id, _owner_id: schedule.user_id });
-      }}
-      onDeleteBlock={(id) => deleteBlock.mutate(id)}
-      readOnly={!isAdmin}
-      approvedTimeOff={approvedTimeOff.filter(r => r.user_id === schedule.user_id)}
-    />
+    <div className="space-y-2">
+      {isAdmin && (
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setCopyOpen(true)} className="gap-1.5">
+            <Copy className="h-3.5 w-3.5" /> Copy Week
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)} className="gap-1.5">
+            <Settings2 className="h-3.5 w-3.5" /> Configure
+          </Button>
+        </div>
+      )}
+      <ScheduleGrid
+        name={schedule._displayName}
+        baseTimezone={schedule.base_timezone}
+        displayTimezones={displayTimezones}
+        hourStart={schedule.hour_start}
+        hourEnd={schedule.hour_end}
+        blocks={blocks}
+        clients={clients}
+        weekDates={weekDates}
+        onAddBlock={(block) => {
+          addBlock.mutate({ ...block, schedule_id: schedule.id, _owner_id: schedule.user_id });
+        }}
+        onDeleteBlock={(id) => deleteBlock.mutate(id)}
+        readOnly={!isAdmin}
+        approvedTimeOff={approvedTimeOff.filter(r => r.user_id === schedule.user_id)}
+      />
+      <CopyWeekDialog
+        open={copyOpen}
+        onOpenChange={setCopyOpen}
+        sourceWeekDates={weekDates}
+        scheduleId={schedule.id}
+        userId={schedule.user_id}
+      />
+      <ScheduleConfigDialog
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        schedule={schedule}
+      />
+    </div>
   );
 }
 
@@ -132,7 +160,7 @@ const TimePlanner = () => {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Time Planner</h1>
           <p className="text-sm text-muted-foreground">
-            {isAdmin ? 'Drag across cells to create blocks (30-min slots).' : 'Your schedule (read-only). Contact your admin for changes.'}
+            {isAdmin ? 'Click cells to select, then assign blocks (30-min slots).' : 'Your schedule (read-only). Contact your admin for changes.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
