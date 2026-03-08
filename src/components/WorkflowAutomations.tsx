@@ -45,6 +45,17 @@ interface StaffMember {
   full_name: string | null;
 }
 
+interface AutomationLog {
+  id: string;
+  automation_name: string;
+  trigger_stage: string;
+  action_type: string;
+  lead_name: string;
+  result: string | null;
+  status: string;
+  executed_at: string;
+}
+
 export default function WorkflowAutomations() {
   const { user } = useAuth();
   const [automations, setAutomations] = useState<Automation[]>([]);
