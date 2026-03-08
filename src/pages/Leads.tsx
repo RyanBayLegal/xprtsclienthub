@@ -428,6 +428,7 @@ export default function Leads() {
         <TabsList className="mb-4">
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="table">Table</TabsTrigger>
+          <TabsTrigger value="automations"><Zap className="h-3.5 w-3.5 mr-1" />Automations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="kanban" className="mt-0">
