@@ -56,22 +56,44 @@ export async function executeWorkflows(
       switch (auto.action_type) {
         case "create_task": {
           const cfg = auto.action_config;
+          let taskTitle = cfg.title || "Follow up";
+          let taskDesc = cfg.description || "";
+          let taskPriority = cfg.priority || "medium";
+          let taskAssignedTo = cfg.assigned_to || null;
+          let taskAssignedToName = cfg.assigned_to_name || null;
+
+          // If existing_task_id is set, clone from that task
+          if (cfg.existing_task_id) {
+            const { data: srcTask } = await supabase
+              .from("tasks")
+              .select("title, description, priority, assigned_to, assigned_to_name")
+              .eq("id", cfg.existing_task_id)
+              .maybeSingle();
+            if (srcTask) {
+              taskTitle = srcTask.title;
+              taskDesc = srcTask.description || "";
+              taskPriority = srcTask.priority;
+              taskAssignedTo = srcTask.assigned_to;
+              taskAssignedToName = srcTask.assigned_to_name;
+            }
+          }
+
           const dueDate = cfg.due_in_days
             ? new Date(Date.now() + cfg.due_in_days * 86400000).toISOString().split("T")[0]
             : null;
 
           await supabase.from("tasks").insert({
-            title: (cfg.title || "Follow up").replace("{{lead_name}}", leadName),
-            description: (cfg.description || "").replace("{{lead_name}}", leadName),
-            priority: cfg.priority || "medium",
-            assigned_to: cfg.assigned_to || null,
-            assigned_to_name: cfg.assigned_to_name || null,
+            title: taskTitle.replace("{{lead_name}}", leadName),
+            description: taskDesc.replace("{{lead_name}}", leadName),
+            priority: taskPriority,
+            assigned_to: taskAssignedTo,
+            assigned_to_name: taskAssignedToName,
             due_date: dueDate,
             lead_id: leadId,
             created_by: userId,
             status: "todo",
           });
-          resultMsg = `Task "${cfg.title || "Follow up"}" created`;
+          resultMsg = `Task "${taskTitle}" created`;
           break;
         }
 

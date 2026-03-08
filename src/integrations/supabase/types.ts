@@ -462,6 +462,87 @@ export type Database = {
           },
         ]
       }
+      schedule_blocks: {
+        Row: {
+          block_date: string | null
+          client_id: string | null
+          created_at: string
+          day_of_week: number | null
+          end_hour: number
+          id: string
+          label: string | null
+          schedule_id: string
+          start_hour: number
+          user_id: string
+        }
+        Insert: {
+          block_date?: string | null
+          client_id?: string | null
+          created_at?: string
+          day_of_week?: number | null
+          end_hour: number
+          id?: string
+          label?: string | null
+          schedule_id: string
+          start_hour: number
+          user_id: string
+        }
+        Update: {
+          block_date?: string | null
+          client_id?: string | null
+          created_at?: string
+          day_of_week?: number | null
+          end_hour?: number
+          id?: string
+          label?: string | null
+          schedule_id?: string
+          start_hour?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_blocks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_blocks_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "staff_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_clients: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          timezone: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          timezone?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          timezone?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       scoping_questionnaires: {
         Row: {
           client_profile_id: string
@@ -496,6 +577,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      staff_schedules: {
+        Row: {
+          base_timezone: string
+          created_at: string
+          display_timezones: Json
+          hour_end: number
+          hour_start: number
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          base_timezone?: string
+          created_at?: string
+          display_timezones?: Json
+          hour_end?: number
+          hour_start?: number
+          id?: string
+          name?: string
+          user_id: string
+        }
+        Update: {
+          base_timezone?: string
+          created_at?: string
+          display_timezones?: Json
+          hour_end?: number
+          hour_start?: number
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       systems_audits: {
         Row: {
@@ -663,6 +777,45 @@ export type Database = {
           id?: string
           title?: string
           url?: string
+        }
+        Relationships: []
+      }
+      time_off_requests: {
+        Row: {
+          block_date: string
+          created_at: string
+          end_hour: number
+          id: string
+          reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          start_hour: number
+          status: string
+          user_id: string
+        }
+        Insert: {
+          block_date: string
+          created_at?: string
+          end_hour: number
+          id?: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_hour: number
+          status?: string
+          user_id: string
+        }
+        Update: {
+          block_date?: string
+          created_at?: string
+          end_hour?: number
+          id?: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_hour?: number
+          status?: string
+          user_id?: string
         }
         Relationships: []
       }

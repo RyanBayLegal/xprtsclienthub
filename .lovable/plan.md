@@ -1,61 +1,34 @@
 
 
-## Plan: Edit Automations, Time Planner Tab, and Pre-existing Task Selection
+## Plan: Notify Assigned Staff on Task Creation
 
-### 1. Edit Existing Automation Rules
+### Problem
+Currently, when a task is created, the notification is sent to the **creator's own** `user_id` (line 331: `user_id: user.id`), not to the assigned staff member. The assigned person never sees it on their dashboard.
 
-**File: `src/components/WorkflowAutomations.tsx`**
-- Add an edit button (Pencil icon) next to each automation card's delete button
-- Track an `editingId` state; when set, the dialog opens in "edit" mode pre-populated with that automation's data
-- Change the dialog title dynamically: "New Automation Rule" vs "Edit Automation Rule"
-- Change the submit button: "Create Automation" vs "Update Automation"
-- Add a `handleUpdate` function that calls `.update()` on `workflow_automations` by ID
-- Reuse the same form state (`form`) for both create and edit flows
+### Changes
 
-### 2. Pre-existing Task Selection in Automation
+**1. `src/pages/Tasks.tsx` — `handleCreate` function (around lines 330-337)**
+- Change the notification insert to target the **assigned staff member** (`form.assigned_to`) instead of the creator (`user.id`)
+- Include richer details in the message: task title, due date, creator name, and client name
+- Fetch the creator's profile name to include "Created by: X"
 
-**File: `src/components/WorkflowAutomations.tsx`**
-- In the `create_task` config section, add a toggle/radio: "Create new task" vs "Use existing task template"
-- When "Use existing task" is selected, fetch existing tasks from the `tasks` table and show a searchable dropdown
-- Store `existing_task_id` in `action_config` when a pre-existing task is chosen
-- Pre-fill title/description/priority/assignee from the selected task
+**2. `src/pages/Tasks.tsx` — `handleEdit` function (around lines 394-408)**
+- When `assigned_to` changes on edit, also insert a notification for the newly assigned staff member with the same rich details
 
-**File: `src/lib/workflow-engine.ts`**
-- In the `create_task` case, check if `action_config.existing_task_id` is set
-- If so, fetch that task's details and clone them (with lead_id injected) instead of using the config fields
+**3. `src/components/ClientTasks.tsx` — `createTask` function (around lines 101-112)**
+- Same fix: send the notification to `form.assigned_to` (the assignee) instead of `user.id` (the creator)
+- Include due date, creator name, and client name in the message
 
-### 3. Global Time Planner Tab
+### Notification Message Format
+```
+"Task Title" — Client: ClientName | Due: 2026-03-05 | Created by: AdminName
+```
 
-This requires porting the entire schedule system from the other project. Since it uses its own Supabase tables (`schedules`, `schedule_blocks`, `clients` for scheduling, `time_off_requests`, `profiles` with `display_name`/`is_active`/`email`), we need:
+### What Already Works
+- The `notifications` table and `NotificationBell` component already display notifications per user
+- Staff and Client dashboards already query tasks by `assigned_to`
+- RLS on `notifications` allows team_admin to INSERT and users to SELECT/UPDATE their own
 
-**Database migration** — Create these new tables:
-- `staff_schedules` (id, user_id, name, base_timezone, display_timezones jsonb, hour_start int default 7, hour_end int default 20, created_at)
-- `schedule_blocks` (id, schedule_id FK, user_id, client_id nullable, block_date date, day_of_week int, start_hour numeric, end_hour numeric, label text, created_at)
-- `schedule_clients` (id, user_id, name, color, timezone, created_at) — scheduling-specific clients (color-coded entries for the grid)
-- `time_off_requests` (id, user_id, block_date date, start_hour int, end_hour int, reason text, status text default 'pending', reviewed_by uuid, reviewed_at timestamptz, created_at)
-
-RLS: team_admin can manage all; staff_member can read own schedule, insert own time-off requests.
-
-**New files to create:**
-- `src/lib/timezones.ts` — Port timezone utilities and constants
-- `src/hooks/useScheduleData.ts` — Port `useSchedule`, `useClients` (renamed to avoid conflict), `useBlocks`, `useTimeOffRequests` hooks, adapted to use this project's auth
-- `src/components/ScheduleGrid.tsx` — Port the grid component as-is
-- `src/components/StaffMultiSelect.tsx` — Port the multi-select filter
-- `src/components/TimeOffAdmin.tsx` — Port admin approval UI
-- `src/components/TimeOffRequestForm.tsx` — Port staff request form
-- `src/components/ScheduleClients.tsx` — Port the schedule client management (colors/timezones)
-- `src/pages/TimePlanner.tsx` — New page combining all schedule components (adapted from Index.tsx, removing its own nav/auth since AppLayout handles that)
-
-**Routing & navigation:**
-- `src/App.tsx` — Add `/time-planner` route wrapped in `ProtectedRoute` + `TeamRoute`
-- `src/components/AppSidebar.tsx` — Add "Time Planner" nav item with `Clock` icon for team_admin and staff_member roles
-
-**CSS:**
-- `src/index.css` — Add the `.schedule-grid` component styles and CSS custom properties for grid theming
-
-### Technical Notes
-- The Time Planner's `useAuth` hook will be replaced with imports from `@/lib/auth` (this project's auth system)
-- The Time Planner's `profiles` table references `display_name` and `is_active` columns which don't exist in this project's profiles table. We'll use `full_name` instead and skip `is_active` (all staff shown)
-- Schedule clients are separate from CRM client_profiles — they represent color-coded time blocks
-- The Time Planner project uses edge functions (`create-user`, `manage-user`) for staff management which we won't port since this project has its own staff management
+### No Database Changes Needed
+The existing `notifications` table schema already supports all required fields.
 
