@@ -22,6 +22,12 @@ export function ScheduleColorPicker({ clients }: ScheduleColorPickerProps) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredClients = useMemo(
+    () => clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase())),
+    [clients, search]
+  );
 
   const updateColor = async (clientId: string, color: string) => {
     setSaving(clientId);
