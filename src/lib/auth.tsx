@@ -58,12 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchRole = async (userId: string) => {
+    setRoleLoading(true);
     const { data } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
       .maybeSingle();
     setRole((data?.role as UserRole) ?? null);
+    setRoleLoading(false);
   };
 
   const signOut = async () => {
