@@ -209,11 +209,18 @@ const TimePlanner = () => {
     }
   }, [user, ownSchedLoading, ownSchedule]);
 
+  // Build unified staff list from all profiles
+  const allStaffList = allProfiles.map((p: any) => ({
+    user_id: p.user_id,
+    displayName: p.full_name || 'Unknown',
+    hasSchedule: allSchedules.some((s: any) => s.user_id === p.user_id),
+  }));
+
   useEffect(() => {
-    if (isAdmin && allSchedules.length > 0 && selectedStaffIds.length === 0) {
-      setSelectedStaffIds(allSchedules.map((s: any) => s.user_id));
+    if (isAdmin && allStaffList.length > 0 && selectedStaffIds.length === 0) {
+      setSelectedStaffIds(allStaffList.map(s => s.user_id));
     }
-  }, [isAdmin, allSchedules, selectedStaffIds.length]);
+  }, [isAdmin, allStaffList.length, selectedStaffIds.length]);
 
   const isLoading = roleLoading || (isAdmin ? (allSchedsLoading && allSchedsFetching) : ownSchedLoading);
 
@@ -223,7 +230,7 @@ const TimePlanner = () => {
     );
   };
 
-  const selectAll = () => setSelectedStaffIds(allSchedules.map((s: any) => s.user_id));
+  const selectAll = () => setSelectedStaffIds(allStaffList.map(s => s.user_id));
   const selectNone = () => setSelectedStaffIds([]);
 
   const goToday = () => setCurrentDate(new Date());
@@ -257,11 +264,11 @@ const TimePlanner = () => {
         </div>
       </div>
 
-      {isAdmin && allSchedules.length > 0 && (
+      {isAdmin && allStaffList.length > 0 && (
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-muted-foreground">Staff:</span>
           <StaffMultiSelect
-            staff={allSchedules.map((s: any) => ({ user_id: s.user_id, displayName: s._displayName }))}
+            staff={allStaffList.map(s => ({ user_id: s.user_id, displayName: s.displayName + (s.hasSchedule ? '' : ' (no schedule)') }))}
             selectedIds={selectedStaffIds}
             onToggle={toggleStaff}
             onSelectAll={selectAll}
