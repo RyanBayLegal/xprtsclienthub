@@ -723,6 +723,39 @@ export type Database = {
         }
         Relationships: []
       }
+      workflow_automations: {
+        Row: {
+          action_config: Json
+          action_type: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          name: string
+          trigger_stage: string
+        }
+        Insert: {
+          action_config?: Json
+          action_type: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          trigger_stage: string
+        }
+        Update: {
+          action_config?: Json
+          action_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          trigger_stage?: string
+        }
+        Relationships: []
+      }
       workflow_templates: {
         Row: {
           created_at: string
