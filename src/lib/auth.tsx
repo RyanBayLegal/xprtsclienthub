@@ -14,6 +14,7 @@ interface AuthContextType {
   session: Session | null;
   role: UserRole;
   loading: boolean;
+  roleLoading: boolean;
   signOut: () => Promise<void>;
   sessionTimeoutMinutes: number;
   setSessionTimeoutMinutes: (minutes: number) => void;
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   role: null,
   loading: true,
+  roleLoading: true,
   signOut: async () => {},
   sessionTimeoutMinutes: DEFAULT_TIMEOUT_MINUTES,
   setSessionTimeoutMinutes: () => {},
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<UserRole>(null);
   const [loading, setLoading] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(true);
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const [sessionTimeoutMinutes, setSessionTimeoutMinutesState] = useState<number>(() => {
     const stored = localStorage.getItem(SESSION_TIMEOUT_KEY);
@@ -55,12 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchRole = async (userId: string) => {
+    setRoleLoading(true);
     const { data } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
       .maybeSingle();
     setRole((data?.role as UserRole) ?? null);
+    setRoleLoading(false);
   };
 
   const signOut = async () => {
@@ -108,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           resetInactivityTimer();
         } else {
           setRole(null);
+          setRoleLoading(false);
           clearTimers();
         }
         setLoading(false);
@@ -150,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, session, role, loading, signOut,
+      user, session, role, loading, roleLoading, signOut,
       sessionTimeoutMinutes, setSessionTimeoutMinutes,
       showTimeoutWarning, extendSession,
     }}>

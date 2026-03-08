@@ -5,17 +5,17 @@ import { useSchedule, useScheduleClients, useBlocks, useTimeOffRequests, type Ti
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Copy, Settings2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Settings2, Trash2 } from 'lucide-react';
 import { StaffMultiSelect } from '@/components/StaffMultiSelect';
 import { getWeekDates, toDateString } from '@/lib/timezones';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { TimeOffRequestForm } from '@/components/TimeOffRequestForm';
 import { TimeOffAdmin } from '@/components/TimeOffAdmin';
 import { ScheduleColorPicker } from '@/components/ScheduleColorPicker';
 import { CopyWeekDialog } from '@/components/CopyWeekDialog';
 import { ScheduleConfigDialog } from '@/components/ScheduleConfigDialog';
-
+import { toast } from 'sonner';
 
 interface ScheduleWithName {
   id: string;
@@ -41,6 +41,24 @@ function StaffScheduleGrid({ schedule, weekStart, weekEnd, weekDates, clients, i
   const displayTimezones = (schedule.display_timezones as string[]) ?? ['America/Los_Angeles', 'America/Chicago', 'America/New_York'];
   const [copyOpen, setCopyOpen] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const clearWeek = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase
+        .from('schedule_blocks' as any)
+        .delete()
+        .eq('schedule_id', schedule.id)
+        .gte('block_date', weekStart)
+        .lte('block_date', weekEnd) as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule-blocks'] });
+      toast.success('Week cleared');
+    },
+    onError: () => toast.error('Failed to clear week'),
+  });
 
   return (
     <div className="space-y-2">
@@ -51,6 +69,19 @@ function StaffScheduleGrid({ schedule, weekStart, weekEnd, weekDates, clients, i
           </Button>
           <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)} className="gap-1.5">
             <Settings2 className="h-3.5 w-3.5" /> Configure
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-destructive hover:text-destructive"
+            onClick={() => {
+              if (window.confirm(`Clear all blocks for ${schedule._displayName} this week?`)) {
+                clearWeek.mutate();
+              }
+            }}
+            disabled={clearWeek.isPending}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Clear Week
           </Button>
         </div>
       )}
@@ -87,7 +118,7 @@ function StaffScheduleGrid({ schedule, weekStart, weekEnd, weekDates, clients, i
 }
 
 const TimePlanner = () => {
-  const { user, role } = useAuth();
+  const { user, role, roleLoading } = useAuth();
   const isAdmin = role === 'team_admin';
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
 
@@ -135,7 +166,7 @@ const TimePlanner = () => {
     }
   }, [isAdmin, allSchedules, selectedStaffIds.length]);
 
-  const isLoading = isAdmin ? allSchedsLoading : ownSchedLoading;
+  const isLoading = roleLoading || (isAdmin ? allSchedsLoading : ownSchedLoading);
 
   const toggleStaff = (userId: string) => {
     setSelectedStaffIds(prev =>
@@ -160,7 +191,7 @@ const TimePlanner = () => {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Time Planner</h1>
           <p className="text-sm text-muted-foreground">
-            {isAdmin ? 'Click cells to select, then assign blocks (30-min slots).' : 'Your schedule (read-only). Contact your admin for changes.'}
+            {isAdmin ? 'Click or drag cells to select, then assign blocks (30-min slots).' : 'Your schedule (read-only). Contact your admin for changes.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
