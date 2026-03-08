@@ -117,11 +117,13 @@ export default function MyProfile() {
                 {uploading ? "Uploading..." : "Change Photo"}
               </Button>
               <p className="text-xs text-muted-foreground mt-1">JPG, PNG, or WebP. Max 5MB.</p>
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedUpload} />
 
       {!profile ? (
         <div className="text-center py-12">

@@ -553,7 +553,8 @@ export default function Settings() {
                   )}
                 </TableBody>
               </Table>
-              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+              <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFileSelect} />
+              <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedAvatarUpload} />
             </CardContent>
           </Card>
         </TabsContent>
