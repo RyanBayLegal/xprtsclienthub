@@ -271,8 +271,8 @@ const TimePlanner = () => {
             ))}
           </div>
         </div>
+      )}
 
-      {isAdmin && clients.length > 0 && (
         <ScheduleColorPicker clients={clients} />
       )}
 
