@@ -171,24 +171,23 @@ export default function Links() {
   const sortedGroups = Object.keys(grouped).sort();
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Links</h1>
-      <p className="text-sm text-muted-foreground">Save and organize links to external resources, tools, and files.</p>
+    <div className="p-6 max-w-3xl mx-auto space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Links</h1>
+        <p className="text-sm text-muted-foreground mt-1">Save and organize links to external resources, tools, and files.</p>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Add New Link</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <Card className="border-dashed border-2 border-primary/20 bg-primary/[0.02] shadow-none">
+        <CardContent className="pt-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <Input
-              placeholder="Title"
+              placeholder="Link title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="flex-1"
             />
             <Input
-              placeholder="URL"
+              placeholder="Paste URL here"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="flex-1"
@@ -196,7 +195,7 @@ export default function Links() {
           </div>
           <div className="flex flex-col sm:flex-row gap-3 items-end">
             <div className="flex-1">
-              <label className="text-xs text-muted-foreground mb-1 block">Category</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Category</label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
@@ -217,55 +216,69 @@ export default function Links() {
                 className="flex-1"
               />
             )}
-            <Button onClick={handleAdd} disabled={loading}>
-              <Plus className="mr-1 h-4 w-4" /> Add
+            <Button onClick={handleAdd} disabled={loading} className="gap-1.5">
+              <Plus className="h-4 w-4" /> Add Link
             </Button>
           </div>
         </CardContent>
       </Card>
 
       {links.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-8">No links added yet.</p>
+        <div className="text-center py-16 space-y-2">
+          <ExternalLink className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+          <p className="text-sm text-muted-foreground">No links added yet. Add your first link above.</p>
+        </div>
       )}
 
-      {sortedGroups.map((group) => (
-        <div key={group} className="space-y-2">
-          <div className="flex items-center gap-2 pt-2">
-            <Badge variant="secondary" className="text-xs">{group}</Badge>
-            <span className="text-xs text-muted-foreground">({grouped[group].length})</span>
+      <div className="space-y-8">
+        {sortedGroups.map((group) => (
+          <div key={group} className="space-y-3">
+            <div className="flex items-center gap-2.5 border-b border-border pb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">{group}</span>
+              <span className="text-xs text-muted-foreground font-medium">({grouped[group].length})</span>
+            </div>
+            <div className="grid gap-2">
+              {grouped[group].map((link) => (
+                <div
+                  key={link.id}
+                  className="group flex items-center justify-between gap-4 rounded-lg border border-border bg-card px-4 py-3 transition-all hover:shadow-sm hover:border-primary/20"
+                >
+                  <div className="min-w-0 flex-1">
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5"
+                    >
+                      {link.title}
+                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </a>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-xs text-muted-foreground">{new URL(link.url).hostname}</span>
+                      {link.created_by_name && (
+                        <>
+                          <span className="text-xs text-muted-foreground/40">·</span>
+                          <span className="text-xs text-muted-foreground">{link.created_by_name}</span>
+                        </>
+                      )}
+                      <span className="text-xs text-muted-foreground/40">·</span>
+                      <span className="text-xs text-muted-foreground">{format(new Date(link.created_at), "MMM d, yyyy")}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(link)}>
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(link.id)}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          {grouped[group].map((link) => (
-            <Card key={link.id}>
-              <CardContent className="flex items-center justify-between gap-4 py-4 px-5">
-                <div className="min-w-0 flex-1">
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    {link.title}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                  <p className="text-xs text-muted-foreground truncate">{new URL(link.url).hostname}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {link.created_by_name && `Added by ${link.created_by_name} · `}
-                    {format(new Date(link.created_at), "MMM d, yyyy")}
-                  </p>
-                </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(link)}>
-                    <Pencil className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(link.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ))}
+        ))}
+      </div>
 
       {/* Edit Dialog */}
       <Dialog open={!!editLink} onOpenChange={(open) => !open && setEditLink(null)}>
@@ -273,19 +286,25 @@ export default function Links() {
           <DialogHeader>
             <DialogTitle>Edit Link</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Input
-              placeholder="Title"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-            />
-            <Input
-              placeholder="URL"
-              value={editUrl}
-              onChange={(e) => setEditUrl(e.target.value)}
-            />
+          <div className="space-y-4 py-2">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Category</label>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Title</label>
+              <Input
+                placeholder="Title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">URL</label>
+              <Input
+                placeholder="URL"
+                value={editUrl}
+                onChange={(e) => setEditUrl(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Category</label>
               <Select value={editCategory} onValueChange={setEditCategory}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
