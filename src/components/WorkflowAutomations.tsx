@@ -59,6 +59,8 @@ interface AutomationLog {
 export default function WorkflowAutomations() {
   const { user } = useAuth();
   const [automations, setAutomations] = useState<Automation[]>([]);
+  const [logs, setLogs] = useState<AutomationLog[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
