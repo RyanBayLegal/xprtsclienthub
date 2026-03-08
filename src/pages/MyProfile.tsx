@@ -48,24 +48,31 @@ export default function MyProfile() {
     setProfile((p: any) => p ? { ...p, [field]: value } : p);
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
     if (!file.type.startsWith("image/")) { toast.error("Please upload an image"); return; }
-    
+    setCropFile(file);
+    setCropOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleCroppedUpload = async (blob: Blob) => {
+    if (!user) return;
+    setCropOpen(false);
+    setCropFile(null);
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `${user.id}/avatar.${ext}`;
-    
+
+    const path = `${user.id}/avatar.png`;
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(path, file, { upsert: true });
-    
+      .upload(path, blob, { upsert: true, contentType: "image/png" });
+
     if (uploadError) { toast.error(uploadError.message); setUploading(false); return; }
-    
+
     const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
     const avatarUrl = urlData.publicUrl + "?t=" + Date.now();
-    
+
     await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("user_id", user.id);
     setUserProfile((p) => p ? { ...p, avatar_url: avatarUrl } : { full_name: null, avatar_url: avatarUrl });
     toast.success("Avatar updated");
