@@ -298,6 +298,7 @@ export default function ClientProfile() {
           {isTeam && !isNew && <TabsTrigger value="attachments">Attachments</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="notes">Notes</TabsTrigger>}
+          {isTeam && !isNew && <TabsTrigger value="payments">Payments</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="basic">
