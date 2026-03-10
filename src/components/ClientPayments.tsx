@@ -43,7 +43,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ invoice_number: "", for_month: "", due_date: "", notes: "" });
+  const [form, setForm] = useState({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "" });
 
   const fetchInvoices = async () => {
     const { data } = await supabase
@@ -62,15 +62,16 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
     const { error } = await supabase.from("client_invoices").insert({
       client_profile_id: clientProfileId,
       invoice_number: form.invoice_number.trim(),
-      
       for_month: form.for_month || null,
       due_date: form.due_date || null,
+      sent_at: form.sent_at ? new Date(form.sent_at).toISOString() : new Date().toISOString(),
+      paid_at: form.paid_at ? new Date(form.paid_at).toISOString() : null,
       notes: form.notes || null,
       created_by: user?.id || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Invoice added");
-    setForm({ invoice_number: "", for_month: "", due_date: "", notes: "" });
+    setForm({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "" });
     setDialogOpen(false);
     fetchInvoices();
   };
@@ -109,9 +110,19 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <Label>For Month</Label>
                 <Input value={form.for_month} onChange={(e) => setForm({ ...form, for_month: e.target.value })} placeholder="March 2026" />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Date Sent</Label>
+                  <Input type="date" value={form.sent_at} onChange={(e) => setForm({ ...form, sent_at: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Due Date</Label>
+                  <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label>Due Date</Label>
-                <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                <Label>Date Paid</Label>
+                <Input type="date" value={form.paid_at} onChange={(e) => setForm({ ...form, paid_at: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Notes</Label>
