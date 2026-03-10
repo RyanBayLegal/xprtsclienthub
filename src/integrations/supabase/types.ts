@@ -88,6 +88,59 @@ export type Database = {
           },
         ]
       }
+      client_invoices: {
+        Row: {
+          amount: number | null
+          client_profile_id: string
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          for_month: string | null
+          id: string
+          invoice_number: string
+          notes: string | null
+          paid_at: string | null
+          sent_at: string
+          status: string
+        }
+        Insert: {
+          amount?: number | null
+          client_profile_id: string
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          for_month?: string | null
+          id?: string
+          invoice_number: string
+          notes?: string | null
+          paid_at?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Update: {
+          amount?: number | null
+          client_profile_id?: string
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          for_month?: string | null
+          id?: string
+          invoice_number?: string
+          notes?: string | null
+          paid_at?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_invoices_client_profile_id_fkey"
+            columns: ["client_profile_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_notes: {
         Row: {
           client_profile_id: string

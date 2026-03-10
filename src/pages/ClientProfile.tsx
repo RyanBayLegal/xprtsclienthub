@@ -23,6 +23,7 @@ import ClientAttachments from "@/components/ClientAttachments";
 import SystemsAudit from "@/components/SystemsAudit";
 import AgreementBuilder from "@/components/AgreementBuilder";
 import NDABuilder from "@/components/NDABuilder";
+import ClientPayments from "@/components/ClientPayments";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 
@@ -297,6 +298,7 @@ export default function ClientProfile() {
           {isTeam && !isNew && <TabsTrigger value="attachments">Attachments</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="notes">Notes</TabsTrigger>}
+          {isTeam && !isNew && <TabsTrigger value="payments">Payments</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="basic">
@@ -554,6 +556,12 @@ export default function ClientProfile() {
         {isTeam && !isNew && profile.id && (
           <TabsContent value="notes">
             <ClientNotes clientProfileId={profile.id} />
+          </TabsContent>
+        )}
+
+        {isTeam && !isNew && profile.id && (
+          <TabsContent value="payments">
+            <ClientPayments clientProfileId={profile.id} />
           </TabsContent>
         )}
       </Tabs>
