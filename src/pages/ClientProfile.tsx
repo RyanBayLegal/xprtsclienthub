@@ -564,7 +564,6 @@ export default function ClientProfile() {
             <ClientPayments clientProfileId={profile.id} />
           </TabsContent>
         )}
-        )}
       </Tabs>
     </div>
   );
