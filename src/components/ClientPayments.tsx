@@ -146,7 +146,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <TableRow key={inv.id}>
                   <TableCell className="font-medium">{inv.invoice_number}</TableCell>
                   <TableCell>{inv.for_month || "—"}</TableCell>
-                  <TableCell>{inv.amount != null ? `$${Number(inv.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}</TableCell>
+                  
                   <TableCell>
                     <Select value={inv.status} onValueChange={(v) => updateStatus(inv.id, v)}>
                       <SelectTrigger className="w-[120px] h-8">
