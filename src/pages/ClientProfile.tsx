@@ -558,6 +558,13 @@ export default function ClientProfile() {
             <ClientNotes clientProfileId={profile.id} />
           </TabsContent>
         )}
+
+        {isTeam && !isNew && profile.id && (
+          <TabsContent value="payments">
+            <ClientPayments clientProfileId={profile.id} />
+          </TabsContent>
+        )}
+        )}
       </Tabs>
     </div>
   );
