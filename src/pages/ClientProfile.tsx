@@ -23,6 +23,7 @@ import ClientAttachments from "@/components/ClientAttachments";
 import SystemsAudit from "@/components/SystemsAudit";
 import AgreementBuilder from "@/components/AgreementBuilder";
 import NDABuilder from "@/components/NDABuilder";
+import ClientPayments from "@/components/ClientPayments";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 
