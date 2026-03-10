@@ -17,7 +17,7 @@ import { format } from "date-fns";
 interface Invoice {
   id: string;
   invoice_number: string;
-  amount: number | null;
+  
   for_month: string | null;
   status: string;
   sent_at: string;
@@ -43,7 +43,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ invoice_number: "", amount: "", for_month: "", due_date: "", notes: "" });
+  const [form, setForm] = useState({ invoice_number: "", for_month: "", due_date: "", notes: "" });
 
   const fetchInvoices = async () => {
     const { data } = await supabase
@@ -62,7 +62,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
     const { error } = await supabase.from("client_invoices").insert({
       client_profile_id: clientProfileId,
       invoice_number: form.invoice_number.trim(),
-      amount: form.amount ? parseFloat(form.amount) : null,
+      
       for_month: form.for_month || null,
       due_date: form.due_date || null,
       notes: form.notes || null,
@@ -70,7 +70,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Invoice added");
-    setForm({ invoice_number: "", amount: "", for_month: "", due_date: "", notes: "" });
+    setForm({ invoice_number: "", for_month: "", due_date: "", notes: "" });
     setDialogOpen(false);
     fetchInvoices();
   };
@@ -105,15 +105,9 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <Label>Invoice Number *</Label>
                 <Input value={form.invoice_number} onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} placeholder="INV-001" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Amount</Label>
-                  <Input type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0.00" />
-                </div>
-                <div className="space-y-2">
-                  <Label>For Month</Label>
-                  <Input value={form.for_month} onChange={(e) => setForm({ ...form, for_month: e.target.value })} placeholder="March 2026" />
-                </div>
+              <div className="space-y-2">
+                <Label>For Month</Label>
+                <Input value={form.for_month} onChange={(e) => setForm({ ...form, for_month: e.target.value })} placeholder="March 2026" />
               </div>
               <div className="space-y-2">
                 <Label>Due Date</Label>
@@ -139,7 +133,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
               <TableRow>
                 <TableHead>Invoice #</TableHead>
                 <TableHead>For Month</TableHead>
-                <TableHead>Amount</TableHead>
+                
                 <TableHead>Status</TableHead>
                 <TableHead>Sent</TableHead>
                 <TableHead>Due Date</TableHead>
@@ -152,7 +146,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <TableRow key={inv.id}>
                   <TableCell className="font-medium">{inv.invoice_number}</TableCell>
                   <TableCell>{inv.for_month || "—"}</TableCell>
-                  <TableCell>{inv.amount != null ? `$${Number(inv.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : "—"}</TableCell>
+                  
                   <TableCell>
                     <Select value={inv.status} onValueChange={(v) => updateStatus(inv.id, v)}>
                       <SelectTrigger className="w-[120px] h-8">
