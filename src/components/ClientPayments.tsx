@@ -110,9 +110,19 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <Label>For Month</Label>
                 <Input value={form.for_month} onChange={(e) => setForm({ ...form, for_month: e.target.value })} placeholder="March 2026" />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Date Sent</Label>
+                  <Input type="date" value={form.sent_at} onChange={(e) => setForm({ ...form, sent_at: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Due Date</Label>
+                  <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label>Due Date</Label>
-                <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                <Label>Date Paid</Label>
+                <Input type="date" value={form.paid_at} onChange={(e) => setForm({ ...form, paid_at: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Notes</Label>
