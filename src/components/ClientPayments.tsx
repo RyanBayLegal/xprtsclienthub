@@ -17,7 +17,7 @@ import { format } from "date-fns";
 interface Invoice {
   id: string;
   invoice_number: string;
-  amount: number | null;
+  
   for_month: string | null;
   status: string;
   sent_at: string;
