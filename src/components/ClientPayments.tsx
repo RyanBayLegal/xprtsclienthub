@@ -62,7 +62,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
     const { error } = await supabase.from("client_invoices").insert({
       client_profile_id: clientProfileId,
       invoice_number: form.invoice_number.trim(),
-      amount: form.amount ? parseFloat(form.amount) : null,
+      
       for_month: form.for_month || null,
       due_date: form.due_date || null,
       notes: form.notes || null,
