@@ -43,7 +43,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ invoice_number: "", amount: "", for_month: "", due_date: "", notes: "" });
+  const [form, setForm] = useState({ invoice_number: "", for_month: "", due_date: "", notes: "" });
 
   const fetchInvoices = async () => {
     const { data } = await supabase
