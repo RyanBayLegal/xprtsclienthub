@@ -70,7 +70,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Invoice added");
-    setForm({ invoice_number: "", amount: "", for_month: "", due_date: "", notes: "" });
+    setForm({ invoice_number: "", for_month: "", due_date: "", notes: "" });
     setDialogOpen(false);
     fetchInvoices();
   };
