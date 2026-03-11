@@ -59,6 +59,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchRole = async (userId: string) => {
     setRoleLoading(true);
+
+    // Check if user is active
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_active")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (profile && profile.is_active === false) {
+      toast.error("Your account has been deactivated. Please contact your administrator.");
+      await supabase.auth.signOut();
+      setRoleLoading(false);
+      return;
+    }
+
     const { data } = await supabase
       .from("user_roles")
       .select("role")
