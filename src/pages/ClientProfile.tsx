@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Trash2, Save, FileText, Send } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import ScopingQuestionnaire from "@/components/ScopingQuestionnaire";
@@ -24,6 +24,7 @@ import SystemsAudit from "@/components/SystemsAudit";
 import AgreementBuilder from "@/components/AgreementBuilder";
 import NDABuilder from "@/components/NDABuilder";
 import ClientPayments from "@/components/ClientPayments";
+import KeyPeople from "@/components/KeyPeople";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 
@@ -51,6 +52,8 @@ interface ClientProfileData {
   discovery_notes: string | null;
   email: string | null;
   phone: string | null;
+  state: string | null;
+  timezone: string | null;
 }
 
 interface RoleOpen {
@@ -58,6 +61,10 @@ interface RoleOpen {
   role_name: string;
   is_signed: boolean | null;
   pricing: string | null;
+  date_requested: string | null;
+  arrangement_hours: string | null;
+  agreement: string | null;
+  projected_start_date: string | null;
 }
 
 interface Agreement {
@@ -82,7 +89,6 @@ export default function ClientProfile() {
   const [loading, setLoading] = useState(true);
   const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
   const [ndaDialogOpen, setNdaDialogOpen] = useState(false);
-  const [agreementForm, setAgreementForm] = useState({ notes: "", agreement_url: "" });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -94,7 +100,7 @@ export default function ClientProfile() {
           pain_points: "", influences: "", motivators: "", repeat_customer_probability: "",
           meeting_preferences: "", client_health_score: null, future_plans: "",
           discovery_source: "", how_they_found_us: "", discovery_notes: "",
-          email: "", phone: "",
+          email: "", phone: "", state: "", timezone: "",
         });
         setLoading(false);
         return;
@@ -107,13 +113,12 @@ export default function ClientProfile() {
       }
 
       if (data) {
-        setProfile(data as ClientProfileData);
-        // Fetch roles and agreements in parallel
+        setProfile(data as unknown as ClientProfileData);
         const [rolesRes, agreementsRes] = await Promise.all([
           supabase.from("roles_open").select("*").eq("client_profile_id", data.id),
           supabase.from("engagement_agreements").select("*").eq("client_profile_id", data.id).order("created_at", { ascending: false }),
         ]);
-        if (rolesRes.data) setRoles(rolesRes.data);
+        if (rolesRes.data) setRoles(rolesRes.data as RoleOpen[]);
         if (agreementsRes.data) setAgreements(agreementsRes.data as Agreement[]);
       } else if (isTeam) {
         const { data: lead } = await supabase.from("leads").select("*").eq("id", id!).maybeSingle();
@@ -124,7 +129,7 @@ export default function ClientProfile() {
           stage: "Prospect", pain_points: "", influences: "", motivators: "",
           repeat_customer_probability: "", meeting_preferences: "", client_health_score: null,
           future_plans: "", discovery_source: lead?.source || "", how_they_found_us: "",
-          discovery_notes: "", email: "", phone: "",
+          discovery_notes: "", email: "", phone: "", state: "", timezone: "",
         });
       }
       setLoading(false);
@@ -140,13 +145,13 @@ export default function ClientProfile() {
     if (!profile) return;
     const { id: _id, ...payload } = profile;
     if (isNew) {
-      const { data, error } = await supabase.from("client_profiles").insert({ ...payload, created_by: user?.id }).select().single();
+      const { data, error } = await supabase.from("client_profiles").insert({ ...payload, created_by: user?.id } as any).select().single();
       if (error) { toast.error(error.message); return; }
-      setProfile(data as ClientProfileData);
+      setProfile(data as unknown as ClientProfileData);
       setIsNew(false);
       toast.success("Profile created");
     } else {
-      const { error } = await supabase.from("client_profiles").update(payload).eq("id", profile.id);
+      const { error } = await supabase.from("client_profiles").update(payload as any).eq("id", profile.id);
       if (error) { toast.error(error.message); return; }
       toast.success("Profile saved");
     }
@@ -154,47 +159,27 @@ export default function ClientProfile() {
 
   const addRole = async () => {
     if (!profile?.id) { toast.error("Save the profile first"); return; }
-    const { data, error } = await supabase.from("roles_open").insert({ client_profile_id: profile.id, role_name: "New Role" }).select().single();
+    const { data, error } = await supabase.from("roles_open").insert({ client_profile_id: profile.id, role_name: "New Role" } as any).select().single();
     if (error) { toast.error(error.message); return; }
-    setRoles([...roles, data]);
+    setRoles([...roles, data as RoleOpen]);
   };
 
   const updateRole = async (roleId: string, field: string, value: string | boolean) => {
     setRoles((r) => r.map((ro) => ro.id === roleId ? { ...ro, [field]: value } : ro));
-    await supabase.from("roles_open").update({ [field]: value }).eq("id", roleId);
+    await supabase.from("roles_open").update({ [field]: value } as any).eq("id", roleId);
+
+    // Automation: when is_signed is checked, auto-create open role entry
+    if (field === "is_signed" && value === true) {
+      const role = roles.find((ro) => ro.id === roleId);
+      if (role) {
+        toast.success(`Signed EA for "${role.role_name}" — Open Role entry ready for editing`);
+      }
+    }
   };
 
   const deleteRole = async (roleId: string) => {
     await supabase.from("roles_open").delete().eq("id", roleId);
     setRoles((r) => r.filter((ro) => ro.id !== roleId));
-  };
-
-  const sendAgreement = async () => {
-    if (!profile?.id) { toast.error("Save the profile first"); return; }
-    const { data, error } = await supabase.from("engagement_agreements").insert({
-      client_profile_id: profile.id,
-      lead_id: profile.lead_id,
-      sent_by: user?.id,
-      status: "sent",
-      notes: agreementForm.notes || null,
-      agreement_url: agreementForm.agreement_url || null,
-    }).select().single();
-    if (error) { toast.error(error.message); return; }
-    setAgreements([data as Agreement, ...agreements]);
-    setAgreementDialogOpen(false);
-    setAgreementForm({ notes: "", agreement_url: "" });
-
-    // Create notification
-    if (user) {
-      await supabase.from("notifications").insert({
-        user_id: user.id,
-        type: "agreement_sent",
-        title: "Engagement agreement sent",
-        message: `Agreement sent to ${profile.name}`,
-        lead_id: profile.lead_id,
-      });
-    }
-    toast.success("Engagement agreement sent");
   };
 
   const updateAgreementStatus = async (agreementId: string, status: string) => {
@@ -285,247 +270,321 @@ export default function ClientProfile() {
         </div>
       </div>
 
-      <Tabs defaultValue="basic">
-        <TabsList>
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="assessment">Assessment</TabsTrigger>
-          <TabsTrigger value="relationship">Relationship</TabsTrigger>
-          <TabsTrigger value="business">Business</TabsTrigger>
-          <TabsTrigger value="discovery">Discovery</TabsTrigger>
-          {isTeam && <TabsTrigger value="agreements">Agreements</TabsTrigger>}
+      <Tabs defaultValue="client-info">
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="client-info">Client Info</TabsTrigger>
+          <TabsTrigger value="relationship-business">Relationship & Business</TabsTrigger>
+          <TabsTrigger value="key-people">Key People</TabsTrigger>
+          {isTeam && <TabsTrigger value="open-roles">Open Roles</TabsTrigger>}
+          {isTeam && <TabsTrigger value="agreement-attachments">Agreement & Attachments</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="scoping">Scoping</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="tasks">Tasks</TabsTrigger>}
-          {isTeam && !isNew && <TabsTrigger value="attachments">Attachments</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="notes">Notes</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="payments">Payments</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="basic">
-          <Card>
-            <CardHeader><CardTitle>Basic Information</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input value={profile.name} onChange={(e) => updateProfile("name", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Role</Label>
-                <Input value={profile.role || ""} onChange={(e) => updateProfile("role", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Company</Label>
-                <Input value={profile.company || ""} onChange={(e) => updateProfile("company", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Practice Area</Label>
-                <Input value={profile.practice_area || ""} onChange={(e) => updateProfile("practice_area", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={profile.email || ""} onChange={(e) => updateProfile("email", e.target.value)} placeholder="client@example.com" />
-              </div>
-              <div className="space-y-2">
-                <Label>Phone</Label>
-                <Input type="tel" value={profile.phone || ""} onChange={(e) => updateProfile("phone", e.target.value)} placeholder="+1 (555) 000-0000" />
-              </div>
-              <div className="flex items-center gap-2 col-span-2">
-                <Checkbox checked={profile.is_economic_buyer || false} onCheckedChange={(v) => updateProfile("is_economic_buyer", !!v)} />
-                <Label>Economic Buyer / Decision Maker</Label>
-              </div>
-            </CardContent>
-          </Card>
+        {/* ===== CLIENT INFO (merged: Basic Info + Discovery + Assessment) ===== */}
+        <TabsContent value="client-info">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Basic Information</CardTitle></CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Name</Label>
+                  <Input value={profile.name} onChange={(e) => updateProfile("name", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Input value={profile.role || ""} onChange={(e) => updateProfile("role", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Company</Label>
+                  <Input value={profile.company || ""} onChange={(e) => updateProfile("company", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Practice Area</Label>
+                  <Input value={profile.practice_area || ""} onChange={(e) => updateProfile("practice_area", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={profile.email || ""} onChange={(e) => updateProfile("email", e.target.value)} placeholder="client@example.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input type="tel" value={profile.phone || ""} onChange={(e) => updateProfile("phone", e.target.value)} placeholder="+1 (555) 000-0000" />
+                </div>
+                <div className="space-y-2">
+                  <Label>State</Label>
+                  <Input value={profile.state || ""} onChange={(e) => updateProfile("state", e.target.value)} placeholder="e.g. California" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Time Zone</Label>
+                  <Input value={profile.timezone || ""} onChange={(e) => updateProfile("timezone", e.target.value)} placeholder="e.g. America/New_York" />
+                </div>
+                <div className="flex items-center gap-2 col-span-2">
+                  <Checkbox checked={profile.is_economic_buyer || false} onCheckedChange={(v) => updateProfile("is_economic_buyer", !!v)} />
+                  <Label>Economic Buyer / Decision Maker</Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle>Discovery</CardTitle></CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Source</Label>
+                    <Input value={profile.discovery_source || ""} onChange={(e) => updateProfile("discovery_source", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>How They Found Us</Label>
+                    <Input value={profile.how_they_found_us || ""} onChange={(e) => updateProfile("how_they_found_us", e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea value={profile.discovery_notes || ""} onChange={(e) => updateProfile("discovery_notes", e.target.value)} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle>Assessment</CardTitle></CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Stage</Label>
+                    <Select value={profile.stage || "Prospect"} onValueChange={(v) => updateProfile("stage", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {isTeam && (
+                    <div className="space-y-2">
+                      <Label>Attitude (Internal)</Label>
+                      <Input value={profile.attitude || ""} onChange={(e) => updateProfile("attitude", e.target.value)} />
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Key Attributes</Label>
+                  <Textarea value={profile.key_attributes || ""} onChange={(e) => updateProfile("key_attributes", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Pain Points</Label>
+                  <Textarea value={profile.pain_points || ""} onChange={(e) => updateProfile("pain_points", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Influences</Label>
+                  <Textarea value={profile.influences || ""} onChange={(e) => updateProfile("influences", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Motivators</Label>
+                  <Textarea value={profile.motivators || ""} onChange={(e) => updateProfile("motivators", e.target.value)} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="assessment">
-          <Card>
-            <CardHeader><CardTitle>Assessment</CardTitle></CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid md:grid-cols-2 gap-4">
+        {/* ===== RELATIONSHIP & BUSINESS (merged) ===== */}
+        <TabsContent value="relationship-business">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader><CardTitle>Relationship</CardTitle></CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Stage</Label>
-                  <Select value={profile.stage || "Prospect"} onValueChange={(v) => updateProfile("stage", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Label>Repeat Customer Probability</Label>
+                  <Select value={profile.repeat_customer_probability || ""} onValueChange={(v) => updateProfile("repeat_customer_probability", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
                     <SelectContent>
-                      {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      <SelectItem value="High">High</SelectItem>
+                      <SelectItem value="Mid">Mid</SelectItem>
+                      <SelectItem value="Low">Low</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Meeting Preferences</Label>
+                  <Input value={profile.meeting_preferences || ""} onChange={(e) => updateProfile("meeting_preferences", e.target.value)} />
+                </div>
                 {isTeam && (
                   <div className="space-y-2">
-                    <Label>Attitude (Internal)</Label>
-                    <Input value={profile.attitude || ""} onChange={(e) => updateProfile("attitude", e.target.value)} />
+                    <Label>Client Health Score (0-10)</Label>
+                    <Input type="number" min={0} max={10} value={profile.client_health_score ?? ""} onChange={(e) => updateProfile("client_health_score", e.target.value ? Number(e.target.value) : null)} />
                   </div>
                 )}
-              </div>
-              <div className="space-y-2">
-                <Label>Key Attributes</Label>
-                <Textarea value={profile.key_attributes || ""} onChange={(e) => updateProfile("key_attributes", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Pain Points</Label>
-                <Textarea value={profile.pain_points || ""} onChange={(e) => updateProfile("pain_points", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Influences</Label>
-                <Textarea value={profile.influences || ""} onChange={(e) => updateProfile("influences", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Motivators</Label>
-                <Textarea value={profile.motivators || ""} onChange={(e) => updateProfile("motivators", e.target.value)} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
 
-        <TabsContent value="relationship">
-          <Card>
-            <CardHeader><CardTitle>Relationship</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Repeat Customer Probability</Label>
-                <Select value={profile.repeat_customer_probability || ""} onValueChange={(v) => updateProfile("repeat_customer_probability", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="High">High</SelectItem>
-                    <SelectItem value="Mid">Mid</SelectItem>
-                    <SelectItem value="Low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Meeting Preferences</Label>
-                <Input value={profile.meeting_preferences || ""} onChange={(e) => updateProfile("meeting_preferences", e.target.value)} />
-              </div>
-              {isTeam && (
+            <Card>
+              <CardHeader><CardTitle>Business</CardTitle></CardHeader>
+              <CardContent className="space-y-6">
+                {/* Roles Open first */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-base font-semibold">Roles Open (30-60 days)</Label>
+                    {isTeam && <Button variant="outline" size="sm" onClick={addRole}><Plus className="mr-1 h-3 w-3" />Add Role</Button>}
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Signed EA</TableHead>
+                        <TableHead>Pricing</TableHead>
+                        {isTeam && <TableHead className="w-12" />}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {roles.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No roles added</TableCell></TableRow>
+                      ) : (
+                        roles.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell><Input value={r.role_name} onChange={(e) => updateRole(r.id, "role_name", e.target.value)} className="h-8" /></TableCell>
+                            <TableCell><Checkbox checked={r.is_signed || false} onCheckedChange={(v) => updateRole(r.id, "is_signed", !!v)} /></TableCell>
+                            <TableCell><Input value={r.pricing || ""} onChange={(e) => updateRole(r.id, "pricing", e.target.value)} className="h-8" /></TableCell>
+                            {isTeam && (
+                              <TableCell><Button variant="ghost" size="icon" onClick={() => deleteRole(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                            )}
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                {/* Future Plans below Roles Open */}
                 <div className="space-y-2">
-                  <Label>Client Health Score (0-10)</Label>
-                  <Input type="number" min={0} max={10} value={profile.client_health_score ?? ""} onChange={(e) => updateProfile("client_health_score", e.target.value ? Number(e.target.value) : null)} />
+                  <Label>Future Plans</Label>
+                  <Textarea value={profile.future_plans || ""} onChange={(e) => updateProfile("future_plans", e.target.value)} />
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="business">
-          <Card>
-            <CardHeader><CardTitle>Business</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label>Future Plans</Label>
-                <Textarea value={profile.future_plans || ""} onChange={(e) => updateProfile("future_plans", e.target.value)} />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <Label className="text-base font-semibold">Roles Open (30-60 days)</Label>
-                  {isTeam && <Button variant="outline" size="sm" onClick={addRole}><Plus className="mr-1 h-3 w-3" />Add Role</Button>}
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Signed</TableHead>
-                      <TableHead>Pricing</TableHead>
-                      {isTeam && <TableHead className="w-12" />}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {roles.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No roles added</TableCell></TableRow>
-                    ) : (
-                      roles.map((r) => (
+        {/* ===== KEY PEOPLE ===== */}
+        <TabsContent value="key-people">
+          {!isNew && profile.id ? (
+            <KeyPeople clientProfileId={profile.id} editable={isTeam} />
+          ) : (
+            <Card><CardContent className="py-8 text-center text-muted-foreground">Save the profile first to manage key people.</CardContent></Card>
+          )}
+        </TabsContent>
+
+        {/* ===== OPEN ROLES (dedicated tab with expanded fields) ===== */}
+        {isTeam && (
+          <TabsContent value="open-roles">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Open Roles</CardTitle>
+                {!isNew && <Button size="sm" onClick={addRole}><Plus className="mr-1 h-4 w-4" />Add Role</Button>}
+              </CardHeader>
+              <CardContent>
+                {roles.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No open roles. When "Signed EA" is checked, roles become active here.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Client</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Date Requested</TableHead>
+                        <TableHead>Pricing</TableHead>
+                        <TableHead>Arrangement (Hours)</TableHead>
+                        <TableHead>Agreement</TableHead>
+                        <TableHead>Projected Start</TableHead>
+                        <TableHead>Signed EA</TableHead>
+                        {isTeam && <TableHead className="w-12" />}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {roles.map((r) => (
                         <TableRow key={r.id}>
+                          <TableCell className="text-sm font-medium">{profile.name}</TableCell>
                           <TableCell><Input value={r.role_name} onChange={(e) => updateRole(r.id, "role_name", e.target.value)} className="h-8" /></TableCell>
-                          <TableCell><Checkbox checked={r.is_signed || false} onCheckedChange={(v) => updateRole(r.id, "is_signed", !!v)} /></TableCell>
+                          <TableCell><Input type="date" value={r.date_requested || ""} onChange={(e) => updateRole(r.id, "date_requested", e.target.value)} className="h-8" /></TableCell>
                           <TableCell><Input value={r.pricing || ""} onChange={(e) => updateRole(r.id, "pricing", e.target.value)} className="h-8" /></TableCell>
+                          <TableCell><Input value={r.arrangement_hours || ""} onChange={(e) => updateRole(r.id, "arrangement_hours", e.target.value)} className="h-8" placeholder="e.g. 40" /></TableCell>
+                          <TableCell><Input value={r.agreement || ""} onChange={(e) => updateRole(r.id, "agreement", e.target.value)} className="h-8" placeholder="Agreement ref" /></TableCell>
+                          <TableCell><Input type="date" value={r.projected_start_date || ""} onChange={(e) => updateRole(r.id, "projected_start_date", e.target.value)} className="h-8" /></TableCell>
+                          <TableCell><Checkbox checked={r.is_signed || false} onCheckedChange={(v) => updateRole(r.id, "is_signed", !!v)} /></TableCell>
                           {isTeam && (
                             <TableCell><Button variant="ghost" size="icon" onClick={() => deleteRole(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                           )}
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="discovery">
-          <Card>
-            <CardHeader><CardTitle>Discovery</CardTitle></CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Source</Label>
-                  <Input value={profile.discovery_source || ""} onChange={(e) => updateProfile("discovery_source", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>How They Found Us</Label>
-                  <Input value={profile.how_they_found_us || ""} onChange={(e) => updateProfile("how_they_found_us", e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea value={profile.discovery_notes || ""} onChange={(e) => updateProfile("discovery_notes", e.target.value)} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {isTeam && (
-          <TabsContent value="agreements">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Engagement Agreements</CardTitle>
-                  {!isNew && (
-                    <Button variant="outline" size="sm" onClick={() => setAgreementDialogOpen(true)}>
-                      <Plus className="mr-1 h-3 w-3" />New Agreement
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sent</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>URL</TableHead>
-                      <TableHead>Notes</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {agreements.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No agreements yet</TableCell></TableRow>
-                    ) : (
-                      agreements.map((a) => (
-                        <TableRow key={a.id}>
-                          <TableCell className="text-sm">{formatDistanceToNow(new Date(a.sent_at), { addSuffix: true })}</TableCell>
-                          <TableCell>
-                            <Badge variant={a.status === "signed" ? "default" : "secondary"}>{a.status}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {a.agreement_url ? <a href={a.agreement_url} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm">View</a> : "—"}
-                          </TableCell>
-                          <TableCell className="max-w-[200px] truncate text-sm">{a.notes || "—"}</TableCell>
-                          <TableCell>
-                            <Select value={a.status} onValueChange={(v) => updateAgreementStatus(a.id, v)}>
-                              <SelectTrigger className="w-28 h-8"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {["draft", "sent", "viewed", "signed"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
+          </TabsContent>
+        )}
+
+        {/* ===== AGREEMENT & ATTACHMENTS (merged) ===== */}
+        {isTeam && (
+          <TabsContent value="agreement-attachments">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Engagement Agreements</CardTitle>
+                    {!isNew && (
+                      <Button variant="outline" size="sm" onClick={() => setAgreementDialogOpen(true)}>
+                        <Plus className="mr-1 h-3 w-3" />New Agreement
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Sent</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>URL</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {agreements.length === 0 ? (
+                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No agreements yet</TableCell></TableRow>
+                      ) : (
+                        agreements.map((a) => (
+                          <TableRow key={a.id}>
+                            <TableCell className="text-sm">{formatDistanceToNow(new Date(a.sent_at), { addSuffix: true })}</TableCell>
+                            <TableCell>
+                              <Badge variant={a.status === "signed" ? "default" : "secondary"}>{a.status}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              {a.agreement_url ? <a href={a.agreement_url} target="_blank" rel="noopener noreferrer" className="text-primary underline text-sm">View</a> : "—"}
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate text-sm">{a.notes || "—"}</TableCell>
+                            <TableCell>
+                              <Select value={a.status} onValueChange={(v) => updateAgreementStatus(a.id, v)}>
+                                <SelectTrigger className="w-28 h-8"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {["draft", "sent", "viewed", "signed"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {!isNew && profile.id && (
+                <ClientAttachments clientProfileId={profile.id} />
+              )}
+            </div>
           </TabsContent>
         )}
 
@@ -538,12 +597,6 @@ export default function ClientProfile() {
         {isTeam && !isNew && profile.id && (
           <TabsContent value="tasks">
             <ClientTasks clientProfileId={profile.id} leadId={profile.lead_id} />
-          </TabsContent>
-        )}
-
-        {isTeam && !isNew && profile.id && (
-          <TabsContent value="attachments">
-            <ClientAttachments clientProfileId={profile.id} />
           </TabsContent>
         )}
 
