@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_time_entries: {
+        Row: {
+          activity_name: string
+          client_profile_id: string
+          created_at: string
+          end_time: string | null
+          entry_date: string
+          id: string
+          project_id: string
+          remaining_hours: number | null
+          staff_assigned: string
+          start_time: string | null
+          status: string
+          target_hours: number | null
+          total_hours: number | null
+        }
+        Insert: {
+          activity_name?: string
+          client_profile_id: string
+          created_at?: string
+          end_time?: string | null
+          entry_date?: string
+          id?: string
+          project_id: string
+          remaining_hours?: number | null
+          staff_assigned: string
+          start_time?: string | null
+          status?: string
+          target_hours?: number | null
+          total_hours?: number | null
+        }
+        Update: {
+          activity_name?: string
+          client_profile_id?: string
+          created_at?: string
+          end_time?: string | null
+          entry_date?: string
+          id?: string
+          project_id?: string
+          remaining_hours?: number | null
+          staff_assigned?: string
+          start_time?: string | null
+          status?: string
+          target_hours?: number | null
+          total_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_time_entries_client_profile_id_fkey"
+            columns: ["client_profile_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "client_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       branding_settings: {
         Row: {
           accent_color: string | null
@@ -100,6 +163,7 @@ export type Database = {
           invoice_number: string
           notes: string | null
           paid_at: string | null
+          payment_mode: string | null
           sent_at: string
           status: string
         }
@@ -114,6 +178,7 @@ export type Database = {
           invoice_number: string
           notes?: string | null
           paid_at?: string | null
+          payment_mode?: string | null
           sent_at?: string
           status?: string
         }
@@ -128,6 +193,7 @@ export type Database = {
           invoice_number?: string
           notes?: string | null
           paid_at?: string | null
+          payment_mode?: string | null
           sent_at?: string
           status?: string
         }
@@ -205,6 +271,8 @@ export type Database = {
           schedule_color: string | null
           stage: string | null
           stage_changed_at: string | null
+          state: string | null
+          timezone: string | null
           updated_at: string
           user_id: string | null
         }
@@ -236,6 +304,8 @@ export type Database = {
           schedule_color?: string | null
           stage?: string | null
           stage_changed_at?: string | null
+          state?: string | null
+          timezone?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -267,6 +337,8 @@ export type Database = {
           schedule_color?: string | null
           stage?: string | null
           stage_changed_at?: string | null
+          state?: string | null
+          timezone?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -276,6 +348,41 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_projects: {
+        Row: {
+          client_profile_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          target_hours: number | null
+        }
+        Insert: {
+          client_profile_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          target_hours?: number | null
+        }
+        Update: {
+          client_profile_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          target_hours?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_projects_client_profile_id_fkey"
+            columns: ["client_profile_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -345,6 +452,44 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      key_people: {
+        Row: {
+          client_profile_id: string
+          contact_number: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          role: string | null
+        }
+        Insert: {
+          client_profile_id: string
+          contact_number?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          role?: string | null
+        }
+        Update: {
+          client_profile_id?: string
+          contact_number?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "key_people_client_profile_id_fkey"
+            columns: ["client_profile_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -488,27 +633,39 @@ export type Database = {
       }
       roles_open: {
         Row: {
+          agreement: string | null
+          arrangement_hours: string | null
           client_profile_id: string
           created_at: string
+          date_requested: string | null
           id: string
           is_signed: boolean | null
           pricing: string | null
+          projected_start_date: string | null
           role_name: string
         }
         Insert: {
+          agreement?: string | null
+          arrangement_hours?: string | null
           client_profile_id: string
           created_at?: string
+          date_requested?: string | null
           id?: string
           is_signed?: boolean | null
           pricing?: string | null
+          projected_start_date?: string | null
           role_name: string
         }
         Update: {
+          agreement?: string | null
+          arrangement_hours?: string | null
           client_profile_id?: string
           created_at?: string
+          date_requested?: string | null
           id?: string
           is_signed?: boolean | null
           pricing?: string | null
+          projected_start_date?: string | null
           role_name?: string
         }
         Relationships: [

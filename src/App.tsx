@@ -21,6 +21,7 @@ import Settings from "./pages/Settings";
 import Vendors from "./pages/Vendors";
 import Links from "./pages/Links";
 import TimePlanner from "./pages/TimePlanner";
+import Activities from "./pages/Activities";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -73,6 +74,7 @@ const App = () => (
                 <Route path="/vendors" element={<ProtectedRoute><Vendors /></ProtectedRoute>} />
                 <Route path="/links" element={<ProtectedRoute><TeamRoute><Links /></TeamRoute></ProtectedRoute>} />
                 <Route path="/time-planner" element={<ProtectedRoute><TimePlanner /></ProtectedRoute>} />
+                <Route path="/activities" element={<ProtectedRoute><TeamRoute><Activities /></TeamRoute></ProtectedRoute>} />
                 <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

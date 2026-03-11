@@ -17,16 +17,17 @@ import { format } from "date-fns";
 interface Invoice {
   id: string;
   invoice_number: string;
-  
   for_month: string | null;
   status: string;
   sent_at: string;
   due_date: string | null;
   paid_at: string | null;
   notes: string | null;
+  payment_mode: string | null;
 }
 
 const STATUSES = ["sent", "due", "paid", "overdue", "cancelled"];
+const PAYMENT_MODES = ["Stripe", "Zelle", "Others"];
 
 const statusBadgeVariant = (status: string) => {
   switch (status) {
@@ -43,7 +44,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "" });
+  const [form, setForm] = useState({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "" });
 
   const fetchInvoices = async () => {
     const { data } = await supabase
@@ -66,12 +67,13 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
       due_date: form.due_date || null,
       sent_at: form.sent_at ? new Date(form.sent_at).toISOString() : new Date().toISOString(),
       paid_at: form.paid_at ? new Date(form.paid_at).toISOString() : null,
+      payment_mode: form.payment_mode || null,
       notes: form.notes || null,
       created_by: user?.id || null,
-    });
+    } as any);
     if (error) { toast.error(error.message); return; }
     toast.success("Invoice added");
-    setForm({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "" });
+    setForm({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "" });
     setDialogOpen(false);
     fetchInvoices();
   };
@@ -125,6 +127,15 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <Input type="date" value={form.paid_at} onChange={(e) => setForm({ ...form, paid_at: e.target.value })} />
               </div>
               <div className="space-y-2">
+                <Label>Mode of Payment</Label>
+                <Select value={form.payment_mode} onValueChange={(v) => setForm({ ...form, payment_mode: v })}>
+                  <SelectTrigger><SelectValue placeholder="Select mode..." /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_MODES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." />
               </div>
@@ -144,11 +155,11 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
               <TableRow>
                 <TableHead>Invoice #</TableHead>
                 <TableHead>For Month</TableHead>
-                
                 <TableHead>Status</TableHead>
                 <TableHead>Sent</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Paid</TableHead>
+                <TableHead>Payment Mode</TableHead>
                 <TableHead>Notes</TableHead>
               </TableRow>
             </TableHeader>
@@ -157,7 +168,6 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <TableRow key={inv.id}>
                   <TableCell className="font-medium">{inv.invoice_number}</TableCell>
                   <TableCell>{inv.for_month || "—"}</TableCell>
-                  
                   <TableCell>
                     <Select value={inv.status} onValueChange={(v) => updateStatus(inv.id, v)}>
                       <SelectTrigger className="w-[120px] h-8">
@@ -173,6 +183,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                   <TableCell>{format(new Date(inv.sent_at), "MMM d, yyyy")}</TableCell>
                   <TableCell>{inv.due_date ? format(new Date(inv.due_date), "MMM d, yyyy") : "—"}</TableCell>
                   <TableCell>{inv.paid_at ? format(new Date(inv.paid_at), "MMM d, yyyy") : "—"}</TableCell>
+                  <TableCell>{inv.payment_mode || "—"}</TableCell>
                   <TableCell className="max-w-[200px] truncate">{inv.notes || "—"}</TableCell>
                 </TableRow>
               ))}
