@@ -21,6 +21,7 @@ import Settings from "./pages/Settings";
 import Vendors from "./pages/Vendors";
 import Links from "./pages/Links";
 import TimePlanner from "./pages/TimePlanner";
+import Activities from "./pages/Activities";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 
