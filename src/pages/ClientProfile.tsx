@@ -475,55 +475,6 @@ export default function ClientProfile() {
           )}
         </TabsContent>
 
-        {/* ===== OPEN ROLES (dedicated tab with expanded fields) ===== */}
-        {isTeam && (
-          <TabsContent value="open-roles">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Open Roles</CardTitle>
-                {!isNew && <Button size="sm" onClick={addRole}><Plus className="mr-1 h-4 w-4" />Add Role</Button>}
-              </CardHeader>
-              <CardContent>
-                {roles.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">No open roles. When "Signed EA" is checked, roles become active here.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Client</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Date Requested</TableHead>
-                        <TableHead>Pricing</TableHead>
-                        <TableHead>Arrangement (Hours)</TableHead>
-                        <TableHead>Agreement</TableHead>
-                        <TableHead>Projected Start</TableHead>
-                        <TableHead>Signed EA</TableHead>
-                        {isTeam && <TableHead className="w-12" />}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {roles.map((r) => (
-                        <TableRow key={r.id}>
-                          <TableCell className="text-sm font-medium">{profile.name}</TableCell>
-                          <TableCell><Input value={r.role_name} onChange={(e) => updateRole(r.id, "role_name", e.target.value)} className="h-8" /></TableCell>
-                          <TableCell><Input type="date" value={r.date_requested || ""} onChange={(e) => updateRole(r.id, "date_requested", e.target.value)} className="h-8" /></TableCell>
-                          <TableCell><Input value={r.pricing || ""} onChange={(e) => updateRole(r.id, "pricing", e.target.value)} className="h-8" /></TableCell>
-                          <TableCell><Input value={r.arrangement_hours || ""} onChange={(e) => updateRole(r.id, "arrangement_hours", e.target.value)} className="h-8" placeholder="e.g. 40" /></TableCell>
-                          <TableCell><Input value={r.agreement || ""} onChange={(e) => updateRole(r.id, "agreement", e.target.value)} className="h-8" placeholder="Agreement ref" /></TableCell>
-                          <TableCell><Input type="date" value={r.projected_start_date || ""} onChange={(e) => updateRole(r.id, "projected_start_date", e.target.value)} className="h-8" /></TableCell>
-                          <TableCell><Checkbox checked={r.is_signed || false} onCheckedChange={(v) => updateRole(r.id, "is_signed", !!v)} /></TableCell>
-                          {isTeam && (
-                            <TableCell><Button variant="ghost" size="icon" onClick={() => deleteRole(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
-                          )}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
 
         {/* ===== AGREEMENT & ATTACHMENTS (merged) ===== */}
         {isTeam && (
