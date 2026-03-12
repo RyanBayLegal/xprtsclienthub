@@ -645,7 +645,7 @@ export default function Tasks() {
                 <TableBody>
                   {tasks.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
-                  ) : tasks.map((task) => (
+                  ) : tasks.slice(listPage * LIST_PAGE_SIZE, (listPage + 1) * LIST_PAGE_SIZE).map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.title}</TableCell>
                       <TableCell>
@@ -682,7 +682,9 @@ export default function Tasks() {
                           <Button variant="ghost" size="icon" onClick={() => openEdit(task)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => deleteTask(task.id)}>Delete</Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -691,6 +693,22 @@ export default function Tasks() {
               </Table>
             </CardContent>
           </Card>
+          {tasks.length > LIST_PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-xs text-muted-foreground">
+                Showing {listPage * LIST_PAGE_SIZE + 1}–{Math.min((listPage + 1) * LIST_PAGE_SIZE, tasks.length)} of {tasks.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={listPage === 0} onClick={() => setListPage(listPage - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs px-2">{listPage + 1} / {Math.ceil(tasks.length / LIST_PAGE_SIZE)}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={(listPage + 1) * LIST_PAGE_SIZE >= tasks.length} onClick={() => setListPage(listPage + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
