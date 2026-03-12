@@ -37,7 +37,7 @@ export default function OpenRoles() {
 
   const fetchData = async () => {
     const [rolesRes, clientsRes] = await Promise.all([
-      supabase.from("roles_open").select("*, client_profiles(name)").order("created_at", { ascending: false }),
+      supabase.from("roles_open").select("*, client_profiles(name)").eq("is_signed", true).order("created_at", { ascending: false }),
       supabase.from("client_profiles").select("id, name").order("name"),
     ]);
 

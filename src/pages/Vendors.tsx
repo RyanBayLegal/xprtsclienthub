@@ -15,9 +15,9 @@ interface Vendor {
   id: string;
   name: string;
   description: string | null;
-  subscribed_date: string | null;
-  subscribed_by: string | null;
-  fee: string | null;
+  company_name: string | null;
+  email: string | null;
+  phone: string | null;
 }
 
 const PAGE_SIZE = 15;
