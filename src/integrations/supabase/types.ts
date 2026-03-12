@@ -1058,34 +1058,43 @@ export type Database = {
       }
       vendors: {
         Row: {
+          company_name: string | null
           created_at: string
           created_by: string | null
           description: string | null
+          email: string | null
           fee: string | null
           id: string
           name: string
+          phone: string | null
           subscribed_by: string | null
           subscribed_date: string | null
           updated_at: string
         }
         Insert: {
+          company_name?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          email?: string | null
           fee?: string | null
           id?: string
           name: string
+          phone?: string | null
           subscribed_by?: string | null
           subscribed_date?: string | null
           updated_at?: string
         }
         Update: {
+          company_name?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          email?: string | null
           fee?: string | null
           id?: string
           name?: string
+          phone?: string | null
           subscribed_by?: string | null
           subscribed_date?: string | null
           updated_at?: string

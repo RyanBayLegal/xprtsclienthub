@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, CheckCircle2, Circle, Clock, Pencil } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -93,11 +93,13 @@ function DraggableTaskCard({
   task,
   onStatusChange,
   onEdit,
+  onDelete,
   navigate,
 }: {
   task: Task;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
   navigate: (path: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
@@ -133,6 +135,13 @@ function DraggableTaskCard({
               title="Edit task"
             >
               <Pencil className="h-3 w-3" />
+            </button>
+            <button
+              onClick={() => onDelete(task.id)}
+              className="text-muted-foreground hover:text-destructive p-0.5"
+              title="Delete task"
+            >
+              <Trash2 className="h-3 w-3" />
             </button>
           </div>
         </div>
@@ -184,6 +193,7 @@ function DroppableColumn({
   tasks,
   onStatusChange,
   onEdit,
+  onDelete,
   navigate,
 }: {
   id: string;
@@ -192,6 +202,7 @@ function DroppableColumn({
   tasks: Task[];
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
   navigate: (path: string) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
@@ -223,6 +234,7 @@ function DroppableColumn({
             task={task}
             onStatusChange={onStatusChange}
             onEdit={onEdit}
+            onDelete={onDelete}
             navigate={navigate}
           />
         ))}
@@ -251,7 +263,8 @@ export default function Tasks() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
-
+  const [listPage, setListPage] = useState(0);
+  const LIST_PAGE_SIZE = 15;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const fetchTasks = async () => {
@@ -596,9 +609,9 @@ export default function Tasks() {
         <TabsContent value="board">
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="grid gap-4 grid-cols-1 md:grid-cols-3 items-start">
-              <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} navigate={navigate} />
-              <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} navigate={navigate} />
-              <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} navigate={navigate} />
+              <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} navigate={navigate} />
+              <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} navigate={navigate} />
+              <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} navigate={navigate} />
             </div>
 
             <DragOverlay>
@@ -632,7 +645,7 @@ export default function Tasks() {
                 <TableBody>
                   {tasks.length === 0 ? (
                     <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
-                  ) : tasks.map((task) => (
+                  ) : tasks.slice(listPage * LIST_PAGE_SIZE, (listPage + 1) * LIST_PAGE_SIZE).map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.title}</TableCell>
                       <TableCell>
@@ -669,7 +682,9 @@ export default function Tasks() {
                           <Button variant="ghost" size="icon" onClick={() => openEdit(task)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => deleteTask(task.id)}>Delete</Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -678,6 +693,22 @@ export default function Tasks() {
               </Table>
             </CardContent>
           </Card>
+          {tasks.length > LIST_PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-xs text-muted-foreground">
+                Showing {listPage * LIST_PAGE_SIZE + 1}–{Math.min((listPage + 1) * LIST_PAGE_SIZE, tasks.length)} of {tasks.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={listPage === 0} onClick={() => setListPage(listPage - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs px-2">{listPage + 1} / {Math.ceil(tasks.length / LIST_PAGE_SIZE)}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={(listPage + 1) * LIST_PAGE_SIZE >= tasks.length} onClick={() => setListPage(listPage + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

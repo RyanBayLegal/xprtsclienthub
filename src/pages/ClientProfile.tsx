@@ -435,18 +435,22 @@ export default function ClientProfile() {
                         <TableHead>Role</TableHead>
                         <TableHead>Signed EA</TableHead>
                         <TableHead>Pricing</TableHead>
+                        <TableHead>Arrangement (Hours)</TableHead>
+                        <TableHead>Target Start Date</TableHead>
                         {isTeam && <TableHead className="w-12" />}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {roles.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No roles added</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={isTeam ? 6 : 5} className="text-center text-muted-foreground">No roles added</TableCell></TableRow>
                       ) : (
                         roles.map((r) => (
                           <TableRow key={r.id}>
                             <TableCell><Input value={r.role_name} onChange={(e) => updateRole(r.id, "role_name", e.target.value)} className="h-8" /></TableCell>
                             <TableCell><Checkbox checked={r.is_signed || false} onCheckedChange={(v) => updateRole(r.id, "is_signed", !!v)} /></TableCell>
-                            <TableCell><Input value={r.pricing || ""} onChange={(e) => updateRole(r.id, "pricing", e.target.value)} className="h-8" /></TableCell>
+                            <TableCell><Input value={r.pricing || ""} onChange={(e) => updateRole(r.id, "pricing", e.target.value)} className="h-8" placeholder="e.g. $50/hr" /></TableCell>
+                            <TableCell><Input value={r.arrangement_hours || ""} onChange={(e) => updateRole(r.id, "arrangement_hours", e.target.value)} className="h-8" placeholder="e.g. 40" /></TableCell>
+                            <TableCell><Input type="date" value={r.projected_start_date || ""} onChange={(e) => updateRole(r.id, "projected_start_date", e.target.value)} className="h-8" /></TableCell>
                             {isTeam && (
                               <TableCell><Button variant="ghost" size="icon" onClick={() => deleteRole(r.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
                             )}
