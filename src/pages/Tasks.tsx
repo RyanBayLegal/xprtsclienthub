@@ -193,6 +193,7 @@ function DroppableColumn({
   tasks,
   onStatusChange,
   onEdit,
+  onDelete,
   navigate,
 }: {
   id: string;
@@ -201,6 +202,7 @@ function DroppableColumn({
   tasks: Task[];
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
   navigate: (path: string) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
@@ -232,6 +234,7 @@ function DroppableColumn({
             task={task}
             onStatusChange={onStatusChange}
             onEdit={onEdit}
+            onDelete={onDelete}
             navigate={navigate}
           />
         ))}
