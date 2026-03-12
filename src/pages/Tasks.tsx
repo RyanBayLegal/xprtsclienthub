@@ -263,7 +263,8 @@ export default function Tasks() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
-
+  const [listPage, setListPage] = useState(0);
+  const LIST_PAGE_SIZE = 15;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const fetchTasks = async () => {
