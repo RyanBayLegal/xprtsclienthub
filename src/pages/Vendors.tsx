@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,7 +20,7 @@ interface Vendor {
 }
 
 const PAGE_SIZE = 15;
-const emptyForm = { name: "", description: "", subscribed_date: "", subscribed_by: "", fee: "" };
+const emptyForm = { name: "", description: "", company_name: "", email: "", phone: "" };
 
 export default function Vendors() {
   const { role } = useAuth();
@@ -32,13 +31,12 @@ export default function Vendors() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [feeFilter, setFeeFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<"name" | "subscribed_date" | "fee">("name");
+  const [sortBy, setSortBy] = useState<"name" | "company_name">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const fetchVendors = async () => {
-    const { data } = await supabase.from("vendors").select("id, name, description, subscribed_date, subscribed_by, fee").order("created_at", { ascending: false });
-    if (data) setVendors(data as Vendor[]);
+    const { data } = await supabase.from("vendors").select("id, name, description, company_name, email, phone").order("created_at", { ascending: false });
+    if (data) setVendors(data as unknown as Vendor[]);
   };
 
   useEffect(() => { fetchVendors(); }, []);
@@ -48,9 +46,9 @@ export default function Vendors() {
     const payload = {
       name: form.name,
       description: form.description || null,
-      subscribed_date: form.subscribed_date || null,
-      subscribed_by: form.subscribed_by || null,
-      fee: form.fee || null,
+      company_name: form.company_name || null,
+      email: form.email || null,
+      phone: form.phone || null,
     };
     if (editingId) {
       const { error } = await supabase.from("vendors").update(payload as any).eq("id", editingId);
@@ -71,9 +69,9 @@ export default function Vendors() {
     setForm({
       name: v.name,
       description: v.description || "",
-      subscribed_date: v.subscribed_date || "",
-      subscribed_by: v.subscribed_by || "",
-      fee: v.fee || "",
+      company_name: v.company_name || "",
+      email: v.email || "",
+      phone: v.phone || "",
     });
     setEditingId(v.id);
     setDialogOpen(true);
@@ -88,16 +86,13 @@ export default function Vendors() {
 
   const filtered = vendors.filter((v) => {
     const q = search.toLowerCase();
-    const matchesSearch = !q || v.name.toLowerCase().includes(q) || (v.description || "").toLowerCase().includes(q) || (v.subscribed_by || "").toLowerCase().includes(q);
-    const matchesFee = feeFilter === "all" || (feeFilter === "has_fee" ? !!v.fee : !v.fee);
-    return matchesSearch && matchesFee;
+    return !q || v.name.toLowerCase().includes(q) || (v.description || "").toLowerCase().includes(q) || (v.company_name || "").toLowerCase().includes(q) || (v.email || "").toLowerCase().includes(q);
   });
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
     if (sortBy === "name") cmp = a.name.localeCompare(b.name);
-    else if (sortBy === "subscribed_date") cmp = (a.subscribed_date || "").localeCompare(b.subscribed_date || "");
-    else if (sortBy === "fee") cmp = (a.fee || "").localeCompare(b.fee || "");
+    else if (sortBy === "company_name") cmp = (a.company_name || "").localeCompare(b.company_name || "");
     return sortDir === "asc" ? cmp : -cmp;
   });
 
@@ -121,22 +116,22 @@ export default function Vendors() {
                   <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                  <Label>Company Name</Label>
+                  <Input value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Subscribed Date</Label>
-                    <Input type="date" value={form.subscribed_date} onChange={(e) => setForm((f) => ({ ...f, subscribed_date: e.target.value }))} />
+                    <Label>Email</Label>
+                    <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Subscribed By</Label>
-                    <Input value={form.subscribed_by} onChange={(e) => setForm((f) => ({ ...f, subscribed_by: e.target.value }))} />
+                    <Label>Phone</Label>
+                    <Input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Fee</Label>
-                  <Input value={form.fee} onChange={(e) => setForm((f) => ({ ...f, fee: e.target.value }))} />
+                  <Label>Description</Label>
+                  <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
                 </div>
                 <Button onClick={handleSave}>{editingId ? "Update" : "Add"} Vendor</Button>
               </div>
@@ -155,16 +150,6 @@ export default function Vendors() {
             className="pl-9"
           />
         </div>
-        <Select value={feeFilter} onValueChange={(v) => { setFeeFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="Fee filter" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="has_fee">Has Fee</SelectItem>
-            <SelectItem value="no_fee">No Fee</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="rounded-lg border bg-card">
@@ -174,14 +159,12 @@ export default function Vendors() {
               <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("name"); setSortDir(sortBy === "name" && sortDir === "asc" ? "desc" : "asc"); }}>
                 <span className="flex items-center gap-1">Vendor Name {sortBy === "name" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
               </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("company_name"); setSortDir(sortBy === "company_name" && sortDir === "asc" ? "desc" : "asc"); }}>
+                <span className="flex items-center gap-1">Company {sortBy === "company_name" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
+              </TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Phone</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("subscribed_date"); setSortDir(sortBy === "subscribed_date" && sortDir === "asc" ? "desc" : "asc"); }}>
-                <span className="flex items-center gap-1">Subscribed Date {sortBy === "subscribed_date" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
-              </TableHead>
-              <TableHead>Subscribed By</TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("fee"); setSortDir(sortBy === "fee" && sortDir === "asc" ? "desc" : "asc"); }}>
-                <span className="flex items-center gap-1">Fee {sortBy === "fee" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
-              </TableHead>
               {isAdmin && <TableHead className="w-24">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -195,10 +178,10 @@ export default function Vendors() {
             ) : paginated.map((v) => (
               <TableRow key={v.id}>
                 <TableCell className="font-medium">{v.name}</TableCell>
+                <TableCell>{v.company_name || "—"}</TableCell>
+                <TableCell>{v.email || "—"}</TableCell>
+                <TableCell>{v.phone || "—"}</TableCell>
                 <TableCell className="max-w-[200px] truncate">{v.description || "—"}</TableCell>
-                <TableCell>{v.subscribed_date || "—"}</TableCell>
-                <TableCell>{v.subscribed_by || "—"}</TableCell>
-                <TableCell>{v.fee || "—"}</TableCell>
                 {isAdmin && (
                   <TableCell>
                     <div className="flex gap-1">

@@ -93,11 +93,13 @@ function DraggableTaskCard({
   task,
   onStatusChange,
   onEdit,
+  onDelete,
   navigate,
 }: {
   task: Task;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
   navigate: (path: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
@@ -133,6 +135,13 @@ function DraggableTaskCard({
               title="Edit task"
             >
               <Pencil className="h-3 w-3" />
+            </button>
+            <button
+              onClick={() => onDelete(task.id)}
+              className="text-muted-foreground hover:text-destructive p-0.5"
+              title="Delete task"
+            >
+              <Trash2 className="h-3 w-3" />
             </button>
           </div>
         </div>
