@@ -24,6 +24,7 @@ const allItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["team_admin", "staff_member", "client"] },
   { title: "Leads", url: "/leads", icon: Users, roles: ["team_admin"] },
   { title: "Client Profiles", url: "/clients", icon: UserCircle, roles: ["team_admin"] },
+  { title: "Open Roles", url: "/open-roles", icon: Users, roles: ["team_admin"] },
   { title: "Tasks", url: "/tasks", icon: ListTodo, roles: ["team_admin", "staff_member"] },
   { title: "Staff", url: "/staff", icon: UsersRound, roles: ["team_admin"] },
   { title: "Calendar", url: "/calendar", icon: Calendar, roles: ["team_admin", "staff_member"] },

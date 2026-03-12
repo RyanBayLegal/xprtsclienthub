@@ -22,6 +22,7 @@ import Vendors from "./pages/Vendors";
 import Links from "./pages/Links";
 import TimePlanner from "./pages/TimePlanner";
 import Activities from "./pages/Activities";
+import OpenRoles from "./pages/OpenRoles";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 
@@ -66,6 +67,7 @@ const App = () => (
                 <Route path="/leads" element={<ProtectedRoute><TeamRoute><Leads /></TeamRoute></ProtectedRoute>} />
                 <Route path="/clients" element={<ProtectedRoute><TeamRoute><Clients /></TeamRoute></ProtectedRoute>} />
                 <Route path="/clients/:id" element={<ProtectedRoute><TeamRoute><ClientProfile /></TeamRoute></ProtectedRoute>} />
+                <Route path="/open-roles" element={<ProtectedRoute><TeamRoute><OpenRoles /></TeamRoute></ProtectedRoute>} />
                 <Route path="/analytics" element={<ProtectedRoute><TeamRoute><Analytics /></TeamRoute></ProtectedRoute>} />
                 <Route path="/calendar" element={<ProtectedRoute><TeamRoute><CalendarPage /></TeamRoute></ProtectedRoute>} />
                 <Route path="/tasks" element={<ProtectedRoute><TeamRoute><Tasks /></TeamRoute></ProtectedRoute>} />
