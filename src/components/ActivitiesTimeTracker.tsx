@@ -360,6 +360,15 @@ export default function ActivitiesTimeTracker() {
                       <Input value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} />
                     </div>
                     <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select value={projectForm.category} onValueChange={(v) => setProjectForm({ ...projectForm, category: v })}>
+                        <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
+                        <SelectContent>
+                          {["Training", "Systems", "Marketing", "Others"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
                       <Label>Target Hours</Label>
                       <Input type="number" value={projectForm.target_hours} onChange={(e) => setProjectForm({ ...projectForm, target_hours: e.target.value })} />
                     </div>
