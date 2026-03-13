@@ -183,6 +183,11 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                       </SelectContent>
                     </Select>
                   </TableCell>
+                  <TableCell>
+                    {inv.status === "paid" ? (
+                      inv.amount != null ? `$${inv.amount.toLocaleString()}` : "—"
+                    ) : ""}
+                  </TableCell>
                   <TableCell>{format(new Date(inv.sent_at), "MMM d, yyyy")}</TableCell>
                   <TableCell>{inv.due_date ? format(new Date(inv.due_date), "MMM d, yyyy") : "—"}</TableCell>
                   <TableCell>{inv.paid_at ? format(new Date(inv.paid_at), "MMM d, yyyy") : "—"}</TableCell>
