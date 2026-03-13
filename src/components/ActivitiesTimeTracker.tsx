@@ -110,10 +110,11 @@ export default function ActivitiesTimeTracker() {
       name: projectForm.name.trim(),
       target_hours: parseFloat(projectForm.target_hours) || 0,
       created_by: user?.id,
-    });
+      category: projectForm.category || null,
+    } as any);
     if (error) { toast.error(error.message); return; }
     toast.success("Project created");
-    setProjectForm({ client_profile_id: "", name: "", target_hours: "0" });
+    setProjectForm({ client_profile_id: "", name: "", target_hours: "0", category: "" });
     setProjectDialogOpen(false);
     fetchAll();
   };
