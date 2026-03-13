@@ -31,7 +31,7 @@ const allItems = [
   { title: "Vendors", url: "/vendors", icon: Store, roles: ["team_admin", "staff_member"] },
   { title: "Links", url: "/links", icon: Link2, roles: ["team_admin"] },
   { title: "Time Planner", url: "/time-planner", icon: Clock, roles: ["team_admin", "staff_member"] },
-  { title: "Activities", url: "/activities", icon: Timer, roles: ["team_admin"] },
+  { title: "Projects", url: "/activities", icon: Timer, roles: ["team_admin"] },
   { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["team_admin"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["team_admin"] },
   { title: "My Profile", url: "/my-profile", icon: UserCircle, roles: ["client", "staff_member"] },
