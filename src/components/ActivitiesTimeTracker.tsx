@@ -61,7 +61,7 @@ export default function ActivitiesTimeTracker() {
     entry_date: new Date().toISOString().split("T")[0],
   });
 
-  const [projectForm, setProjectForm] = useState({ client_profile_id: "", name: "", target_hours: "0" });
+  const [projectForm, setProjectForm] = useState({ client_profile_id: "", name: "", target_hours: "0", category: "" });
 
   const fetchAll = useCallback(async () => {
     const [entriesRes, clientsRes, projectsRes, staffRes] = await Promise.all([
@@ -110,10 +110,11 @@ export default function ActivitiesTimeTracker() {
       name: projectForm.name.trim(),
       target_hours: parseFloat(projectForm.target_hours) || 0,
       created_by: user?.id,
-    });
+      category: projectForm.category || null,
+    } as any);
     if (error) { toast.error(error.message); return; }
     toast.success("Project created");
-    setProjectForm({ client_profile_id: "", name: "", target_hours: "0" });
+    setProjectForm({ client_profile_id: "", name: "", target_hours: "0", category: "" });
     setProjectDialogOpen(false);
     fetchAll();
   };
@@ -323,7 +324,7 @@ export default function ActivitiesTimeTracker() {
                 <SelectTrigger className="w-[180px] h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Projects</SelectItem>
-                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {(filterClient !== "all" ? projects.filter(p => p.client_profile_id === filterClient) : projects).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -357,6 +358,15 @@ export default function ActivitiesTimeTracker() {
                     <div className="space-y-2">
                       <Label>Project Name *</Label>
                       <Input value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select value={projectForm.category} onValueChange={(v) => setProjectForm({ ...projectForm, category: v })}>
+                        <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
+                        <SelectContent>
+                          {["Training", "Systems", "Marketing", "Others"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label>Target Hours</Label>

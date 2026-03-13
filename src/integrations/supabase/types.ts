@@ -354,6 +354,7 @@ export type Database = {
       }
       client_projects: {
         Row: {
+          category: string | null
           client_profile_id: string
           created_at: string
           created_by: string | null
@@ -362,6 +363,7 @@ export type Database = {
           target_hours: number | null
         }
         Insert: {
+          category?: string | null
           client_profile_id: string
           created_at?: string
           created_by?: string | null
@@ -370,6 +372,7 @@ export type Database = {
           target_hours?: number | null
         }
         Update: {
+          category?: string | null
           client_profile_id?: string
           created_at?: string
           created_by?: string | null
@@ -643,6 +646,7 @@ export type Database = {
           pricing: string | null
           projected_start_date: string | null
           role_name: string
+          role_status: string
         }
         Insert: {
           agreement?: string | null
@@ -655,6 +659,7 @@ export type Database = {
           pricing?: string | null
           projected_start_date?: string | null
           role_name: string
+          role_status?: string
         }
         Update: {
           agreement?: string | null
@@ -667,6 +672,7 @@ export type Database = {
           pricing?: string | null
           projected_start_date?: string | null
           role_name?: string
+          role_status?: string
         }
         Relationships: [
           {

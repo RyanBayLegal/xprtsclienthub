@@ -24,6 +24,7 @@ interface Invoice {
   paid_at: string | null;
   notes: string | null;
   payment_mode: string | null;
+  amount: number | null;
 }
 
 const STATUSES = ["sent", "due", "paid", "overdue", "cancelled"];
@@ -44,7 +45,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "" });
+  const [form, setForm] = useState({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "", amount: "" });
 
   const fetchInvoices = async () => {
     const { data } = await supabase
@@ -69,11 +70,12 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
       paid_at: form.paid_at ? new Date(form.paid_at).toISOString() : null,
       payment_mode: form.payment_mode || null,
       notes: form.notes || null,
+      amount: form.amount ? parseFloat(form.amount) : null,
       created_by: user?.id || null,
     } as any);
     if (error) { toast.error(error.message); return; }
     toast.success("Invoice added");
-    setForm({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "" });
+    setForm({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "", amount: "" });
     setDialogOpen(false);
     fetchInvoices();
   };
@@ -136,6 +138,10 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>Amount</Label>
+                <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="e.g. 1500" />
+              </div>
+              <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." />
               </div>
@@ -156,6 +162,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <TableHead>Invoice #</TableHead>
                 <TableHead>For Month</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Amount</TableHead>
                 <TableHead>Sent</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Paid</TableHead>
@@ -179,6 +186,11 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                         ))}
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    {inv.status === "paid" ? (
+                      inv.amount != null ? `$${inv.amount.toLocaleString()}` : "—"
+                    ) : ""}
                   </TableCell>
                   <TableCell>{format(new Date(inv.sent_at), "MMM d, yyyy")}</TableCell>
                   <TableCell>{inv.due_date ? format(new Date(inv.due_date), "MMM d, yyyy") : "—"}</TableCell>

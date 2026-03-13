@@ -3,12 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+
+const ROLE_STATUSES = ["open", "sourcing", "for interview", "filled", "withdrawn"];
 
 interface RoleOpen {
   id: string;
@@ -20,6 +22,7 @@ interface RoleOpen {
   arrangement_hours: string | null;
   agreement: string | null;
   projected_start_date: string | null;
+  role_status: string;
   client_name?: string;
 }
 
@@ -34,6 +37,7 @@ export default function OpenRoles() {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
 
   const fetchData = async () => {
     const [rolesRes, clientsRes] = await Promise.all([
@@ -61,7 +65,7 @@ export default function OpenRoles() {
     const clientId = selectedClient !== "all" ? selectedClient : clients[0].id;
     const { data, error } = await supabase
       .from("roles_open")
-      .insert({ client_profile_id: clientId, role_name: "New Role" } as any)
+      .insert({ client_profile_id: clientId, role_name: "New Role", is_signed: true, role_status: "open" } as any)
       .select("*, client_profiles(name)")
       .single();
     if (error) { toast.error(error.message); return; }
@@ -72,13 +76,6 @@ export default function OpenRoles() {
   const updateRole = async (roleId: string, field: string, value: string | boolean) => {
     setRoles((r) => r.map((ro) => ro.id === roleId ? { ...ro, [field]: value } : ro));
     await supabase.from("roles_open").update({ [field]: value } as any).eq("id", roleId);
-
-    if (field === "is_signed" && value === true) {
-      const role = roles.find((ro) => ro.id === roleId);
-      if (role) {
-        toast.success(`Signed EA for "${role.role_name}"`);
-      }
-    }
   };
 
   const deleteRole = async (roleId: string) => {
@@ -87,7 +84,11 @@ export default function OpenRoles() {
     toast.success("Role deleted");
   };
 
-  const filtered = selectedClient === "all" ? roles : roles.filter((r) => r.client_profile_id === selectedClient);
+  const filtered = roles.filter((r) => {
+    if (selectedClient !== "all" && r.client_profile_id !== selectedClient) return false;
+    if (selectedStatus !== "all" && r.role_status !== selectedStatus) return false;
+    return true;
+  });
 
   if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">Loading...</div>;
 
@@ -100,7 +101,7 @@ export default function OpenRoles() {
         </Button>
       </div>
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex items-center gap-3 flex-wrap">
         <span className="text-sm text-muted-foreground">Filter by Client:</span>
         <Select value={selectedClient} onValueChange={setSelectedClient}>
           <SelectTrigger className="w-[220px]">
@@ -110,6 +111,18 @@ export default function OpenRoles() {
             <SelectItem value="all">All Clients</SelectItem>
             {clients.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground">Status:</span>
+        <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            {ROLE_STATUSES.map((s) => (
+              <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -131,6 +144,7 @@ export default function OpenRoles() {
                   <TableHead>Agreement</TableHead>
                   <TableHead>Projected Start</TableHead>
                   <TableHead>Signed EA</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
@@ -158,6 +172,18 @@ export default function OpenRoles() {
                     </TableCell>
                     <TableCell>
                       <Checkbox checked={r.is_signed || false} onCheckedChange={(v) => updateRole(r.id, "is_signed", !!v)} />
+                    </TableCell>
+                    <TableCell>
+                      <Select value={r.role_status || "open"} onValueChange={(v) => updateRole(r.id, "role_status", v)}>
+                        <SelectTrigger className="w-[140px] h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLE_STATUSES.map((s) => (
+                            <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" onClick={() => deleteRole(r.id)}>
