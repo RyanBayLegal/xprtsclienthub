@@ -323,7 +323,7 @@ export default function ActivitiesTimeTracker() {
                 <SelectTrigger className="w-[180px] h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Projects</SelectItem>
-                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {(filterClient !== "all" ? projects.filter(p => p.client_profile_id === filterClient) : projects).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
