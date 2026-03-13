@@ -138,6 +138,10 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>Amount</Label>
+                <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="e.g. 1500" />
+              </div>
+              <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional notes..." />
               </div>
