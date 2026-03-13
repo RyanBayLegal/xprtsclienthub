@@ -61,7 +61,7 @@ export default function ActivitiesTimeTracker() {
     entry_date: new Date().toISOString().split("T")[0],
   });
 
-  const [projectForm, setProjectForm] = useState({ client_profile_id: "", name: "", target_hours: "0" });
+  const [projectForm, setProjectForm] = useState({ client_profile_id: "", name: "", target_hours: "0", category: "" });
 
   const fetchAll = useCallback(async () => {
     const [entriesRes, clientsRes, projectsRes, staffRes] = await Promise.all([

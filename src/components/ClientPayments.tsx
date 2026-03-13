@@ -24,6 +24,7 @@ interface Invoice {
   paid_at: string | null;
   notes: string | null;
   payment_mode: string | null;
+  amount: number | null;
 }
 
 const STATUSES = ["sent", "due", "paid", "overdue", "cancelled"];
