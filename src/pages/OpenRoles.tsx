@@ -141,7 +141,7 @@ export default function OpenRoles() {
                   <TableHead>Date Requested</TableHead>
                   <TableHead>Pricing</TableHead>
                   <TableHead>Arrangement (Hours)</TableHead>
-                  <TableHead>Agreement</TableHead>
+                  
                   <TableHead>Projected Start</TableHead>
                   <TableHead>Signed EA</TableHead>
                   <TableHead>Status</TableHead>
