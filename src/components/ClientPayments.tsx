@@ -70,11 +70,12 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
       paid_at: form.paid_at ? new Date(form.paid_at).toISOString() : null,
       payment_mode: form.payment_mode || null,
       notes: form.notes || null,
+      amount: form.amount ? parseFloat(form.amount) : null,
       created_by: user?.id || null,
     } as any);
     if (error) { toast.error(error.message); return; }
     toast.success("Invoice added");
-    setForm({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "" });
+    setForm({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "", amount: "" });
     setDialogOpen(false);
     fetchInvoices();
   };
