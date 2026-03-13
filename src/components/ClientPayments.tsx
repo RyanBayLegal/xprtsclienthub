@@ -158,6 +158,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <TableHead>Invoice #</TableHead>
                 <TableHead>For Month</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Amount</TableHead>
                 <TableHead>Sent</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Paid</TableHead>
