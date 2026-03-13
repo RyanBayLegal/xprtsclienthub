@@ -165,9 +165,6 @@ export default function OpenRoles() {
                       <Input value={r.arrangement_hours || ""} onChange={(e) => updateRole(r.id, "arrangement_hours", e.target.value)} className="h-8" placeholder="e.g. 40" />
                     </TableCell>
                     <TableCell>
-                      <Input value={r.agreement || ""} onChange={(e) => updateRole(r.id, "agreement", e.target.value)} className="h-8" placeholder="Agreement ref" />
-                    </TableCell>
-                    <TableCell>
                       <Input type="date" value={r.projected_start_date || ""} onChange={(e) => updateRole(r.id, "projected_start_date", e.target.value)} className="h-8" />
                     </TableCell>
                     <TableCell>
