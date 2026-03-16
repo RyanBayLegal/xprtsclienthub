@@ -870,6 +870,7 @@ export type Database = {
       }
       talent_pool: {
         Row: {
+          avatar_url: string | null
           contact_number: string | null
           country: string | null
           created_at: string
@@ -881,6 +882,7 @@ export type Database = {
           role: string | null
         }
         Insert: {
+          avatar_url?: string | null
           contact_number?: string | null
           country?: string | null
           created_at?: string
@@ -892,6 +894,7 @@ export type Database = {
           role?: string | null
         }
         Update: {
+          avatar_url?: string | null
           contact_number?: string | null
           country?: string | null
           created_at?: string

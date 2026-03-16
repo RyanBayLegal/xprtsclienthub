@@ -1,0 +1,1 @@
+ALTER TABLE public.talent_pool ADD COLUMN avatar_url TEXT;
