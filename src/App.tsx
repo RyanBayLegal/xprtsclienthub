@@ -73,6 +73,7 @@ const App = () => (
                 <Route path="/calendar" element={<ProtectedRoute><TeamRoute><CalendarPage /></TeamRoute></ProtectedRoute>} />
                 <Route path="/tasks" element={<ProtectedRoute><TeamRoute><Tasks /></TeamRoute></ProtectedRoute>} />
                 <Route path="/staff" element={<ProtectedRoute><TeamRoute><Staff /></TeamRoute></ProtectedRoute>} />
+                <Route path="/talent-pool" element={<ProtectedRoute><TeamRoute><TalentPool /></TeamRoute></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute><TeamRoute><Settings /></TeamRoute></ProtectedRoute>} />
                 <Route path="/vendors" element={<ProtectedRoute><Vendors /></ProtectedRoute>} />
                 <Route path="/links" element={<ProtectedRoute><TeamRoute><Links /></TeamRoute></ProtectedRoute>} />

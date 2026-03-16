@@ -27,6 +27,7 @@ const allItems = [
   { title: "Open Roles", url: "/open-roles", icon: Users, roles: ["team_admin"] },
   { title: "Tasks", url: "/tasks", icon: ListTodo, roles: ["team_admin", "staff_member"] },
   { title: "Staff", url: "/staff", icon: UsersRound, roles: ["team_admin"] },
+  { title: "Talent Pool", url: "/talent-pool", icon: Globe, roles: ["team_admin"] },
   { title: "Calendar", url: "/calendar", icon: Calendar, roles: ["team_admin", "staff_member"] },
   { title: "Vendors", url: "/vendors", icon: Store, roles: ["team_admin", "staff_member"] },
   { title: "Links", url: "/links", icon: Link2, roles: ["team_admin"] },
