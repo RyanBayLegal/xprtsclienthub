@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Camera } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import AvatarCropDialog from "@/components/AvatarCropDialog";
 import { toast } from "sonner";
 
 interface TalentRow {
@@ -18,6 +20,7 @@ interface TalentRow {
   email: string | null;
   contact_number: string | null;
   rate_per_hour: number | null;
+  avatar_url: string | null;
   created_at: string;
 }
 
@@ -34,6 +37,11 @@ export default function TalentPool() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TalentRow | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [pendingAvatarBlob, setPendingAvatarBlob] = useState<Blob | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
 
@@ -59,7 +67,14 @@ export default function TalentPool() {
 
   useEffect(() => { fetchData(); }, [page]);
 
-  const openAdd = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
+  const openAdd = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setAvatarPreview(null);
+    setPendingAvatarBlob(null);
+    setDialogOpen(true);
+  };
+
   const openEdit = (r: TalentRow) => {
     setEditing(r);
     setForm({
@@ -70,7 +85,35 @@ export default function TalentPool() {
       contact_number: r.contact_number || "",
       rate_per_hour: r.rate_per_hour != null ? String(r.rate_per_hour) : "",
     });
+    setAvatarPreview(r.avatar_url);
+    setPendingAvatarBlob(null);
     setDialogOpen(true);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5MB"); return; }
+    setCropFile(file);
+    setCropOpen(true);
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handleCropped = (blob: Blob) => {
+    setCropOpen(false);
+    setCropFile(null);
+    setPendingAvatarBlob(blob);
+    setAvatarPreview(URL.createObjectURL(blob));
+  };
+
+  const uploadAvatar = async (talentId: string): Promise<string | null> => {
+    if (!pendingAvatarBlob) return null;
+    const path = `talent/${talentId}/avatar.png`;
+    const { error } = await supabase.storage.from("avatars").upload(path, pendingAvatarBlob, { upsert: true, contentType: "image/png" });
+    if (error) { toast.error("Avatar upload failed"); return null; }
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+    return `${publicUrl}?t=${Date.now()}`;
   };
 
   const handleSave = async () => {
@@ -85,16 +128,23 @@ export default function TalentPool() {
     };
 
     if (editing) {
+      const avatarUrl = await uploadAvatar(editing.id);
+      if (avatarUrl) payload.avatar_url = avatarUrl;
       const { error } = await supabase.from("talent_pool" as any).update(payload).eq("id", editing.id);
       if (error) { toast.error("Failed to update"); return; }
       toast.success("Talent updated");
     } else {
       payload.created_by = user?.id;
-      const { error } = await supabase.from("talent_pool" as any).insert(payload);
-      if (error) { toast.error("Failed to add"); return; }
+      const { data, error } = await supabase.from("talent_pool" as any).insert(payload).select("id").single();
+      if (error || !data) { toast.error("Failed to add"); return; }
+      const avatarUrl = await uploadAvatar((data as any).id);
+      if (avatarUrl) {
+        await supabase.from("talent_pool" as any).update({ avatar_url: avatarUrl }).eq("id", (data as any).id);
+      }
       toast.success("Talent added");
     }
     setDialogOpen(false);
+    setPendingAvatarBlob(null);
     fetchData();
   };
 
@@ -104,6 +154,9 @@ export default function TalentPool() {
     toast.success("Talent removed");
     fetchData();
   };
+
+  const getInitials = (name: string) =>
+    name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
 
   if (loading) return <div className="flex items-center justify-center h-32 text-muted-foreground">Loading...</div>;
 
@@ -119,6 +172,28 @@ export default function TalentPool() {
               <DialogTitle>{editing ? "Edit Talent" : "Add Talent"}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-3 py-2">
+              {/* Avatar upload */}
+              <div className="flex justify-center">
+                <div className="relative group w-fit">
+                  <Avatar className="h-20 w-20 text-xl">
+                    {avatarPreview && <AvatarImage src={avatarPreview} alt="Avatar" />}
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                      {form.full_name ? getInitials(form.full_name) : "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+
               <div><Label>Full Name *</Label><Input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Country</Label><Input value={form.country} onChange={e => setForm(f => ({ ...f, country: e.target.value }))} /></div>
@@ -140,7 +215,7 @@ export default function TalentPool() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Full Name</TableHead>
+                <TableHead>Name</TableHead>
                 <TableHead>Country</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Email</TableHead>
@@ -156,7 +231,17 @@ export default function TalentPool() {
                 </TableRow>
               ) : rows.map(r => (
                 <TableRow key={r.id}>
-                  <TableCell className="font-medium">{r.full_name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        {r.avatar_url && <AvatarImage src={r.avatar_url} alt={r.full_name} />}
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                          {getInitials(r.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium">{r.full_name}</span>
+                    </div>
+                  </TableCell>
                   <TableCell>{r.country || "—"}</TableCell>
                   <TableCell>{r.role || "—"}</TableCell>
                   <TableCell>{r.email || "—"}</TableCell>
@@ -191,6 +276,8 @@ export default function TalentPool() {
           </div>
         </div>
       )}
+
+      <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCropped} />
     </div>
   );
 }
