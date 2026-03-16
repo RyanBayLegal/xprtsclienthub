@@ -216,6 +216,9 @@ export default function Staff() {
           <TabsTrigger value="previous" className="gap-2">
             <UserX className="h-4 w-4" /> Previous ({previousStaff.length})
           </TabsTrigger>
+          <TabsTrigger value="talent-pool" className="gap-2">
+            <Globe className="h-4 w-4" /> Talent Pool
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="active">
           <StaffTable rows={activeStaff} />
