@@ -221,6 +221,7 @@ export default function Staff() {
         </TabsContent>
         <TabsContent value="previous">
           <StaffTable rows={previousStaff} />
+        </TabsContent>
       </Tabs>
 
       <AlertDialog open={!!confirmDialog} onOpenChange={() => setConfirmDialog(null)}>
