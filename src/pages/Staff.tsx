@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/UserAvatar";
-import { Users, UserX, Globe } from "lucide-react";
-import TalentPool from "@/components/TalentPool";
+import { Users, UserX } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import {
@@ -216,18 +215,12 @@ export default function Staff() {
           <TabsTrigger value="previous" className="gap-2">
             <UserX className="h-4 w-4" /> Previous ({previousStaff.length})
           </TabsTrigger>
-          <TabsTrigger value="talent-pool" className="gap-2">
-            <Globe className="h-4 w-4" /> Talent Pool
-          </TabsTrigger>
         </TabsList>
         <TabsContent value="active">
           <StaffTable rows={activeStaff} />
         </TabsContent>
         <TabsContent value="previous">
           <StaffTable rows={previousStaff} />
-        </TabsContent>
-        <TabsContent value="talent-pool">
-          <TalentPool />
         </TabsContent>
       </Tabs>
 
