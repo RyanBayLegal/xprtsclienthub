@@ -23,6 +23,7 @@ import Links from "./pages/Links";
 import TimePlanner from "./pages/TimePlanner";
 import Activities from "./pages/Activities";
 import OpenRoles from "./pages/OpenRoles";
+import TalentPool from "./pages/TalentPool";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 
