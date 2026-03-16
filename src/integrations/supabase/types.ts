@@ -868,6 +868,42 @@ export type Database = {
           },
         ]
       }
+      talent_pool: {
+        Row: {
+          contact_number: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          full_name: string
+          id: string
+          rate_per_hour: number | null
+          role: string | null
+        }
+        Insert: {
+          contact_number?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          rate_per_hour?: number | null
+          role?: string | null
+        }
+        Update: {
+          contact_number?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          rate_per_hour?: number | null
+          role?: string | null
+        }
+        Relationships: []
+      }
       task_comments: {
         Row: {
           content: string
