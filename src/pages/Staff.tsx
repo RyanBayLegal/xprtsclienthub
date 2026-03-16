@@ -226,6 +226,9 @@ export default function Staff() {
         <TabsContent value="previous">
           <StaffTable rows={previousStaff} />
         </TabsContent>
+        <TabsContent value="talent-pool">
+          <TalentPool />
+        </TabsContent>
       </Tabs>
 
       <AlertDialog open={!!confirmDialog} onOpenChange={() => setConfirmDialog(null)}>
