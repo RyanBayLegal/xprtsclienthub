@@ -267,6 +267,7 @@ export default function Tasks() {
   const [boardPages, setBoardPages] = useState<Record<string, number>>({ todo: 0, in_progress: 0, done: 0 });
   const LIST_PAGE_SIZE = 15;
   const BOARD_PAGE_SIZE = 10;
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const fetchTasks = async () => {
     let q = supabase.from("tasks").select("*").order("due_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false });
