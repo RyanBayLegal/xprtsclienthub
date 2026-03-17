@@ -195,6 +195,9 @@ function DroppableColumn({
   onEdit,
   onDelete,
   navigate,
+  page,
+  pageSize,
+  onPageChange,
 }: {
   id: string;
   label: string;
@@ -204,8 +207,13 @@ function DroppableColumn({
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   navigate: (path: string) => void;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
+  const totalPages = Math.ceil(tasks.length / pageSize);
+  const paginatedTasks = tasks.slice(page * pageSize, (page + 1) * pageSize);
 
   const headerColor =
     id === "todo" ? "border-t-muted-foreground/40" :
@@ -225,10 +233,10 @@ function DroppableColumn({
         ref={setNodeRef}
         className={`flex-1 min-h-[400px] p-3 space-y-2 transition-colors ${isOver ? "bg-accent/30" : ""}`}
       >
-        {tasks.length === 0 && (
+        {paginatedTasks.length === 0 && (
           <p className="text-xs text-muted-foreground text-center pt-6 italic">Drop tasks here</p>
         )}
-        {tasks.map((task) => (
+        {paginatedTasks.map((task) => (
           <DraggableTaskCard
             key={task.id}
             task={task}
@@ -239,6 +247,17 @@ function DroppableColumn({
           />
         ))}
       </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-3 py-2 border-t bg-card">
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page === 0} onClick={() => onPageChange(page - 1)}>
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <span className="text-[10px] text-muted-foreground">{page + 1} / {totalPages}</span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page >= totalPages - 1} onClick={() => onPageChange(page + 1)}>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
