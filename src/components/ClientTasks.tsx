@@ -72,6 +72,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
       .from("tasks")
       .select("*")
       .eq("client_profile_id", clientProfileId)
+      .order("due_date", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: false });
     if (data) setTasks(data as Task[]);
   };

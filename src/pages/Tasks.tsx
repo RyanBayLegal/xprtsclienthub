@@ -268,7 +268,7 @@ export default function Tasks() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const fetchTasks = async () => {
-    let q = supabase.from("tasks").select("*").order("created_at", { ascending: false });
+    let q = supabase.from("tasks").select("*").order("due_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false });
     if (statusFilter !== "all") q = q.eq("status", statusFilter);
     if (clientFilter !== "all") q = q.eq("client_profile_id", clientFilter);
     if (assignedFilter !== "all") q = q.eq("assigned_to", assignedFilter);
