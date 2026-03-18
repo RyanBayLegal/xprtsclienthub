@@ -493,9 +493,17 @@ export default function Tasks() {
     updateTaskStatus(task.id, newStatus);
   };
 
-  const todoTasks = tasks.filter((t) => t.status === "todo");
-  const inProgressTasks = tasks.filter((t) => t.status === "in_progress");
-  const doneTasks = tasks.filter((t) => t.status === "done");
+  const sortByDue = (arr: Task[]) => [...arr].sort((a, b) => {
+    if (!a.due_date && !b.due_date) return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    if (!a.due_date) return 1;
+    if (!b.due_date) return -1;
+    const diff = new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    if (diff !== 0) return diff;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+  const todoTasks = sortByDue(tasks.filter((t) => t.status === "todo"));
+  const inProgressTasks = sortByDue(tasks.filter((t) => t.status === "in_progress"));
+  const doneTasks = sortByDue(tasks.filter((t) => t.status === "done"));
 
   const renderFormFields = (f: typeof emptyForm, setF: (fn: (prev: typeof emptyForm) => typeof emptyForm) => void) => (
     <>
