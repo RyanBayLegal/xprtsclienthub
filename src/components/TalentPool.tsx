@@ -107,7 +107,7 @@ export default function TalentPool() {
       .select("*")
       .eq("talent_id", talentId)
       .order("created_at", { ascending: false });
-    return (data as TalentAttachment[]) || [];
+    return ((data as any) || []) as TalentAttachment[];
   };
 
   const openAdd = () => {
