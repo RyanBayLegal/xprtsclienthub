@@ -235,54 +235,6 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
     }));
   };
 
-  // Kanban helpers
-  const handleDragStart = (e: DragEvent, id: string) => {
-    setDraggedId(id);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleDragOver = (e: DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = (e: DragEvent, newStage: string) => {
-    e.preventDefault();
-    if (!draggedId) return;
-    const task = tasks.find((t) => t.id === draggedId);
-    if (!task || task.stage === newStage) { setDraggedId(null); return; }
-    updateStage(draggedId, newStage);
-    setDraggedId(null);
-  };
-
-  const handleAddStage = () => {
-    const name = newStageName.trim();
-    if (!name) { toast.error("Stage name is required"); return; }
-    if (stages.includes(name)) { toast.error("Stage already exists"); return; }
-    setStages([...stages, name]);
-    setNewStageName("");
-    setAddStageDialogOpen(false);
-    toast.success(`Added "${name}" stage`);
-  };
-
-  const handleRemoveStage = (stage: string) => {
-    const tasksInStage = tasks.filter((t) => t.stage === stage);
-    if (tasksInStage.length > 0) {
-      toast.error(`Cannot remove "${stage}" — it has ${tasksInStage.length} task(s). Move them first.`);
-      return;
-    }
-    setStages(stages.filter((s) => s !== stage));
-    toast.success(`Removed "${stage}" stage`);
-  };
-
-  const filteredTasks = tasks.filter((t) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return t.title.toLowerCase().includes(q) || (t.assigned_to_name || "").toLowerCase().includes(q);
-  });
-
-  const getTasksByStage = (stage: string) => sortByDueDate(filteredTasks.filter((t) => t.stage === stage));
-  const unstaged = sortByDueDate(filteredTasks.filter((t) => !t.stage || !stages.includes(t.stage)));
 
   const sortedTasks = sortByDueDate(tasks);
 
