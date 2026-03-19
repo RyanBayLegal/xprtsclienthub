@@ -346,7 +346,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
                     <SelectTrigger><SelectValue placeholder="Select stage" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {stages.map((s) => (
+                      {PIPELINE_STAGES.map((s) => (
                         <SelectItem key={s} value={s}>{s.replace(" Stage", "")}</SelectItem>
                       ))}
                     </SelectContent>
