@@ -18,7 +18,6 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import ScopingQuestionnaire from "@/components/ScopingQuestionnaire";
 import ClientTasks from "@/components/ClientTasks";
-import ClientKanbanBoard from "@/components/ClientKanbanBoard";
 import ClientAvatarUpload from "@/components/ClientAvatarUpload";
 import ClientAttachments from "@/components/ClientAttachments";
 import SystemsAudit from "@/components/SystemsAudit";

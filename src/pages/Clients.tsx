@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, ArrowUpDown, Trash2, X, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { exportToCSV } from "@/lib/csv-export";
 import { UserAvatar } from "@/components/UserAvatar";
+import ClientsKanban from "@/components/ClientsKanban";
 import { toast } from "sonner";
 
 interface ClientRow {
@@ -66,6 +68,7 @@ export default function Clients() {
   const [deleteTarget, setDeleteTarget] = useState<ClientRow | null>(null);
   const [practiceAreas, setPracticeAreas] = useState<string[]>([]);
   const [page, setPage] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchClients = async () => {
     let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score, stage_changed_at, avatar_url").order("created_at", { ascending: false }) as any;
@@ -109,6 +112,7 @@ export default function Clients() {
     toast.success(`Deleted ${deleteTarget.name}`);
     setDeleteTarget(null);
     fetchClients();
+    setRefreshKey((k) => k + 1);
   };
 
   const toggleSort = (field: SortField) => {
@@ -148,136 +152,149 @@ export default function Clients() {
         </Button>
       </div>
 
-      {/* Search + Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search clients..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <Select value={stageFilter} onValueChange={setStageFilter}>
-          <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Stage" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Stages</SelectItem>
-            {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={practiceFilter} onValueChange={setPracticeFilter}>
-          <SelectTrigger className="w-44 h-9 text-xs"><SelectValue placeholder="Practice Area" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Practice Areas</SelectItem>
-            {practiceAreas.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        {hasFilters && (
-          <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setStageFilter("all"); setPracticeFilter("all"); }}>
-            <X className="h-3 w-3 mr-1" />Clear Filters
-          </Button>
-        )}
-      </div>
+      <Tabs defaultValue="list">
+        <TabsList className="mb-4">
+          <TabsTrigger value="list">List</TabsTrigger>
+          <TabsTrigger value="board">Board</TabsTrigger>
+        </TabsList>
 
-      <div className="rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("name")}>
-                <div className="flex items-center gap-1">Name <ArrowUpDown className="h-3 w-3 text-muted-foreground" /></div>
-              </TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Practice Area</TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("stage")}>
-                <div className="flex items-center gap-1">Stage <ArrowUpDown className="h-3 w-3 text-muted-foreground" /></div>
-              </TableHead>
-              <TableHead>Stage Age</TableHead>
-              <TableHead>Open Tasks</TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("client_health_score")}>
-                <div className="flex items-center gap-1">Health <ArrowUpDown className="h-3 w-3 text-muted-foreground" /></div>
-              </TableHead>
-              {isAdmin && <TableHead className="w-10" />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginated.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-muted-foreground py-8">
-                  No client profiles found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              paginated.map((c) => {
-                const ageDays = getStageAgeDays(c.stage_changed_at);
-                const ageStyle = getStageAgeStyle(ageDays);
-                const ageBadge = getStageAgeBadge(ageDays);
-                return (
-                  <TableRow key={c.id} className={`cursor-pointer ${ageStyle}`} onClick={() => navigate(`/clients/${c.id}`)}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <UserAvatar avatarUrl={c.avatar_url} fullName={c.name} size="sm" />
-                        <span className="font-medium">{c.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{c.company}</TableCell>
-                    <TableCell>{c.role}</TableCell>
-                    <TableCell>{c.practice_area}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
-                        {c.stage}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${ageBadge.className}`}>
-                            {ageBadge.label}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {c.stage_changed_at
-                            ? `Stage changed: ${new Date(c.stage_changed_at).toLocaleDateString()}`
-                            : "No stage change recorded"}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      {taskCounts[c.id] ? (
-                        <Badge variant="secondary" className="text-xs">{taskCounts[c.id]} open</Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{c.client_health_score !== null ? `${c.client_health_score}/10` : "—"}</TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })
+        <TabsContent value="list">
+          {/* Search + Filters */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search clients..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Stage" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stages</SelectItem>
+                {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={practiceFilter} onValueChange={setPracticeFilter}>
+              <SelectTrigger className="w-44 h-9 text-xs"><SelectValue placeholder="Practice Area" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Practice Areas</SelectItem>
+                {practiceAreas.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {hasFilters && (
+              <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setStageFilter("all"); setPracticeFilter("all"); }}>
+                <X className="h-3 w-3 mr-1" />Clear Filters
+              </Button>
             )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
-          <p className="text-xs text-muted-foreground">
-            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} of {sorted.length}
-          </p>
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(page - 1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-xs px-2">{page + 1} / {totalPages}</span>
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
           </div>
-        </div>
-      )}
+
+          <div className="rounded-lg border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("name")}>
+                    <div className="flex items-center gap-1">Name <ArrowUpDown className="h-3 w-3 text-muted-foreground" /></div>
+                  </TableHead>
+                  <TableHead>Company</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Practice Area</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("stage")}>
+                    <div className="flex items-center gap-1">Stage <ArrowUpDown className="h-3 w-3 text-muted-foreground" /></div>
+                  </TableHead>
+                  <TableHead>Stage Age</TableHead>
+                  <TableHead>Open Tasks</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("client_health_score")}>
+                    <div className="flex items-center gap-1">Health <ArrowUpDown className="h-3 w-3 text-muted-foreground" /></div>
+                  </TableHead>
+                  {isAdmin && <TableHead className="w-10" />}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginated.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={isAdmin ? 9 : 8} className="text-center text-muted-foreground py-8">
+                      No client profiles found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginated.map((c) => {
+                    const ageDays = getStageAgeDays(c.stage_changed_at);
+                    const ageStyle = getStageAgeStyle(ageDays);
+                    const ageBadge = getStageAgeBadge(ageDays);
+                    return (
+                      <TableRow key={c.id} className={`cursor-pointer ${ageStyle}`} onClick={() => navigate(`/clients/${c.id}`)}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <UserAvatar avatarUrl={c.avatar_url} fullName={c.name} size="sm" />
+                            <span className="font-medium">{c.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{c.company}</TableCell>
+                        <TableCell>{c.role}</TableCell>
+                        <TableCell>{c.practice_area}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
+                            {c.stage}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${ageBadge.className}`}>
+                                {ageBadge.label}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {c.stage_changed_at
+                                ? `Stage changed: ${new Date(c.stage_changed_at).toLocaleDateString()}`
+                                : "No stage change recorded"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                          {taskCounts[c.id] ? (
+                            <Badge variant="secondary" className="text-xs">{taskCounts[c.id]} open</Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{c.client_health_score !== null ? `${c.client_health_score}/10` : "—"}</TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setDeleteTarget(c); }}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-xs text-muted-foreground">
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} of {sorted.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(page - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs px-2">{page + 1} / {totalPages}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="board">
+          <ClientsKanban refreshKey={refreshKey} />
+        </TabsContent>
+      </Tabs>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
