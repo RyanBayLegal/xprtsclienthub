@@ -558,6 +558,13 @@ export default function ClientProfile() {
         )}
 
         {isTeam && !isNew && profile.id && (
+          <TabsContent value="board">
+            <ClientKanbanBoard clientProfileId={profile.id} />
+          </TabsContent>
+        )}
+        )}
+
+        {isTeam && !isNew && profile.id && (
           <TabsContent value="audit">
             <SystemsAudit clientProfileId={profile.id} />
           </TabsContent>
