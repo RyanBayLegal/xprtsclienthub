@@ -285,7 +285,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
                     <Select value={templateForm.stage} onValueChange={(v) => setTemplateForm((f) => ({ ...f, stage: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {stages.map((s) => (
+                        {PIPELINE_STAGES.map((s) => (
                           <SelectItem key={s} value={s}>{s.replace(" Stage", "")}</SelectItem>
                         ))}
                       </SelectContent>
