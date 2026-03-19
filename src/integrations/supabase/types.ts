@@ -868,6 +868,47 @@ export type Database = {
           },
         ]
       }
+      talent_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          talent_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          talent_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          talent_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "talent_attachments_talent_id_fkey"
+            columns: ["talent_id"]
+            isOneToOne: false
+            referencedRelation: "talent_pool"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       talent_pool: {
         Row: {
           avatar_url: string | null
@@ -878,6 +919,8 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          links: Json | null
+          notes: string | null
           rate_per_hour: number | null
           role: string | null
         }
@@ -890,6 +933,8 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          links?: Json | null
+          notes?: string | null
           rate_per_hour?: number | null
           role?: string | null
         }
@@ -902,6 +947,8 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          links?: Json | null
+          notes?: string | null
           rate_per_hour?: number | null
           role?: string | null
         }
