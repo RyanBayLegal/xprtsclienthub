@@ -98,18 +98,6 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
     tasks: [{ title: "", assigned_to_name: "", priority: "medium" }],
   });
 
-  // Kanban state
-  const [stages, setStages] = useState<string[]>(() => {
-    const stored = localStorage.getItem(CLIENT_KANBAN_STAGES_KEY);
-    return stored ? JSON.parse(stored) : DEFAULT_STAGES;
-  });
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [addStageDialogOpen, setAddStageDialogOpen] = useState(false);
-  const [newStageName, setNewStageName] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
-  const [boardPages, setBoardPages] = useState<Record<string, number>>({});
-  const BOARD_PAGE_SIZE = 10;
 
   useEffect(() => {
     localStorage.setItem(CLIENT_KANBAN_STAGES_KEY, JSON.stringify(stages));
