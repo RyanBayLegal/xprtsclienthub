@@ -186,15 +186,6 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
     fetchTasks();
   };
 
-  const updateStage = async (taskId: string, newStage: string) => {
-    const { error } = await supabase.from("tasks").update({ stage: newStage }).eq("id", taskId);
-    if (error) {
-      toast.error("Failed to update stage");
-      return;
-    }
-    setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, stage: newStage } : t));
-    toast.success(`Moved to ${newStage.replace(" Stage", "")}`);
-  };
 
   const deleteTask = async (taskId: string) => {
     await supabase.from("tasks").delete().eq("id", taskId);
