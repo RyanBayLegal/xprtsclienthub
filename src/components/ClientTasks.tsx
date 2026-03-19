@@ -99,9 +99,6 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
   });
 
 
-  useEffect(() => {
-    localStorage.setItem(CLIENT_KANBAN_STAGES_KEY, JSON.stringify(stages));
-  }, [stages]);
 
   const fetchTasks = useCallback(async () => {
     const { data } = await supabase
