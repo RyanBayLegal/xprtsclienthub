@@ -280,6 +280,7 @@ export default function ClientProfile() {
           {isTeam && <TabsTrigger value="agreement-attachments">Agreement & Attachments</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="scoping">Scoping</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="tasks">Tasks</TabsTrigger>}
+          {isTeam && !isNew && <TabsTrigger value="board">Board</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="notes">Notes</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="payments">Payments</TabsTrigger>}
