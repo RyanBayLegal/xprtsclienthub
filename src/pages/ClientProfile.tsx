@@ -562,7 +562,6 @@ export default function ClientProfile() {
             <ClientKanbanBoard clientProfileId={profile.id} />
           </TabsContent>
         )}
-        )}
 
         {isTeam && !isNew && profile.id && (
           <TabsContent value="audit">
