@@ -18,7 +18,6 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import ScopingQuestionnaire from "@/components/ScopingQuestionnaire";
 import ClientTasks from "@/components/ClientTasks";
-import ClientKanbanBoard from "@/components/ClientKanbanBoard";
 import ClientAvatarUpload from "@/components/ClientAvatarUpload";
 import ClientAttachments from "@/components/ClientAttachments";
 import SystemsAudit from "@/components/SystemsAudit";
@@ -280,7 +279,7 @@ export default function ClientProfile() {
           {isTeam && <TabsTrigger value="agreement-attachments">Agreement & Attachments</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="scoping">Scoping</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="tasks">Tasks</TabsTrigger>}
-          {isTeam && !isNew && <TabsTrigger value="board">Board</TabsTrigger>}
+          
           {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="notes">Notes</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="payments">Payments</TabsTrigger>}
@@ -557,11 +556,6 @@ export default function ClientProfile() {
           </TabsContent>
         )}
 
-        {isTeam && !isNew && profile.id && (
-          <TabsContent value="board">
-            <ClientKanbanBoard clientProfileId={profile.id} />
-          </TabsContent>
-        )}
 
         {isTeam && !isNew && profile.id && (
           <TabsContent value="audit">
