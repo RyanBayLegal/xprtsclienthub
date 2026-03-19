@@ -45,6 +45,16 @@ interface WorkflowTemplate {
 const STATUS_OPTIONS = ["todo", "in_progress", "done"];
 const PRIORITY_OPTIONS = ["low", "medium", "high", "urgent"];
 
+const PIPELINE_STAGES = [
+  "Prospecting Stage",
+  "Discovery Stage",
+  "Solution Mapping Stage",
+  "Proposal/Contract Stage",
+  "Onboarding/Kickoff Stage",
+  "Hired Stage",
+  "Lost Stage",
+];
+
 
 const priorityColors: Record<string, string> = {
   low: "bg-muted text-muted-foreground",
