@@ -45,27 +45,6 @@ interface WorkflowTemplate {
 const STATUS_OPTIONS = ["todo", "in_progress", "done"];
 const PRIORITY_OPTIONS = ["low", "medium", "high", "urgent"];
 
-const DEFAULT_STAGES = [
-  "Prospecting Stage",
-  "Discovery Stage",
-  "Solution Mapping Stage",
-  "Proposal/Contract Stage",
-  "Onboarding/Kickoff Stage",
-  "Hired Stage",
-  "Lost Stage",
-];
-
-const CLIENT_KANBAN_STAGES_KEY = "client_kanban_custom_stages";
-
-const STAGE_COLORS: Record<string, string> = {
-  "Prospecting Stage": "bg-blue-500/10 border-blue-500/30",
-  "Discovery Stage": "bg-amber-500/10 border-amber-500/30",
-  "Solution Mapping Stage": "bg-purple-500/10 border-purple-500/30",
-  "Proposal/Contract Stage": "bg-emerald-500/10 border-emerald-500/30",
-  "Onboarding/Kickoff Stage": "bg-rose-500/10 border-rose-500/30",
-  "Hired Stage": "bg-teal-500/10 border-teal-500/30",
-  "Lost Stage": "bg-gray-500/10 border-gray-500/30",
-};
 
 const priorityColors: Record<string, string> = {
   low: "bg-muted text-muted-foreground",
