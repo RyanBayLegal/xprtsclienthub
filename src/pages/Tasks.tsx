@@ -145,7 +145,7 @@ function DraggableTaskCard({
             </button>
           </div>
         </div>
-        {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
+        {/* description hidden from preview - shown in edit modal */}
         <div className="flex items-center gap-2 flex-wrap">
           {task.client_profile_id && task.client_name && (
             <button
