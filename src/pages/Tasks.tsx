@@ -410,6 +410,11 @@ export default function Tasks() {
     fetchTasks();
   };
 
+  const openView = (task: Task) => {
+    setViewTask(task);
+    setViewDialogOpen(true);
+  };
+
   const openEdit = (task: Task) => {
     setEditingTask(task);
     setEditForm({
