@@ -203,6 +203,7 @@ function DroppableColumn({
   onStatusChange,
   onEdit,
   onDelete,
+  onView,
   navigate,
   page,
   pageSize,
@@ -215,6 +216,7 @@ function DroppableColumn({
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
+  onView: (task: Task) => void;
   navigate: (path: string) => void;
   page: number;
   pageSize: number;
