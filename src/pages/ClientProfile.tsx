@@ -54,6 +54,9 @@ interface ClientProfileData {
   phone: string | null;
   state: string | null;
   timezone: string | null;
+  birthday: string | null;
+  staff_start_date: string | null;
+  company_established_date: string | null;
 }
 
 interface RoleOpen {
