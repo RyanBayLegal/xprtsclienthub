@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, CheckCircle2, Circle, Clock, Trash2 } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Clock, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import TaskComments from "@/components/TaskComments";
@@ -107,7 +107,13 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
     name: "", stage: "Prospecting Stage",
     tasks: [{ title: "", assigned_to_name: "", priority: "medium" }],
   });
-
+  const [viewTask, setViewTask] = useState<Task | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editTaskDialog, setEditTaskDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "", description: "", priority: "medium", due_date: "", assigned_to: "", assigned_to_name: "", stage: "",
+  });
 
 
   const fetchTasks = useCallback(async () => {
@@ -189,6 +195,44 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
 
   const deleteTask = async (taskId: string) => {
     await supabase.from("tasks").delete().eq("id", taskId);
+    fetchTasks();
+  };
+
+  const openViewTask = (task: Task) => {
+    setViewTask(task);
+    setViewDialogOpen(true);
+  };
+
+  const openEditTask = (task: Task) => {
+    setEditingTask(task);
+    setEditForm({
+      title: task.title,
+      description: task.description || "",
+      priority: task.priority,
+      due_date: task.due_date || "",
+      assigned_to: task.assigned_to || "",
+      assigned_to_name: task.assigned_to_name || "",
+      stage: task.stage || "",
+    });
+    setEditTaskDialog(true);
+  };
+
+  const handleEditTask = async () => {
+    if (!editingTask) return;
+    const selectedStaff = staffMembers.find((s) => s.id === editForm.assigned_to);
+    const { error } = await supabase.from("tasks").update({
+      title: editForm.title,
+      description: editForm.description || null,
+      priority: editForm.priority,
+      due_date: editForm.due_date || null,
+      assigned_to: editForm.assigned_to || null,
+      assigned_to_name: selectedStaff?.full_name || editForm.assigned_to_name || null,
+      stage: editForm.stage || null,
+    }).eq("id", editingTask.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Task updated");
+    setEditTaskDialog(false);
+    setEditingTask(null);
     fetchTasks();
   };
 
@@ -370,10 +414,10 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
       ) : (
         <div className="space-y-2">
           {sortedTasks.map((task) => (
-            <Card key={task.id}>
+            <Card key={task.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => openViewTask(task)}>
               <CardContent className="p-3">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => updateStatus(task.id, task.status === "done" ? "todo" : "done")}>
+                  <button onClick={(e) => { e.stopPropagation(); updateStatus(task.id, task.status === "done" ? "todo" : "done"); }}>
                     {task.status === "done" ? (
                       <CheckCircle2 className="h-5 w-5 text-emerald-500" />
                     ) : task.status === "in_progress" ? (
@@ -399,30 +443,143 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
                   </div>
                   <Badge className={`text-[10px] ${priorityColors[task.priority]}`}>{task.priority}</Badge>
                   <Select value={task.status} onValueChange={(v) => updateStatus(task.id, v)}>
-                    <SelectTrigger className="w-28 h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-28 h-7 text-[10px]" onClick={(e) => e.stopPropagation()}><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {STATUS_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteTask(task.id)}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEditTask(task); }}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}>
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
                 </div>
-                <Collapsible>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-6 text-[10px] mt-1 text-muted-foreground">
-                      <MessageSquare className="h-3 w-3 mr-1" />Comments
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <TaskComments taskId={task.id} />
-                  </CollapsibleContent>
-                </Collapsible>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* View Task Detail Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{viewTask?.title}</DialogTitle></DialogHeader>
+          {viewTask && (
+            <div className="space-y-4 py-2">
+              {viewTask.description && (
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Description</Label>
+                  <p className="text-sm">{viewTask.description}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Status</Label>
+                  <p className="text-sm">{viewTask.status}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Priority</Label>
+                  <Badge className={`text-[10px] ${priorityColors[viewTask.priority]}`}>{viewTask.priority}</Badge>
+                </div>
+                {viewTask.due_date && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Due Date</Label>
+                    <p className={`text-sm ${getDueDateStyle(viewTask.due_date, viewTask.status)}`}>{getDueDateLabel(viewTask.due_date)}</p>
+                  </div>
+                )}
+                {viewTask.assigned_to_name && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Assigned To</Label>
+                    <p className="text-sm">{viewTask.assigned_to_name}</p>
+                  </div>
+                )}
+                {viewTask.stage && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Stage</Label>
+                    <p className="text-sm">{viewTask.stage.replace(" Stage", "")}</p>
+                  </div>
+                )}
+              </div>
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground">
+                    <MessageSquare className="h-3 w-3 mr-1" />Comments
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <TaskComments taskId={viewTask.id} />
+                </CollapsibleContent>
+              </Collapsible>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => { setViewDialogOpen(false); openEditTask(viewTask); }}>
+                  <Pencil className="mr-1 h-3 w-3" />Edit
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={editTaskDialog} onOpenChange={setEditTaskDialog}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Task</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Title *</Label>
+              <Input value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select value={editForm.priority} onValueChange={(v) => setEditForm((f) => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PRIORITY_OPTIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Due Date</Label>
+                <Input type="date" value={editForm.due_date} onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Pipeline Stage</Label>
+              <Select value={editForm.stage} onValueChange={(v) => setEditForm((f) => ({ ...f, stage: v === "none" ? "" : v }))}>
+                <SelectTrigger><SelectValue placeholder="Select stage" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {PIPELINE_STAGES.map((s) => (
+                    <SelectItem key={s} value={s}>{s.replace(" Stage", "")}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Assign To</Label>
+              <Select value={editForm.assigned_to} onValueChange={(v) => {
+                const staff = staffMembers.find((s) => s.id === v);
+                setEditForm((f) => ({ ...f, assigned_to: v === "none" ? "" : v, assigned_to_name: staff?.full_name || "" }));
+              }}>
+                <SelectTrigger><SelectValue placeholder="Select staff member" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {staffMembers.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>{s.full_name || s.id}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleEditTask}>Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
