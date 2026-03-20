@@ -762,6 +762,62 @@ export default function Tasks() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* View Task Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{viewTask?.title}</DialogTitle></DialogHeader>
+          {viewTask && (
+            <div className="space-y-4 py-2">
+              {viewTask.description && (
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Description</Label>
+                  <p className="text-sm">{viewTask.description}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Status</Label>
+                  <p className="text-sm">{viewTask.status}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Priority</Label>
+                  <Badge className={`text-[10px] ${priorityColors[viewTask.priority]}`}>{viewTask.priority}</Badge>
+                </div>
+                {viewTask.due_date && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Due Date</Label>
+                    <p className={`text-sm ${getDueDateStyle(viewTask.due_date, viewTask.status)}`}>{getDueDateLabel(viewTask.due_date)}</p>
+                  </div>
+                )}
+                {viewTask.client_name && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Client</Label>
+                    <p className="text-sm">{viewTask.client_name}</p>
+                  </div>
+                )}
+                {viewTask.staff_name && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Assigned To</Label>
+                    <p className="text-sm">{viewTask.staff_name}</p>
+                  </div>
+                )}
+                {viewTask.stage && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Stage</Label>
+                    <p className="text-sm">{viewTask.stage.replace(" Stage", "")}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => { setViewDialogOpen(false); openEdit(viewTask); }}>
+                  <Pencil className="mr-1 h-3 w-3" />Edit
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
