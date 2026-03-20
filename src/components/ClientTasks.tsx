@@ -198,6 +198,44 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
     fetchTasks();
   };
 
+  const openViewTask = (task: Task) => {
+    setViewTask(task);
+    setViewDialogOpen(true);
+  };
+
+  const openEditTask = (task: Task) => {
+    setEditingTask(task);
+    setEditForm({
+      title: task.title,
+      description: task.description || "",
+      priority: task.priority,
+      due_date: task.due_date || "",
+      assigned_to: task.assigned_to || "",
+      assigned_to_name: task.assigned_to_name || "",
+      stage: task.stage || "",
+    });
+    setEditTaskDialog(true);
+  };
+
+  const handleEditTask = async () => {
+    if (!editingTask) return;
+    const selectedStaff = staffMembers.find((s) => s.id === editForm.assigned_to);
+    const { error } = await supabase.from("tasks").update({
+      title: editForm.title,
+      description: editForm.description || null,
+      priority: editForm.priority,
+      due_date: editForm.due_date || null,
+      assigned_to: editForm.assigned_to || null,
+      assigned_to_name: selectedStaff?.full_name || editForm.assigned_to_name || null,
+      stage: editForm.stage || null,
+    }).eq("id", editingTask.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Task updated");
+    setEditTaskDialog(false);
+    setEditingTask(null);
+    fetchTasks();
+  };
+
   const applyTemplate = async (template: WorkflowTemplate) => {
     const newTasks = template.tasks.map((t) => ({
       title: t.title,
