@@ -727,6 +727,9 @@ export default function Tasks() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openView(task)} title="View task">
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => openEdit(task)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
