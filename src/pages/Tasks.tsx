@@ -657,9 +657,9 @@ export default function Tasks() {
         <TabsContent value="board">
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="grid gap-4 grid-cols-1 md:grid-cols-3 items-start">
-              <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} navigate={navigate} page={boardPages.todo} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, todo: p }))} />
-              <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} navigate={navigate} page={boardPages.in_progress} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, in_progress: p }))} />
-              <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} navigate={navigate} page={boardPages.done} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, done: p }))} />
+              <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} onView={openView} navigate={navigate} page={boardPages.todo} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, todo: p }))} />
+              <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} onView={openView} navigate={navigate} page={boardPages.in_progress} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, in_progress: p }))} />
+              <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} onView={openView} navigate={navigate} page={boardPages.done} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, done: p }))} />
             </div>
 
             <DragOverlay>
