@@ -240,88 +240,87 @@ export default function Leads() {
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="mr-2 h-4 w-4" />Add Lead</Button>
             </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingId ? "Edit Lead" : "New Lead"}</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Name *</Label>
+                    <Input value={form.name} onChange={(e) => updateField("name", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Contact</Label>
+                    <Input value={form.contact} onChange={(e) => updateField("contact", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Source</Label>
+                    <Input value={form.source} onChange={(e) => updateField("source", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Website</Label>
+                    <Input value={form.website} onChange={(e) => updateField("website", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date Reached</Label>
+                    <Input type="date" value={form.date_reached} onChange={(e) => updateField("date_reached", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Stage</Label>
+                    <Select value={form.stage} onValueChange={(v) => updateField("stage", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Needs</Label>
+                  <Textarea value={form.needs} onChange={(e) => updateField("needs", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Next Steps</Label>
+                  <Textarea value={form.next_steps} onChange={(e) => updateField("next_steps", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea value={form.notes} onChange={(e) => updateField("notes", e.target.value)} />
+                </div>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={form.follow_up_email_sent} onCheckedChange={(v) => updateField("follow_up_email_sent", !!v)} />
+                    Follow-up Sent
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={form.booked} onCheckedChange={(v) => updateField("booked", !!v)} />
+                    Booked
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={form.email_sent_with_info} onCheckedChange={(v) => updateField("email_sent_with_info", !!v)} />
+                    Info Email Sent
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Follow-up Date</Label>
+                    <Input type="date" value={form.follow_up_date} onChange={(e) => updateField("follow_up_date", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Follow-up After</Label>
+                    <Input type="date" value={form.follow_up_email_after} onChange={(e) => updateField("follow_up_email_after", e.target.value)} />
+                  </div>
+                </div>
+                <Button onClick={handleSave}>{editingId ? "Update" : "Create"} Lead</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={exportLeads}>
             <Download className="mr-2 h-4 w-4" />Export CSV
           </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingId ? "Edit Lead" : "New Lead"}</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Name *</Label>
-                  <Input value={form.name} onChange={(e) => updateField("name", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Contact</Label>
-                  <Input value={form.contact} onChange={(e) => updateField("contact", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Source</Label>
-                  <Input value={form.source} onChange={(e) => updateField("source", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Website</Label>
-                  <Input value={form.website} onChange={(e) => updateField("website", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Date Reached</Label>
-                  <Input type="date" value={form.date_reached} onChange={(e) => updateField("date_reached", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Stage</Label>
-                  <Select value={form.stage} onValueChange={(v) => updateField("stage", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Needs</Label>
-                <Textarea value={form.needs} onChange={(e) => updateField("needs", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Next Steps</Label>
-                <Textarea value={form.next_steps} onChange={(e) => updateField("next_steps", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea value={form.notes} onChange={(e) => updateField("notes", e.target.value)} />
-              </div>
-              <div className="flex gap-6">
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={form.follow_up_email_sent} onCheckedChange={(v) => updateField("follow_up_email_sent", !!v)} />
-                  Follow-up Sent
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={form.booked} onCheckedChange={(v) => updateField("booked", !!v)} />
-                  Booked
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={form.email_sent_with_info} onCheckedChange={(v) => updateField("email_sent_with_info", !!v)} />
-                  Info Email Sent
-                </label>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Follow-up Date</Label>
-                  <Input type="date" value={form.follow_up_date} onChange={(e) => updateField("follow_up_date", e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Follow-up After</Label>
-                  <Input type="date" value={form.follow_up_email_after} onChange={(e) => updateField("follow_up_email_after", e.target.value)} />
-                </div>
-              </div>
-              <Button onClick={handleSave}>{editingId ? "Update" : "Create"} Lead</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
         </div>
       </div>
 
