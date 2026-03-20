@@ -107,7 +107,13 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
     name: "", stage: "Prospecting Stage",
     tasks: [{ title: "", assigned_to_name: "", priority: "medium" }],
   });
-
+  const [viewTask, setViewTask] = useState<Task | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editTaskDialog, setEditTaskDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "", description: "", priority: "medium", due_date: "", assigned_to: "", assigned_to_name: "", stage: "",
+  });
 
 
   const fetchTasks = useCallback(async () => {
