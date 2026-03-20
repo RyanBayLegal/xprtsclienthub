@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -94,12 +94,14 @@ function DraggableTaskCard({
   onStatusChange,
   onEdit,
   onDelete,
+  onView,
   navigate,
 }: {
   task: Task;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
+  onView: (task: Task) => void;
   navigate: (path: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
@@ -129,6 +131,13 @@ function DraggableTaskCard({
             <Badge className={`text-[10px] ${priorityColors[task.priority]}`}>
               {task.priority}
             </Badge>
+            <button
+              onClick={() => onView(task)}
+              className="text-muted-foreground hover:text-foreground p-0.5"
+              title="View task"
+            >
+              <Eye className="h-3 w-3" />
+            </button>
             <button
               onClick={() => onEdit(task)}
               className="text-muted-foreground hover:text-foreground p-0.5"
@@ -194,6 +203,7 @@ function DroppableColumn({
   onStatusChange,
   onEdit,
   onDelete,
+  onView,
   navigate,
   page,
   pageSize,
@@ -206,6 +216,7 @@ function DroppableColumn({
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
+  onView: (task: Task) => void;
   navigate: (path: string) => void;
   page: number;
   pageSize: number;
@@ -243,6 +254,7 @@ function DroppableColumn({
             onStatusChange={onStatusChange}
             onEdit={onEdit}
             onDelete={onDelete}
+            onView={onView}
             navigate={navigate}
           />
         ))}
@@ -280,6 +292,8 @@ export default function Tasks() {
   const [clientFilter, setClientFilter] = useState("all");
   const [assignedFilter, setAssignedFilter] = useState("all");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [viewTask, setViewTask] = useState<Task | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
   const [listPage, setListPage] = useState(0);
@@ -394,6 +408,11 @@ export default function Tasks() {
     setDialogOpen(false);
     setForm(emptyForm);
     fetchTasks();
+  };
+
+  const openView = (task: Task) => {
+    setViewTask(task);
+    setViewDialogOpen(true);
   };
 
   const openEdit = (task: Task) => {
@@ -638,9 +657,9 @@ export default function Tasks() {
         <TabsContent value="board">
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="grid gap-4 grid-cols-1 md:grid-cols-3 items-start">
-              <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} navigate={navigate} page={boardPages.todo} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, todo: p }))} />
-              <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} navigate={navigate} page={boardPages.in_progress} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, in_progress: p }))} />
-              <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} navigate={navigate} page={boardPages.done} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, done: p }))} />
+              <DroppableColumn id="todo" label="To Do" icon={Circle} tasks={todoTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} onView={openView} navigate={navigate} page={boardPages.todo} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, todo: p }))} />
+              <DroppableColumn id="in_progress" label="In Progress" icon={Clock} tasks={inProgressTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} onView={openView} navigate={navigate} page={boardPages.in_progress} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, in_progress: p }))} />
+              <DroppableColumn id="done" label="Done" icon={CheckCircle2} tasks={doneTasks} onStatusChange={updateTaskStatus} onEdit={openEdit} onDelete={deleteTask} onView={openView} navigate={navigate} page={boardPages.done} pageSize={BOARD_PAGE_SIZE} onPageChange={(p) => setBoardPages((prev) => ({ ...prev, done: p }))} />
             </div>
 
             <DragOverlay>
@@ -708,6 +727,9 @@ export default function Tasks() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openView(task)} title="View task">
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => openEdit(task)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -740,6 +762,62 @@ export default function Tasks() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* View Task Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{viewTask?.title}</DialogTitle></DialogHeader>
+          {viewTask && (
+            <div className="space-y-4 py-2">
+              {viewTask.description && (
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Description</Label>
+                  <p className="text-sm">{viewTask.description}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Status</Label>
+                  <p className="text-sm">{viewTask.status}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs">Priority</Label>
+                  <Badge className={`text-[10px] ${priorityColors[viewTask.priority]}`}>{viewTask.priority}</Badge>
+                </div>
+                {viewTask.due_date && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Due Date</Label>
+                    <p className={`text-sm ${getDueDateStyle(viewTask.due_date, viewTask.status)}`}>{getDueDateLabel(viewTask.due_date)}</p>
+                  </div>
+                )}
+                {viewTask.client_name && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Client</Label>
+                    <p className="text-sm">{viewTask.client_name}</p>
+                  </div>
+                )}
+                {viewTask.staff_name && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Assigned To</Label>
+                    <p className="text-sm">{viewTask.staff_name}</p>
+                  </div>
+                )}
+                {viewTask.stage && (
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground text-xs">Stage</Label>
+                    <p className="text-sm">{viewTask.stage.replace(" Stage", "")}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => { setViewDialogOpen(false); openEdit(viewTask); }}>
+                  <Pencil className="mr-1 h-3 w-3" />Edit
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
