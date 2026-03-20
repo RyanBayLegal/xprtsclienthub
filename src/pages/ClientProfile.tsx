@@ -423,6 +423,18 @@ export default function ClientProfile() {
                     <Input type="number" min={0} max={10} value={profile.client_health_score ?? ""} onChange={(e) => updateProfile("client_health_score", e.target.value ? Number(e.target.value) : null)} />
                   </div>
                 )}
+                <div className="space-y-2">
+                  <Label>Birthday</Label>
+                  <Input type="date" value={profile.birthday || ""} onChange={(e) => updateProfile("birthday", e.target.value || null)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Staff Start Date with XPRTS</Label>
+                  <Input type="date" value={profile.staff_start_date || ""} onChange={(e) => updateProfile("staff_start_date", e.target.value || null)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Company Established Date</Label>
+                  <Input type="date" value={profile.company_established_date || ""} onChange={(e) => updateProfile("company_established_date", e.target.value || null)} />
+                </div>
               </CardContent>
             </Card>
 
