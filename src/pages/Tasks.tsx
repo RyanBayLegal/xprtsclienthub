@@ -292,6 +292,8 @@ export default function Tasks() {
   const [clientFilter, setClientFilter] = useState("all");
   const [assignedFilter, setAssignedFilter] = useState("all");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [viewTask, setViewTask] = useState<Task | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
   const [listPage, setListPage] = useState(0);
