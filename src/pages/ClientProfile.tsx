@@ -104,6 +104,7 @@ export default function ClientProfile() {
           meeting_preferences: "", client_health_score: null, future_plans: "",
           discovery_source: "", how_they_found_us: "", discovery_notes: "",
           email: "", phone: "", state: "", timezone: "",
+          birthday: null, staff_start_date: null, company_established_date: null,
         });
         setLoading(false);
         return;
