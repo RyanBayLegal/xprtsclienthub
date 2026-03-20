@@ -254,6 +254,7 @@ function DroppableColumn({
             onStatusChange={onStatusChange}
             onEdit={onEdit}
             onDelete={onDelete}
+            onView={onView}
             navigate={navigate}
           />
         ))}
