@@ -246,8 +246,10 @@ export type Database = {
         Row: {
           attitude: string | null
           avatar_url: string | null
+          birthday: string | null
           client_health_score: number | null
           company: string | null
+          company_established_date: string | null
           created_at: string
           created_by: string | null
           discovery_notes: string | null
@@ -269,6 +271,7 @@ export type Database = {
           repeat_customer_probability: string | null
           role: string | null
           schedule_color: string | null
+          staff_start_date: string | null
           stage: string | null
           stage_changed_at: string | null
           state: string | null
@@ -279,8 +282,10 @@ export type Database = {
         Insert: {
           attitude?: string | null
           avatar_url?: string | null
+          birthday?: string | null
           client_health_score?: number | null
           company?: string | null
+          company_established_date?: string | null
           created_at?: string
           created_by?: string | null
           discovery_notes?: string | null
@@ -302,6 +307,7 @@ export type Database = {
           repeat_customer_probability?: string | null
           role?: string | null
           schedule_color?: string | null
+          staff_start_date?: string | null
           stage?: string | null
           stage_changed_at?: string | null
           state?: string | null
@@ -312,8 +318,10 @@ export type Database = {
         Update: {
           attitude?: string | null
           avatar_url?: string | null
+          birthday?: string | null
           client_health_score?: number | null
           company?: string | null
+          company_established_date?: string | null
           created_at?: string
           created_by?: string | null
           discovery_notes?: string | null
@@ -335,6 +343,7 @@ export type Database = {
           repeat_customer_probability?: string | null
           role?: string | null
           schedule_color?: string | null
+          staff_start_date?: string | null
           stage?: string | null
           stage_changed_at?: string | null
           state?: string | null
