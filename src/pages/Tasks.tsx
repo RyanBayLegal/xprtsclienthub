@@ -94,12 +94,14 @@ function DraggableTaskCard({
   onStatusChange,
   onEdit,
   onDelete,
+  onView,
   navigate,
 }: {
   task: Task;
   onStatusChange: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
+  onView: (task: Task) => void;
   navigate: (path: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
