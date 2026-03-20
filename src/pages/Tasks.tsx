@@ -132,6 +132,13 @@ function DraggableTaskCard({
               {task.priority}
             </Badge>
             <button
+              onClick={() => onView(task)}
+              className="text-muted-foreground hover:text-foreground p-0.5"
+              title="View task"
+            >
+              <Eye className="h-3 w-3" />
+            </button>
+            <button
               onClick={() => onEdit(task)}
               className="text-muted-foreground hover:text-foreground p-0.5"
               title="Edit task"
