@@ -281,7 +281,7 @@ export default function ClientProfile() {
           <TabsTrigger value="client-info">Client Info</TabsTrigger>
           <TabsTrigger value="relationship-business">Relationship & Business</TabsTrigger>
           <TabsTrigger value="key-people">Key People</TabsTrigger>
-          
+          {isTeam && !isNew && <TabsTrigger value="placed-vas">Placed VAs</TabsTrigger>}
           {isTeam && <TabsTrigger value="agreement-attachments">Agreement & Attachments</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="scoping">Scoping</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="tasks">Tasks</TabsTrigger>}
