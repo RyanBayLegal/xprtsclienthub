@@ -561,6 +561,17 @@ export default function ClientProfile() {
         </TabsContent>
 
 
+        {/* ===== PLACED VAs ===== */}
+        {isTeam && !isNew && profile.id && (
+          <TabsContent value="placed-vas">
+            <PlacedVAs
+              clientProfileId={profile.id}
+              staffStartDate={profile.staff_start_date}
+              onStaffStartDateChange={(date) => updateProfile("staff_start_date", date)}
+            />
+          </TabsContent>
+        )}
+
         {/* ===== AGREEMENT & ATTACHMENTS (merged) ===== */}
         {isTeam && (
           <TabsContent value="agreement-attachments">
