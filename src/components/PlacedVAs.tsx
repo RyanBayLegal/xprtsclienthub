@@ -77,7 +77,7 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
   const fetchTalentOptions = async () => {
     const { data } = await supabase
       .from("talent_pool" as any)
-      .select("id, full_name, role, avatar_url")
+      .select("*")
       .order("full_name");
     if (data) setTalentOptions(data as TalentOption[]);
   };
