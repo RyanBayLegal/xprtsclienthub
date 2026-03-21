@@ -613,6 +613,51 @@ export type Database = {
           },
         ]
       }
+      placed_vas: {
+        Row: {
+          client_profile_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          start_date: string | null
+          talent_id: string
+        }
+        Insert: {
+          client_profile_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          start_date?: string | null
+          talent_id: string
+        }
+        Update: {
+          client_profile_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          start_date?: string | null
+          talent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "placed_vas_client_profile_id_fkey"
+            columns: ["client_profile_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "placed_vas_talent_id_fkey"
+            columns: ["talent_id"]
+            isOneToOne: false
+            referencedRelation: "talent_pool"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
