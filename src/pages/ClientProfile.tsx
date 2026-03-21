@@ -425,16 +425,78 @@ export default function ClientProfile() {
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label>Birthday</Label>
-                  <Input type="date" value={profile.birthday || ""} onChange={(e) => updateProfile("birthday", e.target.value || null)} />
+                  <Label>Birthday (Month / Day)</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={profile.birthday ? profile.birthday.split("-")[1] || "" : ""}
+                      onValueChange={(month) => {
+                        const day = profile.birthday ? profile.birthday.split("-")[2] || "01" : "01";
+                        updateProfile("birthday", `2000-${month}-${day}`);
+                      }}
+                    >
+                      <SelectTrigger className="w-[140px]"><SelectValue placeholder="Month" /></SelectTrigger>
+                      <SelectContent>
+                        {["01","02","03","04","05","06","07","08","09","10","11","12"].map((m, i) => (
+                          <SelectItem key={m} value={m}>{new Date(2000, i).toLocaleString('default', { month: 'long' })}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={profile.birthday ? profile.birthday.split("-")[2] || "" : ""}
+                      onValueChange={(day) => {
+                        const month = profile.birthday ? profile.birthday.split("-")[1] || "01" : "01";
+                        updateProfile("birthday", `2000-${month}-${day}`);
+                      }}
+                    >
+                      <SelectTrigger className="w-[100px]"><SelectValue placeholder="Day" /></SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, "0")).map((d) => (
+                          <SelectItem key={d} value={d}>{parseInt(d)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {profile.birthday && (
+                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => updateProfile("birthday", null)}>Clear</Button>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Staff Start Date with XPRTS</Label>
                   <Input type="date" value={profile.staff_start_date || ""} onChange={(e) => updateProfile("staff_start_date", e.target.value || null)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Company Established Date</Label>
-                  <Input type="date" value={profile.company_established_date || ""} onChange={(e) => updateProfile("company_established_date", e.target.value || null)} />
+                  <Label>Business Established (Month / Year)</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={profile.company_established_date ? profile.company_established_date.split("-")[1] || "" : ""}
+                      onValueChange={(month) => {
+                        const year = profile.company_established_date ? profile.company_established_date.split("-")[0] || new Date().getFullYear().toString() : new Date().getFullYear().toString();
+                        updateProfile("company_established_date", `${year}-${month}-01`);
+                      }}
+                    >
+                      <SelectTrigger className="w-[140px]"><SelectValue placeholder="Month" /></SelectTrigger>
+                      <SelectContent>
+                        {["01","02","03","04","05","06","07","08","09","10","11","12"].map((m, i) => (
+                          <SelectItem key={m} value={m}>{new Date(2000, i).toLocaleString('default', { month: 'long' })}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      min="1900"
+                      max={new Date().getFullYear()}
+                      placeholder="Year"
+                      className="w-[100px]"
+                      value={profile.company_established_date ? profile.company_established_date.split("-")[0] : ""}
+                      onChange={(e) => {
+                        const month = profile.company_established_date ? profile.company_established_date.split("-")[1] || "01" : "01";
+                        updateProfile("company_established_date", `${e.target.value}-${month}-01`);
+                      }}
+                    />
+                    {profile.company_established_date && (
+                      <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => updateProfile("company_established_date", null)}>Clear</Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
