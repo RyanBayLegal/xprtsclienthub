@@ -79,7 +79,7 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
       .from("talent_pool" as any)
       .select("*")
       .order("full_name");
-    if (data) setTalentOptions(data as TalentOption[]);
+    if (data) setTalentOptions((data as any[]).map(t => ({ id: t.id, full_name: t.full_name, role: t.role, avatar_url: t.avatar_url })));
   };
 
   useEffect(() => { fetchData(); }, [clientProfileId]);
