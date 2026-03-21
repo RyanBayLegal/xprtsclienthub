@@ -25,6 +25,7 @@ import AgreementBuilder from "@/components/AgreementBuilder";
 import NDABuilder from "@/components/NDABuilder";
 import ClientPayments from "@/components/ClientPayments";
 import KeyPeople from "@/components/KeyPeople";
+import PlacedVAs from "@/components/PlacedVAs";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 
