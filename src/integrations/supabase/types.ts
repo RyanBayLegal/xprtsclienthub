@@ -660,29 +660,44 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           avatar_url: string | null
+          contact_number: string | null
           created_at: string
+          date_of_birth: string | null
           full_name: string | null
+          hired_date: string | null
           id: string
           is_active: boolean
+          personal_email: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          address?: string | null
           avatar_url?: string | null
+          contact_number?: string | null
           created_at?: string
+          date_of_birth?: string | null
           full_name?: string | null
+          hired_date?: string | null
           id?: string
           is_active?: boolean
+          personal_email?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          address?: string | null
           avatar_url?: string | null
+          contact_number?: string | null
           created_at?: string
+          date_of_birth?: string | null
           full_name?: string | null
+          hired_date?: string | null
           id?: string
           is_active?: boolean
+          personal_email?: string | null
           updated_at?: string
           user_id?: string
         }

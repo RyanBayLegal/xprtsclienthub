@@ -35,7 +35,7 @@ const allItems = [
   { title: "Projects", url: "/activities", icon: Timer, roles: ["team_admin"] },
   { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["team_admin"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["team_admin"] },
-  { title: "My Profile", url: "/my-profile", icon: UserCircle, roles: ["client", "staff_member"] },
+  { title: "My Profile", url: "/my-profile", icon: UserCircle, roles: ["team_admin", "client", "staff_member"] },
 ];
 
 export function AppSidebar() {
@@ -53,7 +53,7 @@ export function AppSidebar() {
     });
   }, [user]);
 
-  const profilePath = role === "team_admin" ? "/settings" : "/my-profile";
+  const profilePath = "/my-profile";
   const portalLabel = role === "team_admin" ? "Team Dashboard" : role === "staff_member" ? "Staff Portal" : "Client Portal";
 
   return (
