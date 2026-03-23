@@ -35,7 +35,7 @@ const allItems = [
   { title: "Projects", url: "/activities", icon: Timer, roles: ["team_admin"] },
   { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["team_admin"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["team_admin"] },
-  { title: "My Profile", url: "/my-profile", icon: UserCircle, roles: ["client", "staff_member"] },
+  { title: "My Profile", url: "/my-profile", icon: UserCircle, roles: ["team_admin", "client", "staff_member"] },
 ];
 
 export function AppSidebar() {
