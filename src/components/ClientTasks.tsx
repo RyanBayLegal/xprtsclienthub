@@ -501,16 +501,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
                   </div>
                 )}
               </div>
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground">
-                    <MessageSquare className="h-3 w-3 mr-1" />Comments
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <TaskComments taskId={viewTask.id} />
-                </CollapsibleContent>
-              </Collapsible>
+              <TaskComments taskId={viewTask.id} />
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" size="sm" onClick={() => { setViewDialogOpen(false); openEditTask(viewTask); }}>
                   <Pencil className="mr-1 h-3 w-3" />Edit
