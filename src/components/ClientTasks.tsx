@@ -11,9 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Plus, CheckCircle2, Circle, Clock, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import TaskComments from "@/components/TaskComments";
-import { MessageSquare } from "lucide-react";
 
 interface ClientTasksProps {
   clientProfileId: string;
