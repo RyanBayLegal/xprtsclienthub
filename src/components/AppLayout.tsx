@@ -24,7 +24,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     });
   }, [user]);
 
-  const profilePath = role === "team_admin" ? "/settings" : "/my-profile";
+  const profilePath = "/my-profile";
 
   return (
     <SidebarProvider>

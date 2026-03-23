@@ -53,7 +53,7 @@ export function AppSidebar() {
     });
   }, [user]);
 
-  const profilePath = role === "team_admin" ? "/settings" : "/my-profile";
+  const profilePath = "/my-profile";
   const portalLabel = role === "team_admin" ? "Team Dashboard" : role === "staff_member" ? "Staff Portal" : "Client Portal";
 
   return (
