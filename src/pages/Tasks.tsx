@@ -15,6 +15,7 @@ import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, ChevronLeft, Chevron
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
+import TaskComments from "@/components/TaskComments";
 import {
   DndContext,
   DragEndEvent,
