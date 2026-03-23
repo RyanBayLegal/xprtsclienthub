@@ -101,11 +101,11 @@ export default function MyProfile() {
         {profile && <Button onClick={handleSave}><Save className="mr-2 h-4 w-4" />Save Changes</Button>}
       </div>
 
-      {/* Avatar section */}
+      {/* Profile section */}
       <Card className="mb-6">
-        <CardHeader><CardTitle>Profile Photo</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 mb-4">
             <UserAvatar
               avatarUrl={userProfile?.avatar_url}
               fullName={userProfile?.full_name || profile?.name}
@@ -120,6 +120,33 @@ export default function MyProfile() {
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
             </div>
           </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Display Name</Label>
+              <Input
+                value={userProfile?.full_name || ""}
+                onChange={(e) => setUserProfile((p) => p ? { ...p, full_name: e.target.value } : { full_name: e.target.value, avatar_url: null })}
+                placeholder="Your display name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={user?.email || ""} disabled className="bg-muted" />
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={async () => {
+              if (!user || !userProfile?.full_name?.trim()) return;
+              const { error } = await supabase.from("profiles").update({ full_name: userProfile.full_name.trim() }).eq("user_id", user.id);
+              if (error) { toast.error(error.message); return; }
+              toast.success("Display name updated");
+            }}
+          >
+            <Save className="mr-2 h-4 w-4" />Update Name
+          </Button>
         </CardContent>
       </Card>
 
