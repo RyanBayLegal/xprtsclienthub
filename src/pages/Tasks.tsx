@@ -15,6 +15,7 @@ import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, ChevronLeft, Chevron
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
+import TaskComments from "@/components/TaskComments";
 import {
   DndContext,
   DragEndEvent,
@@ -809,6 +810,7 @@ export default function Tasks() {
                   </div>
                 )}
               </div>
+              <TaskComments taskId={viewTask.id} />
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" size="sm" onClick={() => { setViewDialogOpen(false); openEdit(viewTask); }}>
                   <Pencil className="mr-1 h-3 w-3" />Edit
