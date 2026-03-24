@@ -175,7 +175,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleAdd}>Add Invoice</Button>
+              <Button onClick={handleSave}>{editingId ? "Update Invoice" : "Add Invoice"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
