@@ -434,7 +434,7 @@ export default function Leads() {
         </TabsList>
 
         <TabsContent value="kanban" className="mt-0">
-          <LeadsKanban onConvert={openConvert} refreshKey={kanbanKey} />
+          <LeadsKanban onConvert={openConvert} onEdit={handleEdit} refreshKey={kanbanKey} />
         </TabsContent>
 
         <TabsContent value="table">

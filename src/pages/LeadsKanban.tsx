@@ -1,6 +1,6 @@
 import { useState, useEffect, DragEvent, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
-import { formatDistanceToNow } from "date-fns";
+
 import { UserCheck, Plus, X, Search } from "lucide-react";
 import { executeWorkflows } from "@/lib/workflow-engine";
 
@@ -46,10 +46,11 @@ interface Lead {
 
 interface LeadsKanbanProps {
   onConvert?: (lead: Lead) => void;
+  onEdit?: (lead: Lead) => void;
   refreshKey?: number;
 }
 
-export default function LeadsKanban({ onConvert, refreshKey }: LeadsKanbanProps) {
+export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanbanProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -60,7 +61,7 @@ export default function LeadsKanban({ onConvert, refreshKey }: LeadsKanbanProps)
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
-  const navigate = useNavigate();
+  
   const { user } = useAuth();
 
   useEffect(() => {
@@ -243,18 +244,7 @@ export default function LeadsKanban({ onConvert, refreshKey }: LeadsKanbanProps)
                     <CardContent className="p-3 space-y-1">
                       <p
                         className="font-medium text-sm cursor-pointer hover:text-primary"
-                        onClick={async () => {
-                          const { data: cp } = await supabase
-                            .from("client_profiles")
-                            .select("id")
-                            .eq("lead_id", lead.id)
-                            .maybeSingle();
-                          if (cp) {
-                            navigate(`/clients/${cp.id}`);
-                          } else {
-                            toast.info("No client profile yet. Convert this lead first.");
-                          }
-                        }}
+                        onClick={() => onEdit?.(lead)}
                       >
                         {lead.name}
                       </p>
