@@ -62,10 +62,9 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
 
   useEffect(() => { fetchInvoices(); }, [clientProfileId]);
 
-  const handleAdd = async () => {
+  const handleSave = async () => {
     if (!form.invoice_number.trim()) { toast.error("Invoice number is required"); return; }
-    const { error } = await supabase.from("client_invoices").insert({
-      client_profile_id: clientProfileId,
+    const payload = {
       invoice_number: form.invoice_number.trim(),
       for_month: form.for_month || null,
       due_date: form.due_date || null,
@@ -74,13 +73,39 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
       payment_mode: form.payment_mode || null,
       notes: form.notes || null,
       amount: form.amount ? parseFloat(form.amount) : null,
-      created_by: user?.id || null,
-    } as any);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Invoice added");
-    setForm({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "", amount: "" });
+    };
+    if (editingId) {
+      const { error } = await supabase.from("client_invoices").update(payload).eq("id", editingId);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Invoice updated");
+    } else {
+      const { error } = await supabase.from("client_invoices").insert({
+        ...payload,
+        client_profile_id: clientProfileId,
+        created_by: user?.id || null,
+      } as any);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Invoice added");
+    }
+    setForm(emptyForm);
+    setEditingId(null);
     setDialogOpen(false);
     fetchInvoices();
+  };
+
+  const handleEdit = (inv: Invoice) => {
+    setForm({
+      invoice_number: inv.invoice_number,
+      for_month: inv.for_month || "",
+      due_date: inv.due_date || "",
+      sent_at: inv.sent_at ? inv.sent_at.slice(0, 10) : "",
+      paid_at: inv.paid_at ? inv.paid_at.slice(0, 10) : "",
+      notes: inv.notes || "",
+      payment_mode: inv.payment_mode || "",
+      amount: inv.amount != null ? String(inv.amount) : "",
+    });
+    setEditingId(inv.id);
+    setDialogOpen(true);
   };
 
   const updateStatus = async (invoiceId: string, newStatus: string) => {
