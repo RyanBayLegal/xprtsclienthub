@@ -127,7 +127,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" />Payment Tracking</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setForm(emptyForm); setEditingId(null); } }}>
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="mr-1 h-4 w-4" />Add Invoice</Button>
           </DialogTrigger>
