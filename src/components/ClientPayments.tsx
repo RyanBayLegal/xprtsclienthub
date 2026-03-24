@@ -226,6 +226,11 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                   <TableCell>{inv.paid_at ? format(new Date(inv.paid_at), "MMM d, yyyy") : "—"}</TableCell>
                   <TableCell>{inv.payment_mode || "—"}</TableCell>
                   <TableCell className="max-w-[200px] truncate">{inv.notes || "—"}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(inv)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
