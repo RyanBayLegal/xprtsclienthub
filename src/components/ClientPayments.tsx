@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, DollarSign } from "lucide-react";
+import { Plus, DollarSign, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -30,6 +30,8 @@ interface Invoice {
 const STATUSES = ["sent", "due", "paid", "overdue", "cancelled"];
 const PAYMENT_MODES = ["Stripe", "Zelle", "Others"];
 
+const emptyForm = { invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "", amount: "" };
+
 const statusBadgeVariant = (status: string) => {
   switch (status) {
     case "paid": return "default";
@@ -45,7 +47,8 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "", amount: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
 
   const fetchInvoices = async () => {
     const { data } = await supabase
@@ -59,10 +62,9 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
 
   useEffect(() => { fetchInvoices(); }, [clientProfileId]);
 
-  const handleAdd = async () => {
+  const handleSave = async () => {
     if (!form.invoice_number.trim()) { toast.error("Invoice number is required"); return; }
-    const { error } = await supabase.from("client_invoices").insert({
-      client_profile_id: clientProfileId,
+    const payload = {
       invoice_number: form.invoice_number.trim(),
       for_month: form.for_month || null,
       due_date: form.due_date || null,
@@ -71,13 +73,39 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
       payment_mode: form.payment_mode || null,
       notes: form.notes || null,
       amount: form.amount ? parseFloat(form.amount) : null,
-      created_by: user?.id || null,
-    } as any);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Invoice added");
-    setForm({ invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "", amount: "" });
+    };
+    if (editingId) {
+      const { error } = await supabase.from("client_invoices").update(payload).eq("id", editingId);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Invoice updated");
+    } else {
+      const { error } = await supabase.from("client_invoices").insert({
+        ...payload,
+        client_profile_id: clientProfileId,
+        created_by: user?.id || null,
+      } as any);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Invoice added");
+    }
+    setForm(emptyForm);
+    setEditingId(null);
     setDialogOpen(false);
     fetchInvoices();
+  };
+
+  const handleEdit = (inv: Invoice) => {
+    setForm({
+      invoice_number: inv.invoice_number,
+      for_month: inv.for_month || "",
+      due_date: inv.due_date || "",
+      sent_at: inv.sent_at ? inv.sent_at.slice(0, 10) : "",
+      paid_at: inv.paid_at ? inv.paid_at.slice(0, 10) : "",
+      notes: inv.notes || "",
+      payment_mode: inv.payment_mode || "",
+      amount: inv.amount != null ? String(inv.amount) : "",
+    });
+    setEditingId(inv.id);
+    setDialogOpen(true);
   };
 
   const updateStatus = async (invoiceId: string, newStatus: string) => {
@@ -99,12 +127,12 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" />Payment Tracking</CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setForm(emptyForm); setEditingId(null); } }}>
           <DialogTrigger asChild>
             <Button size="sm"><Plus className="mr-1 h-4 w-4" />Add Invoice</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Add Invoice</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingId ? "Edit Invoice" : "Add Invoice"}</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-2">
               <div className="space-y-2">
                 <Label>Invoice Number *</Label>
@@ -147,7 +175,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleAdd}>Add Invoice</Button>
+              <Button onClick={handleSave}>{editingId ? "Update Invoice" : "Add Invoice"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -168,6 +196,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <TableHead>Paid</TableHead>
                 <TableHead>Payment Mode</TableHead>
                 <TableHead>Notes</TableHead>
+                <TableHead className="w-[60px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -197,6 +226,11 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                   <TableCell>{inv.paid_at ? format(new Date(inv.paid_at), "MMM d, yyyy") : "—"}</TableCell>
                   <TableCell>{inv.payment_mode || "—"}</TableCell>
                   <TableCell className="max-w-[200px] truncate">{inv.notes || "—"}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(inv)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

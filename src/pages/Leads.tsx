@@ -479,8 +479,8 @@ export default function Leads() {
                      </TableRow>
                   ) : (
                     paginatedLeads.map((lead) => (
-                      <TableRow key={lead.id} className="cursor-pointer" onClick={() => navigate(`/clients/${lead.id}`)}>
-                        <TableCell className="font-medium">{lead.name}</TableCell>
+                      <TableRow key={lead.id}>
+                        <TableCell className="font-medium cursor-pointer hover:text-primary" onClick={() => handleEdit(lead)}>{lead.name}</TableCell>
                         <TableCell>{lead.contact}</TableCell>
                         <TableCell>{lead.source}</TableCell>
                         <TableCell>
