@@ -46,6 +46,7 @@ interface Lead {
 
 interface LeadsKanbanProps {
   onConvert?: (lead: Lead) => void;
+  onEdit?: (lead: Lead) => void;
   refreshKey?: number;
 }
 
