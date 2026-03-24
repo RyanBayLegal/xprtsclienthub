@@ -196,6 +196,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
                 <TableHead>Paid</TableHead>
                 <TableHead>Payment Mode</TableHead>
                 <TableHead>Notes</TableHead>
+                <TableHead className="w-[60px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
