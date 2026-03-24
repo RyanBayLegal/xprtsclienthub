@@ -244,19 +244,10 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
                     <CardContent className="p-3 space-y-1">
                       <p
                         className="font-medium text-sm cursor-pointer hover:text-primary"
-                        onClick={async () => {
-                          const { data: cp } = await supabase
-                            .from("client_profiles")
-                            .select("id")
-                            .eq("lead_id", lead.id)
-                            .maybeSingle();
-                          if (cp) {
-                            navigate(`/clients/${cp.id}`);
-                          } else {
-                            toast.info("No client profile yet. Convert this lead first.");
-                          }
-                        }}
+                        onClick={() => onEdit?.(lead)}
                       >
+                        {lead.name}
+                      </p>
                         {lead.name}
                       </p>
                       {lead.contact && <p className="text-xs text-muted-foreground">{lead.contact}</p>}
