@@ -248,8 +248,6 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
                       >
                         {lead.name}
                       </p>
-                        {lead.name}
-                      </p>
                       {lead.contact && <p className="text-xs text-muted-foreground">{lead.contact}</p>}
                       {lead.source && <p className="text-xs text-muted-foreground">Source: {lead.source}</p>}
                       {lead.next_steps && (
