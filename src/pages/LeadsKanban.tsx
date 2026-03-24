@@ -61,7 +61,7 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
-  const navigate = useNavigate();
+  
   const { user } = useAuth();
 
   useEffect(() => {
