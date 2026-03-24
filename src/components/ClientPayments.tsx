@@ -30,6 +30,8 @@ interface Invoice {
 const STATUSES = ["sent", "due", "paid", "overdue", "cancelled"];
 const PAYMENT_MODES = ["Stripe", "Zelle", "Others"];
 
+const emptyForm = { invoice_number: "", for_month: "", due_date: "", sent_at: "", paid_at: "", notes: "", payment_mode: "", amount: "" };
+
 const statusBadgeVariant = (status: string) => {
   switch (status) {
     case "paid": return "default";
