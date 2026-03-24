@@ -132,7 +132,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
             <Button size="sm"><Plus className="mr-1 h-4 w-4" />Add Invoice</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Add Invoice</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingId ? "Edit Invoice" : "Add Invoice"}</DialogTitle></DialogHeader>
             <div className="grid gap-4 py-2">
               <div className="space-y-2">
                 <Label>Invoice Number *</Label>
