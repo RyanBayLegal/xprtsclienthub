@@ -50,7 +50,7 @@ interface LeadsKanbanProps {
   refreshKey?: number;
 }
 
-export default function LeadsKanban({ onConvert, refreshKey }: LeadsKanbanProps) {
+export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanbanProps) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
