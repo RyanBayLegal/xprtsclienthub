@@ -333,6 +333,7 @@ export default function Tasks() {
     setTasks(
       data.map((t) => ({
         ...t,
+        links: (t.links as any) || [],
         client_name: t.client_profile_id ? clientMap[t.client_profile_id] ?? null : null,
         staff_name: t.assigned_to ? staffMap[t.assigned_to]?.name ?? null : null,
         staff_avatar: t.assigned_to ? staffMap[t.assigned_to]?.avatar ?? null : null,
