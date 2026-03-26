@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Save } from "lucide-react";
+import { Save, Link2, Plus, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import ClientAttachments from "@/components/ClientAttachments";
 
 interface SystemsAuditProps {
   clientProfileId: string;
@@ -102,6 +103,9 @@ export default function SystemsAudit({ clientProfileId }: SystemsAuditProps) {
   const [data, setData] = useState<Record<string, Record<string, string>>>(DEFAULT_DATA);
   const [recordId, setRecordId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [links, setLinks] = useState<{ title: string; url: string }[]>([]);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
 
   useEffect(() => {
     const load = async () => {
