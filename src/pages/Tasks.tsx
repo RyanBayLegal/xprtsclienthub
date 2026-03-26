@@ -16,6 +16,8 @@ import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
 import TaskComments from "@/components/TaskComments";
+import TaskAttachments from "@/components/TaskAttachments";
+import TaskLinks from "@/components/TaskLinks";
 import {
   DndContext,
   DragEndEvent,
@@ -43,7 +45,8 @@ interface Task {
   template_name: string | null;
   completed_at: string | null;
   created_at: string;
-  // enriched client name (fetched separately)
+  links: { title: string; url: string }[] | null;
+  // enriched
   client_name?: string | null;
   staff_name?: string | null;
   staff_avatar?: string | null;
@@ -810,6 +813,15 @@ export default function Tasks() {
                   </div>
                 )}
               </div>
+              <TaskAttachments taskId={viewTask.id} />
+              <TaskLinks
+                taskId={viewTask.id}
+                links={(viewTask.links as { title: string; url: string }[]) || []}
+                onUpdate={(newLinks) => {
+                  setViewTask({ ...viewTask, links: newLinks });
+                  setTasks((prev) => prev.map((t) => t.id === viewTask.id ? { ...t, links: newLinks } : t));
+                }}
+              />
               <TaskComments taskId={viewTask.id} />
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" size="sm" onClick={() => { setViewDialogOpen(false); openEdit(viewTask); }}>
