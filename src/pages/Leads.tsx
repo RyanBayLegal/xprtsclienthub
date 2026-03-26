@@ -480,7 +480,21 @@ export default function Leads() {
                   ) : (
                     paginatedLeads.map((lead) => (
                       <TableRow key={lead.id}>
-                        <TableCell className="font-medium cursor-pointer hover:text-primary" onClick={() => handleEdit(lead)}>{lead.name}</TableCell>
+                        <TableCell className="font-medium">
+                          <span
+                            className="cursor-pointer hover:text-primary hover:underline"
+                            onClick={async () => {
+                              const { data: cp } = await supabase.from("client_profiles").select("id").eq("lead_id", lead.id).maybeSingle();
+                              if (cp) {
+                                navigate(`/clients/${cp.id}`);
+                              } else {
+                                toast.info("No client profile yet. Convert this lead first.");
+                              }
+                            }}
+                          >
+                            {lead.name}
+                          </span>
+                        </TableCell>
                         <TableCell>{lead.contact}</TableCell>
                         <TableCell>{lead.source}</TableCell>
                         <TableCell>

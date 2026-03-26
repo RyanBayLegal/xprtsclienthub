@@ -1,4 +1,5 @@
 import { useState, useEffect, DragEvent, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 
-import { UserCheck, Plus, X, Search } from "lucide-react";
+import { UserCheck, Plus, X, Search, Pencil } from "lucide-react";
 import { executeWorkflows } from "@/lib/workflow-engine";
 
 const DEFAULT_STAGES = [
@@ -51,6 +52,7 @@ interface LeadsKanbanProps {
 }
 
 export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanbanProps) {
+  const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -242,12 +244,30 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
                     className={`transition-shadow ${draggedId === lead.id ? "opacity-50" : "hover:shadow-md"}`}
                   >
                     <CardContent className="p-3 space-y-1">
-                      <p
-                        className="font-medium text-sm cursor-pointer hover:text-primary"
-                        onClick={() => onEdit?.(lead)}
-                      >
-                        {lead.name}
-                      </p>
+                      <div className="flex items-center justify-between gap-1">
+                        <p
+                          className="font-medium text-sm cursor-pointer hover:text-primary hover:underline flex-1"
+                          onClick={async () => {
+                            const { data: cp } = await supabase.from("client_profiles").select("id").eq("lead_id", lead.id).maybeSingle();
+                            if (cp) {
+                              navigate(`/clients/${cp.id}`);
+                            } else {
+                              toast.info("No client profile yet. Convert this lead first.");
+                            }
+                          }}
+                        >
+                          {lead.name}
+                        </p>
+                        {onEdit && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onEdit(lead); }}
+                            className="text-muted-foreground hover:text-foreground p-0.5 shrink-0"
+                            title="Edit lead"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                       {lead.contact && <p className="text-xs text-muted-foreground">{lead.contact}</p>}
                       {lead.source && <p className="text-xs text-muted-foreground">Source: {lead.source}</p>}
                       {lead.next_steps && (
