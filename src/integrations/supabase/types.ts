@@ -1023,6 +1023,47 @@ export type Database = {
         }
         Relationships: []
       }
+      task_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          task_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          task_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          task_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_comments: {
         Row: {
           content: string
@@ -1067,6 +1108,7 @@ export type Database = {
           due_date: string | null
           id: string
           lead_id: string | null
+          links: Json | null
           priority: string
           stage: string | null
           status: string
@@ -1085,6 +1127,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           lead_id?: string | null
+          links?: Json | null
           priority?: string
           stage?: string | null
           status?: string
@@ -1103,6 +1146,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           lead_id?: string | null
+          links?: Json | null
           priority?: string
           stage?: string | null
           status?: string
