@@ -195,6 +195,46 @@ export default function SystemsAudit({ clientProfileId }: SystemsAuditProps) {
           </AccordionItem>
         ))}
       </Accordion>
+
+      {/* Links Section */}
+      <div className="mt-6 space-y-3">
+        <h4 className="text-sm font-medium flex items-center gap-1.5">
+          <Link2 className="h-4 w-4" /> Links
+        </h4>
+        {links.length > 0 && (
+          <div className="space-y-1.5">
+            {links.map((link, idx) => (
+              <div key={idx} className="flex items-center gap-2 p-2 rounded border bg-card">
+                <ExternalLink className="h-3.5 w-3.5 text-primary shrink-0" />
+                <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate flex-1">
+                  {link.title}
+                </a>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setLinks(links.filter((_, i) => i !== idx))}>
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <Input placeholder="Title" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} className="h-8 text-sm" />
+          <Input placeholder="URL" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} className="h-8 text-sm" />
+          <Button variant="outline" size="sm" className="h-8 shrink-0" onClick={() => {
+            if (!linkUrl.trim()) { toast.error("URL is required"); return; }
+            setLinks([...links, { title: linkTitle.trim() || linkUrl.trim(), url: linkUrl.trim() }]);
+            setLinkTitle("");
+            setLinkUrl("");
+          }}>
+            <Plus className="h-3 w-3 mr-1" />Add
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground">Links are saved when you click "Save All"</p>
+      </div>
+
+      {/* Attachments Section */}
+      <div className="mt-6">
+        <ClientAttachments clientProfileId={clientProfileId} />
+      </div>
     </div>
   );
 }
