@@ -124,6 +124,9 @@ export default function SystemsAudit({ clientProfileId }: SystemsAuditProps) {
           }
         });
         setData(merged);
+        if (saved._links && Array.isArray(saved._links)) {
+          setLinks(saved._links);
+        }
       }
     };
     load();
@@ -138,10 +141,11 @@ export default function SystemsAudit({ clientProfileId }: SystemsAuditProps) {
 
   const handleSave = async () => {
     setSaving(true);
+    const sectionDataWithLinks = { ...data, _links: links } as any;
     if (recordId) {
       const { error } = await supabase
         .from("systems_audits")
-        .update({ section_data: data as any })
+        .update({ section_data: sectionDataWithLinks })
         .eq("id", recordId);
       if (error) { toast.error(error.message); setSaving(false); return; }
     } else {
