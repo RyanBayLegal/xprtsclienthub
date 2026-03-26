@@ -153,7 +153,7 @@ export default function SystemsAudit({ clientProfileId }: SystemsAuditProps) {
         .from("systems_audits")
         .insert({
           client_profile_id: clientProfileId,
-          section_data: data as any,
+          section_data: sectionDataWithLinks,
           created_by: user?.id || null,
         })
         .select()
