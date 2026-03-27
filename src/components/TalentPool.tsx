@@ -47,7 +47,7 @@ const ITEMS_PER_PAGE = 10;
 
 const emptyForm = { full_name: "", country: "", role: "", email: "", contact_number: "", rate_per_hour: "", notes: "" };
 
-export default function TalentPool() {
+export default function TalentPool({ filter = "free" }: { filter?: "free" | "placed" }) {
   const { user } = useAuth();
   const [rows, setRows] = useState<TalentRow[]>([]);
   const [loading, setLoading] = useState(true);
