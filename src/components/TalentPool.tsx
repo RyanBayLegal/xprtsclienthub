@@ -75,26 +75,30 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
 
   const fetchData = async () => {
-    const from = (page - 1) * ITEMS_PER_PAGE;
-    const to = from + ITEMS_PER_PAGE - 1;
+    // Get all placed talent IDs
+    const { data: placedData } = await supabase
+      .from("placed_vas")
+      .select("talent_id");
+    const placedIds = new Set((placedData || []).map((p) => p.talent_id));
 
-    const { count } = await supabase
-      .from("talent_pool" as any)
-      .select("id", { count: "exact", head: true });
-
-    setTotal(count || 0);
-
-    const { data, error } = await supabase
+    // Fetch all talent, then filter client-side for free/placed
+    const { data: allData, error } = await supabase
       .from("talent_pool" as any)
       .select("*")
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setRows((data as any[]).map((r) => ({
+    if (!error && allData) {
+      const all = (allData as any[]).map((r) => ({
         ...r,
         links: Array.isArray(r.links) ? r.links : [],
-      })));
+      }));
+      const filtered = filter === "placed"
+        ? all.filter((r) => placedIds.has(r.id))
+        : all.filter((r) => !placedIds.has(r.id));
+
+      setTotal(filtered.length);
+      const from = (page - 1) * ITEMS_PER_PAGE;
+      setRows(filtered.slice(from, from + ITEMS_PER_PAGE));
     }
     setLoading(false);
   };
