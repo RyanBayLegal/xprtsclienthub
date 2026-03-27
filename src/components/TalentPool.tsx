@@ -103,7 +103,7 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [page]);
+  useEffect(() => { fetchData(); }, [page, filter]);
 
   const fetchAttachmentsFor = async (talentId: string) => {
     const { data } = await supabase
