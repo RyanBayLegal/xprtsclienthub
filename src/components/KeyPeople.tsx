@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 interface KeyPerson {
   id: string;
@@ -16,6 +18,7 @@ interface KeyPerson {
 }
 
 export default function KeyPeople({ clientProfileId, editable = true }: { clientProfileId: string; editable?: boolean }) {
+  const { user } = useAuth();
   const [people, setPeople] = useState<KeyPerson[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,6 +42,10 @@ export default function KeyPeople({ clientProfileId, editable = true }: { client
       .single();
     if (error) { toast.error(error.message); return; }
     setPeople([...people, data as KeyPerson]);
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "key_person", entityId: data.id, clientProfileId, action: "create", description: "Added new key person" });
+    }
   };
 
   const updatePerson = async (id: string, field: string, value: string) => {

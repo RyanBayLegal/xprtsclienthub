@@ -20,6 +20,7 @@ import TaskComments from "@/components/TaskComments";
 import TaskAttachments from "@/components/TaskAttachments";
 import TaskLinks from "@/components/TaskLinks";
 import { extractMentionedUserIds } from "@/components/MentionTextarea";
+import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 import {
   DndContext,
   DragEndEvent,
@@ -371,7 +372,7 @@ export default function Tasks() {
   const handleCreate = async () => {
     const selectedClient = clients.find((c) => c.id === form.client_profile_id);
     const selectedStaff = staffMembers.find((s) => s.id === form.assigned_to);
-    const { error } = await supabase.from("tasks").insert({
+    const { data: inserted, error } = await supabase.from("tasks").insert({
       title: form.title,
       description: form.description || null,
       status: form.status,
@@ -381,8 +382,13 @@ export default function Tasks() {
       client_profile_id: form.client_profile_id || null,
       assigned_to: form.assigned_to || null,
       created_by: user?.id,
-    });
+    }).select("id").single();
     if (error) { toast.error(error.message); return; }
+
+    if (user && inserted) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "task", entityId: inserted.id, clientProfileId: form.client_profile_id || null, action: "create", description: `Created task: ${form.title}` });
+    }
 
     // Notify the assigned staff member (not the creator)
     if (user && form.assigned_to) {
@@ -471,6 +477,17 @@ export default function Tasks() {
     }
     const { error } = await supabase.from("tasks").update(updates).eq("id", editingTask.id);
     if (error) { toast.error(error.message); return; }
+
+    // Audit log for task edit
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logFieldChanges(user.id, userName, "task", editingTask.id,
+        { title: editingTask.title, description: editingTask.description, status: editingTask.status, priority: editingTask.priority, due_date: editingTask.due_date, assigned_to: editingTask.assigned_to, client_profile_id: editingTask.client_profile_id },
+        { title: editForm.title, description: editForm.description, status: editForm.status, priority: editForm.priority, due_date: editForm.due_date, assigned_to: editForm.assigned_to, client_profile_id: editForm.client_profile_id },
+        editForm.client_profile_id || editingTask.client_profile_id || null,
+        { title: "Title", description: "Description", status: "Status", priority: "Priority", due_date: "Due Date", assigned_to: "Assigned To", client_profile_id: "Client" }
+      );
+    }
 
     // Notify newly assigned staff member + send email
     if (editForm.assigned_to && editForm.assigned_to !== editingTask.assigned_to) {
