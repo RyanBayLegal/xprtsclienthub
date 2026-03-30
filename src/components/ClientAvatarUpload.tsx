@@ -43,13 +43,14 @@ export default function ClientAvatarUpload({ clientProfileId, clientName, avatar
     const { error: uploadError } = await supabase.storage.from("client-attachments").upload(path, blob, { upsert: true, contentType: "image/png" });
     if (uploadError) { toast.error(uploadError.message); setUploading(false); return; }
 
-    const { data: { publicUrl } } = supabase.storage.from("client-attachments").getPublicUrl(path);
-    const url = `${publicUrl}?t=${Date.now()}`;
+    // Store the path, generate a signed URL for display
+    const { data: signed } = await supabase.storage.from("client-attachments").createSignedUrl(path, 3600);
+    const displayUrl = signed?.signedUrl || path;
 
-    const { error } = await supabase.from("client_profiles").update({ avatar_url: url }).eq("id", clientProfileId);
+    const { error } = await supabase.from("client_profiles").update({ avatar_url: path }).eq("id", clientProfileId);
     if (error) { toast.error(error.message); setUploading(false); return; }
 
-    onAvatarChange(url);
+    onAvatarChange(displayUrl);
     toast.success("Avatar updated");
     setUploading(false);
   };
