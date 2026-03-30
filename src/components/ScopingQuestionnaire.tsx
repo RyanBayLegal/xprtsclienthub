@@ -179,6 +179,12 @@ export default function ScopingQuestionnaire({ clientProfileId }: ScopingQuestio
       setRecordId(inserted.id);
     }
     toast.success("Scoping questionnaire saved");
+
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "scoping_questionnaire", entityId: recordId || clientProfileId, clientProfileId, action: recordId ? "update" : "create", description: recordId ? "Updated scoping questionnaire" : "Created scoping questionnaire" });
+    }
+
     setSaving(false);
   };
 

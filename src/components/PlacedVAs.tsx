@@ -121,8 +121,15 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
   };
 
   const handleDelete = async (id: string) => {
+    const va = placedVAs.find(v => v.id === id);
     await supabase.from("placed_vas" as any).delete().eq("id", id);
     toast.success("VA removed");
+
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: clientProfileId, clientProfileId, action: "delete", description: `Removed VA: ${va?.talent?.full_name || "Unknown"}` });
+    }
+
     fetchData();
   };
 
