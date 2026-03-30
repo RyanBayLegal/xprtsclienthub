@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Calendar, ListTodo, Settings, UsersRound, Store, Link2, Clock, Timer, Globe } from "lucide-react";
+import { LayoutDashboard, Users, UserCircle, BarChart3, LogOut, Calendar, ListTodo, Settings, UsersRound, Store, Link2, Clock, Timer, Globe, ClipboardList } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
