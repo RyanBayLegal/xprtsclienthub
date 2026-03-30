@@ -6,6 +6,7 @@ import { useBranding } from "@/lib/branding";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Sidebar,
   SidebarContent,
