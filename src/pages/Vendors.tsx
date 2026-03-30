@@ -24,7 +24,7 @@ const PAGE_SIZE = 15;
 const emptyForm = { name: "", description: "", company_name: "", email: "", phone: "" };
 
 export default function Vendors() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "team_admin";
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [page, setPage] = useState(0);
