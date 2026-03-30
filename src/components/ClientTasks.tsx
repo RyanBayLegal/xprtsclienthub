@@ -356,7 +356,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
                 </div>
                 <div className="space-y-2">
                   <Label>Description</Label>
-                  <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                  <MentionTextarea value={form.description} onChange={(v) => setForm((f) => ({ ...f, description: v }))} placeholder="Add description… (type @ to mention)" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
