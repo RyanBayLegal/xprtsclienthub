@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, ChevronLeft, ChevronRight, Eye, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -775,10 +776,17 @@ export default function Tasks() {
           {viewTask && (
             <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-2">
               {viewTask.description && (
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs">Description</Label>
-                  <p className="text-sm">{viewTask.description}</p>
-                </div>
+                <Collapsible defaultOpen={viewTask.description.length < 200}>
+                  <div className="space-y-1">
+                    <CollapsibleTrigger className="flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground transition-colors">
+                      <ChevronDown className="h-3 w-3 transition-transform [&[data-state=open]]:rotate-0 [[data-state=closed]_&]:rotate-[-90deg]" />
+                      Description
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <p className="text-sm">{viewTask.description}</p>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
               )}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
