@@ -26,6 +26,8 @@ import NDABuilder from "@/components/NDABuilder";
 import ClientPayments from "@/components/ClientPayments";
 import KeyPeople from "@/components/KeyPeople";
 import PlacedVAs from "@/components/PlacedVAs";
+import AuditLogPanel from "@/components/AuditLogPanel";
+import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 
