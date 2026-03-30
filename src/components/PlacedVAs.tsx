@@ -107,6 +107,13 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
     }
 
     toast.success("VA placed successfully");
+
+    if (user) {
+      const userName = await getUserName(user.id);
+      const talentName = talentOptions.find(t => t.id === selectedTalent)?.full_name || "Unknown";
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: clientProfileId, clientProfileId, action: "create", description: `Placed VA: ${talentName}` });
+    }
+
     setDialogOpen(false);
     setSelectedTalent("");
     setStartDate("");
