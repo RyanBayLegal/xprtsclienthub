@@ -154,15 +154,35 @@ export default function ClientProfile() {
   const handleSave = async () => {
     if (!profile) return;
     const { id: _id, ...payload } = profile;
+    const userName = user ? await getUserName(user.id) : "Unknown";
     if (isNew) {
       const { data, error } = await supabase.from("client_profiles").insert({ ...payload, created_by: user?.id } as any).select().single();
       if (error) { toast.error(error.message); return; }
       setProfile(data as unknown as ClientProfileData);
+      setOriginalProfile(data as unknown as ClientProfileData);
       setIsNew(false);
+      if (user) {
+        await logAudit({ userId: user.id, userName, entityType: "client_profile", entityId: data.id, clientProfileId: data.id, action: "create", description: `Created client profile: ${profile.name}` });
+      }
       toast.success("Profile created");
     } else {
       const { error } = await supabase.from("client_profiles").update(payload as any).eq("id", profile.id);
       if (error) { toast.error(error.message); return; }
+      if (user && originalProfile) {
+        await logFieldChanges(user.id, userName, "client_profile", profile.id, originalProfile as any, profile as any, profile.id, {
+          name: "Name", role: "Role", company: "Company", practice_area: "Practice Area",
+          email: "Email", phone: "Phone", state: "State", timezone: "Time Zone",
+          stage: "Stage", attitude: "Attitude", birthday: "Birthday",
+          staff_start_date: "Staff Start Date", company_established_date: "Business Established Date",
+          pain_points: "Pain Points", influences: "Influences", motivators: "Motivators",
+          future_plans: "Future Plans", discovery_source: "Discovery Source",
+          how_they_found_us: "How They Found Us", discovery_notes: "Discovery Notes",
+          key_attributes: "Key Attributes", meeting_preferences: "Meeting Preferences",
+          repeat_customer_probability: "Repeat Customer Probability",
+          client_health_score: "Client Health Score", is_economic_buyer: "Economic Buyer",
+        });
+      }
+      setOriginalProfile({ ...profile });
       toast.success("Profile saved");
     }
   };
