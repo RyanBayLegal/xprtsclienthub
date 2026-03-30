@@ -57,7 +57,7 @@ export function AppSidebar() {
   const portalLabel = role === "team_admin" ? "Team Dashboard" : role === "staff_member" ? "Staff Portal" : "Client Portal";
 
   return (
-    <Sidebar className="border-r-0">
+    <Sidebar collapsible="icon" className="border-r-0">
       <div className="p-4 border-b border-sidebar-border">
         <img src={logoSrc} alt={branding.app_name} className="h-8 mb-1" />
         <p className="text-xs text-sidebar-foreground/60 mt-0.5">
