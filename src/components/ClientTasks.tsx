@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import MentionTextarea from "@/components/MentionTextarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -356,7 +356,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
                 </div>
                 <div className="space-y-2">
                   <Label>Description</Label>
-                  <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
+                  <MentionTextarea value={form.description} onChange={(v) => setForm((f) => ({ ...f, description: v }))} placeholder="Add description… (type @ to mention)" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -521,7 +521,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
             </div>
             <div className="space-y-2">
               <Label>Description</Label>
-              <Textarea value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} />
+              <MentionTextarea value={editForm.description} onChange={(v) => setEditForm((f) => ({ ...f, description: v }))} placeholder="Add description… (type @ to mention)" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
