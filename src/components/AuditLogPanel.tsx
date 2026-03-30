@@ -43,7 +43,6 @@ export default function AuditLogPanel({ clientProfileId, entityType, entityId, t
     const fetchLogs = async () => {
       setLoading(true);
       let query = (supabase.from as any)("audit_logs")
-        .from("audit_logs" as any)
         .select("*")
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
