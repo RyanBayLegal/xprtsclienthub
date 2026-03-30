@@ -20,6 +20,7 @@ import TaskComments from "@/components/TaskComments";
 import TaskAttachments from "@/components/TaskAttachments";
 import TaskLinks from "@/components/TaskLinks";
 import { extractMentionedUserIds } from "@/components/MentionTextarea";
+import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 import {
   DndContext,
   DragEndEvent,
