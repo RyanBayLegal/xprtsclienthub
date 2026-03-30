@@ -122,6 +122,7 @@ export default function ClientProfile() {
 
       if (data) {
         setProfile(data as unknown as ClientProfileData);
+        setOriginalProfile(data as unknown as ClientProfileData);
         const [rolesRes, agreementsRes] = await Promise.all([
           supabase.from("roles_open").select("*").eq("client_profile_id", data.id),
           supabase.from("engagement_agreements").select("*").eq("client_profile_id", data.id).order("created_at", { ascending: false }),
