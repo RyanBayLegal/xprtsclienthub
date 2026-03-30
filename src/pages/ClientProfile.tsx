@@ -89,6 +89,7 @@ export default function ClientProfile() {
   const isTeam = userRole === "team_admin";
 
   const [profile, setProfile] = useState<ClientProfileData | null>(null);
+  const [originalProfile, setOriginalProfile] = useState<ClientProfileData | null>(null);
   const [roles, setRoles] = useState<RoleOpen[]>([]);
   const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [isNew, setIsNew] = useState(false);
