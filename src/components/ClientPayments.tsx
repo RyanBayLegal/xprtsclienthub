@@ -78,14 +78,22 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
     if (editingId) {
       const { error } = await supabase.from("client_invoices").update(payload).eq("id", editingId);
       if (error) { toast.error(error.message); return; }
+      if (user) {
+        const userName = await getUserName(user.id);
+        await logAudit({ userId: user.id, userName, entityType: "invoice", entityId: editingId, clientProfileId, action: "update", description: `Updated invoice ${form.invoice_number}` });
+      }
       toast.success("Invoice updated");
     } else {
-      const { error } = await supabase.from("client_invoices").insert({
+      const { data: inserted, error } = await supabase.from("client_invoices").insert({
         ...payload,
         client_profile_id: clientProfileId,
         created_by: user?.id || null,
-      } as any);
+      } as any).select("id").single();
       if (error) { toast.error(error.message); return; }
+      if (user && inserted) {
+        const userName = await getUserName(user.id);
+        await logAudit({ userId: user.id, userName, entityType: "invoice", entityId: inserted.id, clientProfileId, action: "create", description: `Created invoice ${form.invoice_number}` });
+      }
       toast.success("Invoice added");
     }
     setForm(emptyForm);

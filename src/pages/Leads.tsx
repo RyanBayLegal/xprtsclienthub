@@ -114,12 +114,23 @@ export default function Leads() {
     };
     if (editingId) {
       const { created_by, ...updatePayload } = payload;
+      const oldLead = leads.find(l => l.id === editingId);
       const { error } = await supabase.from("leads").update(updatePayload).eq("id", editingId);
       if (error) { toast.error(error.message); return; }
+      if (user && oldLead) {
+        const userName = await getUserName(user.id);
+        await logFieldChanges(user.id, userName, "lead", editingId, oldLead as any, form as any, null,
+          { name: "Name", contact: "Contact", source: "Source", stage: "Stage", needs: "Needs", notes: "Notes", website: "Website" }
+        );
+      }
       toast.success("Lead updated");
     } else {
-      const { error } = await supabase.from("leads").insert(payload);
+      const { data: inserted, error } = await supabase.from("leads").insert(payload).select("id").single();
       if (error) { toast.error(error.message); return; }
+      if (user && inserted) {
+        const userName = await getUserName(user.id);
+        await logAudit({ userId: user.id, userName, entityType: "lead", entityId: inserted.id, action: "create", description: `Created lead: ${form.name}` });
+      }
       toast.success("Lead created");
     }
     setDialogOpen(false);
