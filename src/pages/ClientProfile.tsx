@@ -690,6 +690,12 @@ export default function ClientProfile() {
             <ClientPayments clientProfileId={profile.id} />
           </TabsContent>
         )}
+
+        {isTeam && !isNew && profile.id && (
+          <TabsContent value="activity-log">
+            <AuditLogPanel clientProfileId={profile.id} title="Client Activity Log" />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
