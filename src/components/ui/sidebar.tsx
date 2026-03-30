@@ -227,7 +227,10 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
         data-sidebar="trigger"
         variant="ghost"
         size="icon"
-        className={cn("h-7 w-7", className)}
+        className={cn(
+          "h-8 w-8 rounded-full border border-border bg-card shadow-sm transition-all hover:bg-accent hover:shadow-md",
+          className
+        )}
         onClick={(event) => {
           onClick?.(event);
           toggleSidebar();
@@ -236,12 +239,12 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
+          width="14"
+          height="14"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           className={cn("transition-transform duration-200", isCollapsed ? "rotate-180" : "")}
