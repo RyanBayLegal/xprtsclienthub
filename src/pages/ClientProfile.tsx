@@ -313,6 +313,7 @@ export default function ClientProfile() {
           {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="notes">Notes</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="payments">Payments</TabsTrigger>}
+          {isTeam && !isNew && <TabsTrigger value="activity-log">Activity Log</TabsTrigger>}
         </TabsList>
 
         {/* ===== CLIENT INFO (merged: Basic Info + Discovery + Assessment) ===== */}
