@@ -814,7 +814,15 @@ export default function Tasks() {
                       Description
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <p className="text-sm">{viewTask.description}</p>
+                      <p className="text-sm whitespace-pre-wrap">
+                        {viewTask.description.split(/(@\w[\w\s]*?\b)/g).map((part, i) =>
+                          part.startsWith("@") ? (
+                            <span key={i} className="text-primary font-medium bg-primary/10 rounded px-0.5">{part}</span>
+                          ) : (
+                            <span key={i}>{part}</span>
+                          )
+                        )}
+                      </p>
                     </CollapsibleContent>
                   </div>
                 </Collapsible>
