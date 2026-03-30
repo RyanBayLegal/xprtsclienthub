@@ -51,13 +51,23 @@ export default function Vendors() {
       email: form.email || null,
       phone: form.phone || null,
     };
+    const userName = user ? await getUserName(user.id) : "Unknown";
     if (editingId) {
+      const oldVendor = vendors.find((v) => v.id === editingId);
       const { error } = await supabase.from("vendors").update(payload as any).eq("id", editingId);
       if (error) { toast.error(error.message); return; }
+      if (user && oldVendor) {
+        await logFieldChanges(user.id, userName, "vendor", editingId, oldVendor, payload, null, {
+          name: "Vendor Name", company_name: "Company", email: "Email", phone: "Phone", description: "Description",
+        });
+      }
       toast.success("Vendor updated");
     } else {
-      const { error } = await supabase.from("vendors").insert(payload as any);
+      const { data: inserted, error } = await supabase.from("vendors").insert(payload as any).select("id").single();
       if (error) { toast.error(error.message); return; }
+      if (user && inserted) {
+        await logAudit({ userId: user.id, userName, entityType: "vendor", entityId: inserted.id, action: "create", description: `Added vendor: ${payload.name}` });
+      }
       toast.success("Vendor added");
     }
     setDialogOpen(false);
