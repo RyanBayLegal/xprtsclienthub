@@ -218,7 +218,8 @@ Sidebar.displayName = "Sidebar";
 
 const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.ComponentProps<typeof Button>>(
   ({ className, onClick, ...props }, ref) => {
-    const { toggleSidebar } = useSidebar();
+    const { toggleSidebar, state } = useSidebar();
+    const isCollapsed = state === "collapsed";
 
     return (
       <Button
@@ -233,7 +234,20 @@ const SidebarTrigger = React.forwardRef<React.ElementRef<typeof Button>, React.C
         }}
         {...props}
       >
-        <PanelLeft />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={cn("transition-transform duration-200", isCollapsed ? "rotate-180" : "")}
+        >
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
         <span className="sr-only">Toggle Sidebar</span>
       </Button>
     );
