@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import MentionTextarea from "@/components/MentionTextarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,6 +19,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import TaskComments from "@/components/TaskComments";
 import TaskAttachments from "@/components/TaskAttachments";
 import TaskLinks from "@/components/TaskLinks";
+import { extractMentionedUserIds } from "@/components/MentionTextarea";
 import {
   DndContext,
   DragEndEvent,
@@ -410,6 +411,21 @@ export default function Tasks() {
       });
     }
 
+    // Notify @mentioned users in description
+    if (user && form.description) {
+      const mentionedIds = extractMentionedUserIds(form.description, staffMembers.map((s) => ({ id: s.id, full_name: s.full_name })));
+      for (const uid of mentionedIds) {
+        if (uid !== user.id && uid !== form.assigned_to) {
+          await supabase.from("notifications").insert({
+            user_id: uid,
+            type: "task_mention",
+            title: "You were mentioned in a task",
+            message: `"${form.title}" — ${form.description.slice(0, 100)}`,
+          });
+        }
+      }
+    }
+
     toast.success("Task created");
     setDialogOpen(false);
     setForm(emptyForm);
@@ -483,6 +499,21 @@ export default function Tasks() {
       }
     }
 
+    // Notify @mentioned users in description
+    if (user && editForm.description) {
+      const mentionedIds = extractMentionedUserIds(editForm.description, staffMembers.map((s) => ({ id: s.id, full_name: s.full_name })));
+      for (const uid of mentionedIds) {
+        if (uid !== user.id && uid !== editForm.assigned_to) {
+          await supabase.from("notifications").insert({
+            user_id: uid,
+            type: "task_mention",
+            title: "You were mentioned in a task",
+            message: `"${editForm.title}" — ${editForm.description.slice(0, 100)}`,
+          });
+        }
+      }
+    }
+
     toast.success("Task updated");
     setEditDialogOpen(false);
     setEditingTask(null);
@@ -538,7 +569,7 @@ export default function Tasks() {
       </div>
       <div className="space-y-2">
         <Label>Description</Label>
-        <Textarea value={f.description} onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))} />
+        <MentionTextarea value={f.description} onChange={(v) => setF((p) => ({ ...p, description: v }))} placeholder="Add description… (type @ to mention)" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -635,7 +666,7 @@ export default function Tasks() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All staff</SelectItem>
-            {staffMembers.map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name || s.id}</SelectItem>)}
+            {staffMembers.map((s) => <SelectItem key={s.id} value={s.id}>{s.id === user?.id ? "Me" : (s.full_name || s.id)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -783,7 +814,15 @@ export default function Tasks() {
                       Description
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <p className="text-sm">{viewTask.description}</p>
+                      <p className="text-sm whitespace-pre-wrap">
+                        {viewTask.description.split(/(@\w[\w\s]*?\b)/g).map((part, i) =>
+                          part.startsWith("@") ? (
+                            <span key={i} className="text-primary font-medium bg-primary/10 rounded px-0.5">{part}</span>
+                          ) : (
+                            <span key={i}>{part}</span>
+                          )
+                        )}
+                      </p>
                     </CollapsibleContent>
                   </div>
                 </Collapsible>

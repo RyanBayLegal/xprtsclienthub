@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Send, Trash2, Pencil, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import MentionTextarea, { extractMentionedUserIds } from "@/components/MentionTextarea";
 
 interface TaskCommentsProps {
   taskId: string;
@@ -20,27 +20,53 @@ interface Comment {
   profile?: { full_name: string | null; avatar_url: string | null };
 }
 
-/** Auto-linkify URLs in text */
+/** Auto-linkify URLs and highlight @mentions in text */
 function LinkifyText({ text }: { text: string }) {
-  const urlRegex = /(https?:\/\/[^\s<]+)/g;
-  const parts = text.split(urlRegex);
+  const regex = /(https?:\/\/[^\s<]+)|(@\w[\w\s]*?\b)/g;
+  const parts: { type: "text" | "url" | "mention"; value: string }[] = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", value: text.slice(lastIndex, match.index) });
+    }
+    if (match[1]) {
+      parts.push({ type: "url", value: match[1] });
+    } else if (match[2]) {
+      parts.push({ type: "mention", value: match[2] });
+    }
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push({ type: "text", value: text.slice(lastIndex) });
+  }
+
   return (
     <>
-      {parts.map((part, i) =>
-        urlRegex.test(part) ? (
-          <a
-            key={i}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline underline-offset-2 hover:opacity-80 break-all"
-          >
-            {part}
-          </a>
-        ) : (
-          <span key={i}>{part}</span>
-        )
-      )}
+      {parts.map((part, i) => {
+        if (part.type === "url") {
+          return (
+            <a
+              key={i}
+              href={part.value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:opacity-80 break-all"
+            >
+              {part.value}
+            </a>
+          );
+        }
+        if (part.type === "mention") {
+          return (
+            <span key={i} className="text-primary font-medium bg-primary/10 rounded px-0.5">
+              {part.value}
+            </span>
+          );
+        }
+        return <span key={i}>{part.value}</span>;
+      })}
     </>
   );
 }
@@ -52,6 +78,7 @@ export default function TaskComments({ taskId }: TaskCommentsProps) {
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
 
   const fetchComments = async () => {
     const { data } = await supabase
@@ -84,18 +111,26 @@ export default function TaskComments({ taskId }: TaskCommentsProps) {
     });
     if (error) { toast.error(error.message); setSubmitting(false); return; }
 
-    // Send notification for new comment
+    // Send notification for new comment + @mentions
     try {
       const { data: taskData } = await supabase.from("tasks").select("title, assigned_to, created_by").eq("id", taskId).maybeSingle();
       if (taskData) {
         const notifyUserIds = new Set<string>();
+        // Standard notifications for assignee/creator
         if (taskData.assigned_to && taskData.assigned_to !== user.id) notifyUserIds.add(taskData.assigned_to);
         if (taskData.created_by && taskData.created_by !== user.id) notifyUserIds.add(taskData.created_by);
+        
+        // @mention notifications
+        for (const uid of mentionedUserIds) {
+          if (uid !== user.id) notifyUserIds.add(uid);
+        }
+
         for (const uid of notifyUserIds) {
+          const isMentioned = mentionedUserIds.includes(uid);
           await supabase.from("notifications").insert({
             user_id: uid,
-            type: "task_comment",
-            title: "New comment on task",
+            type: isMentioned ? "task_mention" : "task_comment",
+            title: isMentioned ? "You were mentioned in a task comment" : "New comment on task",
             message: `Comment on "${taskData.title}": ${newComment.trim().slice(0, 100)}`,
           });
         }
@@ -103,6 +138,7 @@ export default function TaskComments({ taskId }: TaskCommentsProps) {
     } catch (_) { /* non-critical */ }
 
     setNewComment("");
+    setMentionedUserIds([]);
     setSubmitting(false);
     fetchComments();
   };
@@ -158,10 +194,9 @@ export default function TaskComments({ taskId }: TaskCommentsProps) {
                 </div>
                 {editingId === c.id ? (
                   <div className="mt-1 space-y-1">
-                    <Textarea
+                    <MentionTextarea
                       value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      className="min-h-[36px] h-9 text-xs resize-none"
+                      onChange={setEditContent}
                       onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEdit(); } if (e.key === "Escape") setEditingId(null); }}
                     />
                     <div className="flex gap-1">
@@ -180,11 +215,11 @@ export default function TaskComments({ taskId }: TaskCommentsProps) {
         </div>
       )}
       <div className="flex gap-2">
-        <Textarea
-          placeholder="Add a comment… (URLs auto-link)"
+        <MentionTextarea
           value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          className="min-h-[36px] h-9 text-xs resize-none"
+          onChange={setNewComment}
+          placeholder="Add a comment… (type @ to mention)"
+          onMentionUsers={setMentionedUserIds}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addComment(); } }}
         />
         <Button size="icon" className="h-9 w-9 shrink-0" onClick={addComment} disabled={submitting || !newComment.trim()}>
