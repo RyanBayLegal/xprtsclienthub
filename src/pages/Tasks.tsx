@@ -635,7 +635,7 @@ export default function Tasks() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All staff</SelectItem>
-            {staffMembers.map((s) => <SelectItem key={s.id} value={s.id}>{s.full_name || s.id}</SelectItem>)}
+            {staffMembers.map((s) => <SelectItem key={s.id} value={s.id}>{s.id === user?.id ? "Me" : (s.full_name || s.id)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
