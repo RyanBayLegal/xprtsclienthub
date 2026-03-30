@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Save, Link2, Plus, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 import ClientAttachments from "@/components/ClientAttachments";
 
 interface SystemsAuditProps {
