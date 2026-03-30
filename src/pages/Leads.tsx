@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap } from "lucide-react";
 import { exportToCSV } from "@/lib/csv-export";
 import { toast } from "sonner";
+import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import LeadsKanban from "./LeadsKanban";

@@ -478,6 +478,17 @@ export default function Tasks() {
     const { error } = await supabase.from("tasks").update(updates).eq("id", editingTask.id);
     if (error) { toast.error(error.message); return; }
 
+    // Audit log for task edit
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logFieldChanges(user.id, userName, "task", editingTask.id,
+        { title: editingTask.title, description: editingTask.description, status: editingTask.status, priority: editingTask.priority, due_date: editingTask.due_date, assigned_to: editingTask.assigned_to, client_profile_id: editingTask.client_profile_id },
+        { title: editForm.title, description: editForm.description, status: editForm.status, priority: editForm.priority, due_date: editForm.due_date, assigned_to: editForm.assigned_to, client_profile_id: editForm.client_profile_id },
+        editForm.client_profile_id || editingTask.client_profile_id || null,
+        { title: "Title", description: "Description", status: "Status", priority: "Priority", due_date: "Due Date", assigned_to: "Assigned To", client_profile_id: "Client" }
+      );
+    }
+
     // Notify newly assigned staff member + send email
     if (editForm.assigned_to && editForm.assigned_to !== editingTask.assigned_to) {
       const selectedStaff = staffMembers.find((s) => s.id === editForm.assigned_to);

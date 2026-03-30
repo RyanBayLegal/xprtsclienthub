@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Plus, DollarSign, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 import { format } from "date-fns";
 
 interface Invoice {
