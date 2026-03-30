@@ -18,6 +18,7 @@ interface KeyPerson {
 }
 
 export default function KeyPeople({ clientProfileId, editable = true }: { clientProfileId: string; editable?: boolean }) {
+  const { user } = useAuth();
   const [people, setPeople] = useState<KeyPerson[]>([]);
   const [loading, setLoading] = useState(true);
 
