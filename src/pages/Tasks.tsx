@@ -538,7 +538,7 @@ export default function Tasks() {
       </div>
       <div className="space-y-2">
         <Label>Description</Label>
-        <Textarea value={f.description} onChange={(e) => setF((p) => ({ ...p, description: e.target.value }))} />
+        <MentionTextarea value={f.description} onChange={(v) => setF((p) => ({ ...p, description: v }))} placeholder="Add description… (type @ to mention)" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
