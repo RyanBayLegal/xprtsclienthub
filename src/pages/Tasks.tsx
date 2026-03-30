@@ -770,10 +770,10 @@ export default function Tasks() {
 
       {/* View Task Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] flex flex-col">
           <DialogHeader><DialogTitle>{viewTask?.title}</DialogTitle></DialogHeader>
           {viewTask && (
-            <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2 overflow-y-auto flex-1 pr-2">
               {viewTask.description && (
                 <div className="space-y-1">
                   <Label className="text-muted-foreground text-xs">Description</Label>
