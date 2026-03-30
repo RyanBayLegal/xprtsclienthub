@@ -499,6 +499,21 @@ export default function Tasks() {
       }
     }
 
+    // Notify @mentioned users in description
+    if (user && editForm.description) {
+      const mentionedIds = extractMentionedUserIds(editForm.description, staffMembers.map((s) => ({ id: s.id, full_name: s.full_name })));
+      for (const uid of mentionedIds) {
+        if (uid !== user.id && uid !== editForm.assigned_to) {
+          await supabase.from("notifications").insert({
+            user_id: uid,
+            type: "task_mention",
+            title: "You were mentioned in a task",
+            message: `"${editForm.title}" — ${editForm.description.slice(0, 100)}`,
+          });
+        }
+      }
+    }
+
     toast.success("Task updated");
     setEditDialogOpen(false);
     setEditingTask(null);
