@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 interface AgreementBuilderProps {
   clientProfileId: string;
@@ -87,6 +88,12 @@ export default function AgreementBuilder({ clientProfileId, leadId, clientName, 
     }
 
     toast.success(clientSig ? "Agreement created and signed" : "Agreement created and sent");
+
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "engagement_agreement", entityId: clientProfileId, clientProfileId, action: "create", description: `Created agreement for ${form.client_name}${clientSig ? " (signed)" : ""}` });
+    }
+
     setSaving(false);
     onCreated();
   };

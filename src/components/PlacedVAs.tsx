@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 interface PlacedVA {
   id: string;
@@ -106,6 +107,13 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
     }
 
     toast.success("VA placed successfully");
+
+    if (user) {
+      const userName = await getUserName(user.id);
+      const talentName = talentOptions.find(t => t.id === selectedTalent)?.full_name || "Unknown";
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: clientProfileId, clientProfileId, action: "create", description: `Placed VA: ${talentName}` });
+    }
+
     setDialogOpen(false);
     setSelectedTalent("");
     setStartDate("");
@@ -113,8 +121,15 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
   };
 
   const handleDelete = async (id: string) => {
+    const va = placedVAs.find(v => v.id === id);
     await supabase.from("placed_vas" as any).delete().eq("id", id);
     toast.success("VA removed");
+
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: clientProfileId, clientProfileId, action: "delete", description: `Removed VA: ${va?.talent?.full_name || "Unknown"}` });
+    }
+
     fetchData();
   };
 
