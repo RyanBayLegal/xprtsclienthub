@@ -163,6 +163,10 @@ export default function SystemsAudit({ clientProfileId }: SystemsAuditProps) {
       setRecordId(inserted.id);
     }
     toast.success("Systems audit saved");
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "systems_audit", entityId: recordId || "new", clientProfileId, action: recordId ? "update" : "create", description: "Saved systems audit" });
+    }
     setSaving(false);
   };
 

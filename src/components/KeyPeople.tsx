@@ -42,6 +42,10 @@ export default function KeyPeople({ clientProfileId, editable = true }: { client
       .single();
     if (error) { toast.error(error.message); return; }
     setPeople([...people, data as KeyPerson]);
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "key_person", entityId: data.id, clientProfileId, action: "create", description: "Added new key person" });
+    }
   };
 
   const updatePerson = async (id: string, field: string, value: string) => {
