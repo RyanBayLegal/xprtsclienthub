@@ -54,7 +54,7 @@ export default function AuditLogPanel({ clientProfileId, entityType, entityId, t
       if (filterAction !== "all") query = query.eq("action", filterAction);
 
       const { data } = await query;
-      setLogs((data || []) as AuditLog[]);
+      setLogs((data || []) as unknown as AuditLog[]);
       setLoading(false);
     };
     fetchLogs();

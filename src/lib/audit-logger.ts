@@ -15,7 +15,7 @@ interface AuditLogEntry {
 
 export async function logAudit(entry: AuditLogEntry) {
   try {
-    await supabase.from("audit_logs" as any).insert({
+    await (supabase.from as any)("audit_logs").insert({
       user_id: entry.userId,
       user_name: entry.userName || null,
       entity_type: entry.entityType,
