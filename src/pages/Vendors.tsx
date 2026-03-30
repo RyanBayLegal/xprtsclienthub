@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +24,7 @@ const PAGE_SIZE = 15;
 const emptyForm = { name: "", description: "", company_name: "", email: "", phone: "" };
 
 export default function Vendors() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isAdmin = role === "team_admin";
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [page, setPage] = useState(0);
@@ -50,13 +51,23 @@ export default function Vendors() {
       email: form.email || null,
       phone: form.phone || null,
     };
+    const userName = user ? await getUserName(user.id) : "Unknown";
     if (editingId) {
+      const oldVendor = vendors.find((v) => v.id === editingId);
       const { error } = await supabase.from("vendors").update(payload as any).eq("id", editingId);
       if (error) { toast.error(error.message); return; }
+      if (user && oldVendor) {
+        await logFieldChanges(user.id, userName, "vendor", editingId, oldVendor, payload, null, {
+          name: "Vendor Name", company_name: "Company", email: "Email", phone: "Phone", description: "Description",
+        });
+      }
       toast.success("Vendor updated");
     } else {
-      const { error } = await supabase.from("vendors").insert(payload as any);
+      const { data: inserted, error } = await supabase.from("vendors").insert(payload as any).select("id").single();
       if (error) { toast.error(error.message); return; }
+      if (user && inserted) {
+        await logAudit({ userId: user.id, userName, entityType: "vendor", entityId: inserted.id, action: "create", description: `Added vendor: ${payload.name}` });
+      }
       toast.success("Vendor added");
     }
     setDialogOpen(false);
@@ -78,8 +89,13 @@ export default function Vendors() {
   };
 
   const handleDelete = async (id: string) => {
+    const vendor = vendors.find((v) => v.id === id);
     const { error } = await supabase.from("vendors").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "vendor", entityId: id, action: "delete", description: `Deleted vendor: ${vendor?.name || id}` });
+    }
     toast.success("Vendor deleted");
     fetchVendors();
   };
