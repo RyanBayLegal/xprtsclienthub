@@ -372,7 +372,7 @@ export default function Tasks() {
   const handleCreate = async () => {
     const selectedClient = clients.find((c) => c.id === form.client_profile_id);
     const selectedStaff = staffMembers.find((s) => s.id === form.assigned_to);
-    const { error } = await supabase.from("tasks").insert({
+    const { data: inserted, error } = await supabase.from("tasks").insert({
       title: form.title,
       description: form.description || null,
       status: form.status,
@@ -382,8 +382,13 @@ export default function Tasks() {
       client_profile_id: form.client_profile_id || null,
       assigned_to: form.assigned_to || null,
       created_by: user?.id,
-    });
+    }).select("id").single();
     if (error) { toast.error(error.message); return; }
+
+    if (user && inserted) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "task", entityId: inserted.id, clientProfileId: form.client_profile_id || null, action: "create", description: `Created task: ${form.title}` });
+    }
 
     // Notify the assigned staff member (not the creator)
     if (user && form.assigned_to) {
