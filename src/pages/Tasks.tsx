@@ -19,6 +19,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import TaskComments from "@/components/TaskComments";
 import TaskAttachments from "@/components/TaskAttachments";
 import TaskLinks from "@/components/TaskLinks";
+import { extractMentionedUserIds } from "@/components/MentionTextarea";
 import {
   DndContext,
   DragEndEvent,
