@@ -89,8 +89,13 @@ export default function Vendors() {
   };
 
   const handleDelete = async (id: string) => {
+    const vendor = vendors.find((v) => v.id === id);
     const { error } = await supabase.from("vendors").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "vendor", entityId: id, action: "delete", description: `Deleted vendor: ${vendor?.name || id}` });
+    }
     toast.success("Vendor deleted");
     fetchVendors();
   };

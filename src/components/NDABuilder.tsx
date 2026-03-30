@@ -49,6 +49,16 @@ export default function NDABuilder({ clientProfileId, leadId, clientName, onCrea
     if (error) { toast.error(error.message); setSaving(false); return; }
 
     if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({
+        userId: user.id,
+        userName,
+        entityType: "nda",
+        entityId: clientProfileId,
+        clientProfileId,
+        action: "create",
+        description: `Created Mutual NDA for ${clientName}${clientSig ? " (signed)" : ""}`,
+      });
       await supabase.from("notifications").insert({
         user_id: user.id,
         type: clientSig ? "nda_signed" : "nda_sent",
