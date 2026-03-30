@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 interface PlacedVA {
   id: string;

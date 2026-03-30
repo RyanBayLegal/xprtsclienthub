@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 interface AgreementBuilderProps {
   clientProfileId: string;

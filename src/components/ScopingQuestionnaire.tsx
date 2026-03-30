@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 interface ScopingQuestionnaireProps {
   clientProfileId: string;
