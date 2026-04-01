@@ -151,20 +151,23 @@ export default function Links() {
     let finalUrl = editUrl.trim();
     if (!/^https?:\/\//i.test(finalUrl)) finalUrl = "https://" + finalUrl;
 
+    const newData = { title: editTitle.trim(), url: finalUrl, category: resolveCategory(editCategory, editCustomCategory) };
+
     setEditLoading(true);
     const { error } = await supabase
       .from("team_links")
-      .update({
-        title: editTitle.trim(),
-        url: finalUrl,
-        category: resolveCategory(editCategory, editCustomCategory),
-      })
+      .update(newData)
       .eq("id", editLink.id);
     setEditLoading(false);
 
     if (error) {
       toast({ title: "Error updating link", description: error.message, variant: "destructive" });
     } else {
+      if (user) {
+        const userName = await getUserName(user.id);
+        const oldData = { title: editLink.title, url: editLink.url, category: editLink.category || "General" };
+        await logFieldChanges(user.id, userName, "team_link", editLink.id, oldData, newData, null, { title: "Title", url: "URL", category: "Category" });
+      }
       setEditLink(null);
       fetchLinks();
     }

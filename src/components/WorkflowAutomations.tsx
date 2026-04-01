@@ -156,12 +156,22 @@ export default function WorkflowAutomations() {
 
   const toggleActive = async (id: string, current: boolean) => {
     await (supabase.from("workflow_automations" as any).update({ is_active: !current }).eq("id", id) as any);
+    const auto = automations.find(a => a.id === id);
     setAutomations((prev) => prev.map((a) => a.id === id ? { ...a, is_active: !current } : a));
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "workflow_automation", entityId: id, action: "update", fieldName: "Active", oldValue: String(current), newValue: String(!current), description: `${!current ? "Enabled" : "Disabled"} automation: ${auto?.name}` });
+    }
   };
 
   const handleDelete = async (id: string) => {
+    const auto = automations.find(a => a.id === id);
     await (supabase.from("workflow_automations" as any).delete().eq("id", id) as any);
     setAutomations((prev) => prev.filter((a) => a.id !== id));
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "workflow_automation", entityId: id, action: "delete", description: `Deleted automation: ${auto?.name || id}` });
+    }
     toast.success("Automation deleted");
   };
 
