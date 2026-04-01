@@ -527,12 +527,14 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         {filter === "free" ? (
-                          <Button variant="ghost" size="icon" title="Place with client" onClick={(e) => { e.stopPropagation(); handleMoveToPlaced(r.id, r.full_name); }}>
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs" title="Place with client" onClick={(e) => { e.stopPropagation(); handleMoveToPlaced(r.id, r.full_name); }}>
                             <ArrowLeftRight className="h-4 w-4 text-primary" />
+                            <span className="text-primary">Switch to Placed</span>
                           </Button>
                         ) : (
-                          <Button variant="ghost" size="icon" title="Move back to available" onClick={(e) => { e.stopPropagation(); handleMoveToFree(r.id); }}>
+                          <Button variant="ghost" size="sm" className="gap-1 text-xs" title="Move back to available" onClick={(e) => { e.stopPropagation(); handleMoveToFree(r.id); }}>
                             <ArrowLeftRight className="h-4 w-4 text-primary" />
+                            <span className="text-primary">Switch to Free</span>
                           </Button>
                         )}
                         <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openEdit(r); }}><Pencil className="h-4 w-4" /></Button>
