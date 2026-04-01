@@ -13,6 +13,16 @@ import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Camera, Paperclip, Lin
 import { logAudit, getUserName } from "@/lib/audit-logger";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import AvatarCropDialog from "@/components/AvatarCropDialog";
 import { toast } from "sonner";
 
