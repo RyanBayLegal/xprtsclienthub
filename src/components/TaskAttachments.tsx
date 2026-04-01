@@ -78,12 +78,10 @@ export default function TaskAttachments({ taskId }: TaskAttachmentsProps) {
       const { error: uploadError } = await supabase.storage.from("task-attachments").upload(path, file);
       if (uploadError) { toast.error(`Failed to upload ${file.name}`); continue; }
 
-      const { data: { publicUrl } } = supabase.storage.from("task-attachments").getPublicUrl(path);
-
       await supabase.from("task_attachments").insert({
         task_id: taskId,
         file_name: file.name,
-        file_url: publicUrl,
+        file_url: path,
         file_type: file.type,
         file_size: file.size,
         uploaded_by: user?.id,
