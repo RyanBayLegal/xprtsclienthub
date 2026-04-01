@@ -182,6 +182,11 @@ function DraggableTaskCard({
               {getDueDateLabel(task.due_date)}
             </span>
           )}
+          {task.completed_at && (
+            <span className="text-[10px] text-muted-foreground">
+              ✓ {new Date(task.completed_at).toLocaleDateString()}
+            </span>
+          )}
         </div>
         <div className="flex gap-1">
           {STATUS_OPTIONS.filter((s) => s !== task.status).map((s) => (
@@ -574,9 +579,14 @@ export default function Tasks() {
     if (diff !== 0) return diff;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
+  const sortByCompleted = (arr: Task[]) => [...arr].sort((a, b) => {
+    const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+    const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+    return bTime - aTime;
+  });
   const todoTasks = sortByDue(tasks.filter((t) => t.status === "todo"));
   const inProgressTasks = sortByDue(tasks.filter((t) => t.status === "in_progress"));
-  const doneTasks = sortByDue(tasks.filter((t) => t.status === "done"));
+  const doneTasks = sortByCompleted(tasks.filter((t) => t.status === "done"));
 
   const renderFormFields = (f: typeof emptyForm, setF: (fn: (prev: typeof emptyForm) => typeof emptyForm) => void) => (
     <>
@@ -741,12 +751,13 @@ export default function Tasks() {
                     <TableHead>Client</TableHead>
                     <TableHead>Staff</TableHead>
                     <TableHead>Due</TableHead>
+                    <TableHead>Completed</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tasks.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
                   ) : tasks.slice(listPage * LIST_PAGE_SIZE, (listPage + 1) * LIST_PAGE_SIZE).map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.title}</TableCell>
@@ -778,6 +789,9 @@ export default function Tasks() {
                       </TableCell>
                       <TableCell className={`text-sm ${getDueDateStyle(task.due_date, task.status)}`}>
                         {task.due_date ? getDueDateLabel(task.due_date) : "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {task.completed_at ? new Date(task.completed_at).toLocaleDateString() : "—"}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
