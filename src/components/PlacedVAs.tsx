@@ -5,11 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ArrowLeftRight } from "lucide-react";
 import { toast } from "sonner";
 import { logAudit, getUserName } from "@/lib/audit-logger";
 
@@ -49,6 +59,7 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTalent, setSelectedTalent] = useState("");
   const [startDate, setStartDate] = useState("");
+  const [freeConfirm, setFreeConfirm] = useState<{ id: string; talentName: string } | null>(null);
 
   const fetchData = async () => {
     const { data } = await supabase
@@ -133,12 +144,25 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
     fetchData();
   };
 
+  const confirmMoveToFree = async () => {
+    if (!freeConfirm) return;
+    await supabase.from("placed_vas" as any).delete().eq("id", freeConfirm.id);
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: clientProfileId, clientProfileId, action: "delete", description: `Moved VA back to free: ${freeConfirm.talentName}` });
+    }
+    toast.success("VA moved back to available");
+    setFreeConfirm(null);
+    fetchData();
+  };
+
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
   if (loading) return <p className="text-muted-foreground text-center py-8">Loading...</p>;
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -212,9 +236,14 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
                 <TableCell className="text-sm">{va.talent?.rate_per_hour != null ? `$${Number(va.talent.rate_per_hour).toFixed(2)}` : "—"}</TableCell>
                 <TableCell className="text-sm">{va.start_date ? new Date(va.start_date + "T00:00:00").toLocaleDateString() : "—"}</TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(va.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" title="Move back to available" onClick={() => setFreeConfirm({ id: va.id, talentName: va.talent?.full_name || "Unknown" })}>
+                      <ArrowLeftRight className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(va.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -222,5 +251,21 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
         </Table>
       </CardContent>
     </Card>
+
+    <AlertDialog open={!!freeConfirm} onOpenChange={() => setFreeConfirm(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Move VA Back to Available?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to remove <strong>{freeConfirm?.talentName}</strong> from this client and move them back to the Free tab in the Talent Pool?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmMoveToFree}>Move to Free</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

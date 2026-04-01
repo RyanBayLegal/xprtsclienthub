@@ -13,6 +13,16 @@ import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Camera, Paperclip, Lin
 import { logAudit, getUserName } from "@/lib/audit-logger";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import AvatarCropDialog from "@/components/AvatarCropDialog";
 import { toast } from "sonner";
 
@@ -117,15 +127,24 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
     fetchData();
   };
 
+  // Confirmation for moving to free
+  const [freeConfirm, setFreeConfirm] = useState<{ id: string; name: string } | null>(null);
+
   const handleMoveToFree = async (talentId: string) => {
     const talent = rows.find(r => r.id === talentId);
-    const { error } = await supabase.from("placed_vas").delete().eq("talent_id", talentId);
-    if (error) { toast.error("Failed to remove placement"); return; }
+    setFreeConfirm({ id: talentId, name: talent?.full_name || "Unknown" });
+  };
+
+  const confirmMoveToFree = async () => {
+    if (!freeConfirm) return;
+    const { error } = await supabase.from("placed_vas").delete().eq("talent_id", freeConfirm.id);
+    if (error) { toast.error("Failed to remove placement"); setFreeConfirm(null); return; }
     if (user) {
       const userName = await getUserName(user.id);
-      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: talentId, action: "delete", description: `Moved talent back to free: ${talent?.full_name || "Unknown"}` });
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: freeConfirm.id, action: "delete", description: `Moved talent back to free: ${freeConfirm.name}` });
     }
     toast.success("Talent moved back to available");
+    setFreeConfirm(null);
     fetchData();
   };
 
@@ -579,6 +598,22 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm move to free */}
+      <AlertDialog open={!!freeConfirm} onOpenChange={() => setFreeConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move Talent Back to Available?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove all placements for <strong>{freeConfirm?.name}</strong> and move them back to the Free tab?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMoveToFree}>Move to Free</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCropped} />
     </div>
