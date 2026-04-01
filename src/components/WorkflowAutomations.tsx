@@ -123,6 +123,8 @@ export default function WorkflowAutomations() {
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error("Name is required"); return; }
 
+    const userName = user ? await getUserName(user.id) : "Unknown";
+
     if (editingId) {
       const { error } = await (supabase.from("workflow_automations" as any).update({
         name: form.name,
@@ -131,16 +133,18 @@ export default function WorkflowAutomations() {
         action_config: form.action_config,
       }).eq("id", editingId) as any);
       if (error) { toast.error(error.message); return; }
+      if (user) await logAudit({ userId: user.id, userName, entityType: "workflow_automation", entityId: editingId, action: "update", description: `Updated automation: ${form.name}` });
       toast.success("Automation updated");
     } else {
-      const { error } = await (supabase.from("workflow_automations" as any).insert({
+      const { data: inserted, error } = await (supabase.from("workflow_automations" as any).insert({
         name: form.name,
         trigger_stage: form.trigger_stage,
         action_type: form.action_type,
         action_config: form.action_config,
         created_by: user?.id,
-      }) as any);
+      }).select().single() as any);
       if (error) { toast.error(error.message); return; }
+      if (user) await logAudit({ userId: user.id, userName, entityType: "workflow_automation", entityId: inserted?.id || "", action: "create", description: `Created automation: ${form.name}` });
       toast.success("Automation created");
     }
 
