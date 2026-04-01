@@ -74,6 +74,61 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailAttachments, setDetailAttachments] = useState<TalentAttachment[]>([]);
 
+  // Place dialog state (for Free tab → place talent with a client)
+  const [placeDialogOpen, setPlaceDialogOpen] = useState(false);
+  const [placeTalentId, setPlaceTalentId] = useState<string | null>(null);
+  const [placeClientId, setPlaceClientId] = useState("");
+  const [placeStartDate, setPlaceStartDate] = useState("");
+  const [clientOptions, setClientOptions] = useState<{ id: string; name: string }[]>([]);
+
+  const fetchClients = async () => {
+    const { data } = await supabase.from("client_profiles").select("id, name").order("name");
+    if (data) setClientOptions(data);
+  };
+
+  const handleMoveToPlaced = async (talentId: string, talentName: string) => {
+    setPlaceTalentId(talentId);
+    setPlaceClientId("");
+    setPlaceStartDate("");
+    await fetchClients();
+    setPlaceDialogOpen(true);
+  };
+
+  const confirmPlace = async () => {
+    if (!placeTalentId || !placeClientId) { toast.error("Please select a client"); return; }
+    const { error } = await supabase.from("placed_vas").insert({
+      client_profile_id: placeClientId,
+      talent_id: placeTalentId,
+      start_date: placeStartDate || null,
+      created_by: user?.id,
+    });
+    if (error) {
+      if (error.code === "23505") toast.error("Already placed with this client");
+      else toast.error(error.message);
+      return;
+    }
+    const talentName = rows.find(r => r.id === placeTalentId)?.full_name || "Unknown";
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: placeClientId, clientProfileId: placeClientId, action: "create", description: `Placed talent: ${talentName}` });
+    }
+    toast.success("Talent placed with client");
+    setPlaceDialogOpen(false);
+    fetchData();
+  };
+
+  const handleMoveToFree = async (talentId: string) => {
+    const talent = rows.find(r => r.id === talentId);
+    const { error } = await supabase.from("placed_vas").delete().eq("talent_id", talentId);
+    if (error) { toast.error("Failed to remove placement"); return; }
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: talentId, action: "delete", description: `Moved talent back to free: ${talent?.full_name || "Unknown"}` });
+    }
+    toast.success("Talent moved back to available");
+    fetchData();
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
 
   const fetchData = async () => {
