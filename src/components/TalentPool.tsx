@@ -474,17 +474,26 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
                 <TableHead>Name</TableHead>
                 <TableHead>Country</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Contact Number</TableHead>
+                {filter === "placed" ? (
+                  <>
+                    <TableHead>Client Designated</TableHead>
+                    <TableHead>Date Started</TableHead>
+                  </>
+                ) : (
+                  <>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Contact Number</TableHead>
+                  </>
+                )}
                 <TableHead>Rate/Hr ($)</TableHead>
-                <TableHead>Date Added</TableHead>
+                {filter === "free" && <TableHead>Date Added</TableHead>}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">No talent found</TableCell>
+                  <TableCell colSpan={filter === "placed" ? 7 : 8} className="text-center text-muted-foreground py-8">No talent found</TableCell>
                 </TableRow>
               ) : rows.map(r => (
                 <>
@@ -502,10 +511,19 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
                     </TableCell>
                     <TableCell>{r.country || "—"}</TableCell>
                     <TableCell>{r.role || "—"}</TableCell>
-                    <TableCell>{r.email || "—"}</TableCell>
-                    <TableCell>{r.contact_number || "—"}</TableCell>
+                    {filter === "placed" ? (
+                      <>
+                        <TableCell className="font-medium text-primary">{r.placed_client_name || "—"}</TableCell>
+                        <TableCell>{r.placed_start_date ? new Date(r.placed_start_date + "T00:00:00").toLocaleDateString() : "—"}</TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell>{r.email || "—"}</TableCell>
+                        <TableCell>{r.contact_number || "—"}</TableCell>
+                      </>
+                    )}
                     <TableCell>{r.rate_per_hour != null ? `$${Number(r.rate_per_hour).toFixed(2)}` : "—"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>
+                    {filter === "free" && <TableCell className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>}
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         {filter === "free" ? (
