@@ -235,9 +235,14 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
                 <TableCell className="text-sm">{va.talent?.rate_per_hour != null ? `$${Number(va.talent.rate_per_hour).toFixed(2)}` : "—"}</TableCell>
                 <TableCell className="text-sm">{va.start_date ? new Date(va.start_date + "T00:00:00").toLocaleDateString() : "—"}</TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(va.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" title="Move back to available" onClick={() => setFreeConfirm({ id: va.id, talentName: va.talent?.full_name || "Unknown" })}>
+                      <ArrowLeftRight className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(va.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
