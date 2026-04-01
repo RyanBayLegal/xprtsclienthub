@@ -144,6 +144,18 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
     fetchData();
   };
 
+  const confirmMoveToFree = async () => {
+    if (!freeConfirm) return;
+    await supabase.from("placed_vas" as any).delete().eq("id", freeConfirm.id);
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: clientProfileId, clientProfileId, action: "delete", description: `Moved VA back to free: ${freeConfirm.talentName}` });
+    }
+    toast.success("VA moved back to available");
+    setFreeConfirm(null);
+    fetchData();
+  };
+
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
