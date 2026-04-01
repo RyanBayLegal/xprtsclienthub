@@ -162,6 +162,7 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
   if (loading) return <p className="text-muted-foreground text-center py-8">Loading...</p>;
 
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
