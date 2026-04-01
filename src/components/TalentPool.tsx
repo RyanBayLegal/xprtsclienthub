@@ -117,15 +117,24 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
     fetchData();
   };
 
+  // Confirmation for moving to free
+  const [freeConfirm, setFreeConfirm] = useState<{ id: string; name: string } | null>(null);
+
   const handleMoveToFree = async (talentId: string) => {
     const talent = rows.find(r => r.id === talentId);
-    const { error } = await supabase.from("placed_vas").delete().eq("talent_id", talentId);
-    if (error) { toast.error("Failed to remove placement"); return; }
+    setFreeConfirm({ id: talentId, name: talent?.full_name || "Unknown" });
+  };
+
+  const confirmMoveToFree = async () => {
+    if (!freeConfirm) return;
+    const { error } = await supabase.from("placed_vas").delete().eq("talent_id", freeConfirm.id);
+    if (error) { toast.error("Failed to remove placement"); setFreeConfirm(null); return; }
     if (user) {
       const userName = await getUserName(user.id);
-      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: talentId, action: "delete", description: `Moved talent back to free: ${talent?.full_name || "Unknown"}` });
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: freeConfirm.id, action: "delete", description: `Moved talent back to free: ${freeConfirm.name}` });
     }
     toast.success("Talent moved back to available");
+    setFreeConfirm(null);
     fetchData();
   };
 
