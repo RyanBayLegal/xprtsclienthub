@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit, getUserName, logFieldChanges } from "@/lib/audit-logger";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,19 +88,23 @@ export default function Links() {
       creatorName = profile?.full_name || user.email || null;
     }
 
-    const { error } = await supabase.from("team_links").insert({
+    const { data: inserted, error } = await supabase.from("team_links").insert({
       title: title.trim(),
       url: finalUrl,
       category: resolveCategory(category, customCategory),
       created_by: user?.id,
       created_by_name: creatorName,
-    });
+    }).select().single();
 
     setLoading(false);
 
     if (error) {
       toast({ title: "Error adding link", description: error.message, variant: "destructive" });
     } else {
+      if (user) {
+        const userName = await getUserName(user.id);
+        await logAudit({ userId: user.id, userName, entityType: "team_link", entityId: inserted?.id || "", action: "create", description: `Added link: ${title.trim()}` });
+      }
       setTitle("");
       setUrl("");
       setCategory("General");
@@ -109,10 +114,15 @@ export default function Links() {
   };
 
   const handleDelete = async (id: string) => {
+    const link = links.find(l => l.id === id);
     const { error } = await supabase.from("team_links").delete().eq("id", id);
     if (error) {
       toast({ title: "Error deleting link", description: error.message, variant: "destructive" });
     } else {
+      if (user) {
+        const userName = await getUserName(user.id);
+        await logAudit({ userId: user.id, userName, entityType: "team_link", entityId: id, action: "delete", description: `Deleted link: ${link?.title || id}` });
+      }
       fetchLinks();
     }
   };
@@ -141,20 +151,23 @@ export default function Links() {
     let finalUrl = editUrl.trim();
     if (!/^https?:\/\//i.test(finalUrl)) finalUrl = "https://" + finalUrl;
 
+    const newData = { title: editTitle.trim(), url: finalUrl, category: resolveCategory(editCategory, editCustomCategory) };
+
     setEditLoading(true);
     const { error } = await supabase
       .from("team_links")
-      .update({
-        title: editTitle.trim(),
-        url: finalUrl,
-        category: resolveCategory(editCategory, editCustomCategory),
-      })
+      .update(newData)
       .eq("id", editLink.id);
     setEditLoading(false);
 
     if (error) {
       toast({ title: "Error updating link", description: error.message, variant: "destructive" });
     } else {
+      if (user) {
+        const userName = await getUserName(user.id);
+        const oldData = { title: editLink.title, url: editLink.url, category: editLink.category || "General" };
+        await logFieldChanges(user.id, userName, "team_link", editLink.id, oldData, newData, null, { title: "Title", url: "URL", category: "Category" });
+      }
       setEditLink(null);
       fetchLinks();
     }

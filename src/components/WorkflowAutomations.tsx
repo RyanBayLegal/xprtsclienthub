@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +123,8 @@ export default function WorkflowAutomations() {
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error("Name is required"); return; }
 
+    const userName = user ? await getUserName(user.id) : "Unknown";
+
     if (editingId) {
       const { error } = await (supabase.from("workflow_automations" as any).update({
         name: form.name,
@@ -130,16 +133,18 @@ export default function WorkflowAutomations() {
         action_config: form.action_config,
       }).eq("id", editingId) as any);
       if (error) { toast.error(error.message); return; }
+      if (user) await logAudit({ userId: user.id, userName, entityType: "workflow_automation", entityId: editingId, action: "update", description: `Updated automation: ${form.name}` });
       toast.success("Automation updated");
     } else {
-      const { error } = await (supabase.from("workflow_automations" as any).insert({
+      const { data: inserted, error } = await (supabase.from("workflow_automations" as any).insert({
         name: form.name,
         trigger_stage: form.trigger_stage,
         action_type: form.action_type,
         action_config: form.action_config,
         created_by: user?.id,
-      }) as any);
+      }).select().single() as any);
       if (error) { toast.error(error.message); return; }
+      if (user) await logAudit({ userId: user.id, userName, entityType: "workflow_automation", entityId: inserted?.id || "", action: "create", description: `Created automation: ${form.name}` });
       toast.success("Automation created");
     }
 
@@ -151,12 +156,22 @@ export default function WorkflowAutomations() {
 
   const toggleActive = async (id: string, current: boolean) => {
     await (supabase.from("workflow_automations" as any).update({ is_active: !current }).eq("id", id) as any);
+    const auto = automations.find(a => a.id === id);
     setAutomations((prev) => prev.map((a) => a.id === id ? { ...a, is_active: !current } : a));
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "workflow_automation", entityId: id, action: "update", fieldName: "Active", oldValue: String(current), newValue: String(!current), description: `${!current ? "Enabled" : "Disabled"} automation: ${auto?.name}` });
+    }
   };
 
   const handleDelete = async (id: string) => {
+    const auto = automations.find(a => a.id === id);
     await (supabase.from("workflow_automations" as any).delete().eq("id", id) as any);
     setAutomations((prev) => prev.filter((a) => a.id !== id));
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "workflow_automation", entityId: id, action: "delete", description: `Deleted automation: ${auto?.name || id}` });
+    }
     toast.success("Automation deleted");
   };
 
