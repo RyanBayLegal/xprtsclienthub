@@ -39,13 +39,29 @@ export default function TaskAttachments({ taskId }: TaskAttachmentsProps) {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const extractStoragePath = (fileUrl: string): string => {
+    const match = fileUrl.match(/task-attachments\/(.+?)(\?|$)/);
+    if (match) return decodeURIComponent(match[1]);
+    return fileUrl;
+  };
+
   const fetchAttachments = async () => {
     const { data } = await supabase
       .from("task_attachments")
       .select("*")
       .eq("task_id", taskId)
       .order("created_at", { ascending: false });
-    if (data) setAttachments(data as Attachment[]);
+    if (!data) return;
+    const withUrls = await Promise.all(
+      (data as Attachment[]).map(async (att) => {
+        const path = extractStoragePath(att.file_url);
+        const { data: signed } = await supabase.storage
+          .from("task-attachments")
+          .createSignedUrl(path, 3600);
+        return { ...att, _signedUrl: signed?.signedUrl || att.file_url };
+      })
+    );
+    setAttachments(withUrls);
   };
 
   useEffect(() => { fetchAttachments(); }, [taskId]);
