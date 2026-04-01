@@ -125,7 +125,7 @@ export default function TaskAttachments({ taskId }: TaskAttachmentsProps) {
             <div key={att.id} className="flex items-center gap-2 p-1.5 rounded border bg-card hover:bg-muted/50 transition-colors">
               {fileIcon(att.file_type)}
               <div className="flex-1 min-w-0">
-                <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-primary hover:underline truncate block">
+                <a href={att._signedUrl || att.file_url} target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-primary hover:underline truncate block">
                   {att.file_name}
                 </a>
                 <div className="flex gap-2 text-[9px] text-muted-foreground">
