@@ -785,6 +785,9 @@ export default function Tasks() {
                       <TableCell className={`text-sm ${getDueDateStyle(task.due_date, task.status)}`}>
                         {task.due_date ? getDueDateLabel(task.due_date) : "—"}
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {task.completed_at ? new Date(task.completed_at).toLocaleDateString() : "—"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openView(task)} title="View task">

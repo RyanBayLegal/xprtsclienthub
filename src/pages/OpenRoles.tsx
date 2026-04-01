@@ -154,7 +154,7 @@ export default function OpenRoles() {
                   <TableRow key={r.id}>
                     <TableCell className="text-sm font-medium">{r.client_name}</TableCell>
                     <TableCell>
-                      <Input value={r.role_name} onChange={(e) => updateRole(r.id, "role_name", e.target.value)} className="h-8" />
+                      <Textarea value={r.role_name} onChange={(e) => updateRole(r.id, "role_name", e.target.value)} className="min-h-[36px] text-sm resize-y" rows={1} />
                     </TableCell>
                     <TableCell>
                       <Input type="date" value={r.date_requested || ""} onChange={(e) => updateRole(r.id, "date_requested", e.target.value)} className="h-8" />
