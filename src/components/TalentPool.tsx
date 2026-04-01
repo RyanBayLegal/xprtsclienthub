@@ -555,6 +555,31 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
         </div>
       )}
 
+      {/* Place talent dialog */}
+      <Dialog open={placeDialogOpen} onOpenChange={setPlaceDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Place Talent with Client</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-2">
+              <Label>Select Client *</Label>
+              <Select value={placeClientId} onValueChange={setPlaceClientId}>
+                <SelectTrigger><SelectValue placeholder="Choose a client..." /></SelectTrigger>
+                <SelectContent>
+                  {clientOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Start Date</Label>
+              <Input type="date" value={placeStartDate} onChange={(e) => setPlaceStartDate(e.target.value)} />
+            </div>
+            <Button onClick={confirmPlace}>Place Talent</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCropped} />
     </div>
   );
