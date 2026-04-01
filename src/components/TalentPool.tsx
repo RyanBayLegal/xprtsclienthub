@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Camera, Paperclip, Link2, ExternalLink, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Camera, Paperclip, Link2, ExternalLink, X, ArrowLeftRight } from "lucide-react";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import AvatarCropDialog from "@/components/AvatarCropDialog";
@@ -71,6 +73,61 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
   // Detail/expand state
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailAttachments, setDetailAttachments] = useState<TalentAttachment[]>([]);
+
+  // Place dialog state (for Free tab → place talent with a client)
+  const [placeDialogOpen, setPlaceDialogOpen] = useState(false);
+  const [placeTalentId, setPlaceTalentId] = useState<string | null>(null);
+  const [placeClientId, setPlaceClientId] = useState("");
+  const [placeStartDate, setPlaceStartDate] = useState("");
+  const [clientOptions, setClientOptions] = useState<{ id: string; name: string }[]>([]);
+
+  const fetchClients = async () => {
+    const { data } = await supabase.from("client_profiles").select("id, name").order("name");
+    if (data) setClientOptions(data);
+  };
+
+  const handleMoveToPlaced = async (talentId: string, talentName: string) => {
+    setPlaceTalentId(talentId);
+    setPlaceClientId("");
+    setPlaceStartDate("");
+    await fetchClients();
+    setPlaceDialogOpen(true);
+  };
+
+  const confirmPlace = async () => {
+    if (!placeTalentId || !placeClientId) { toast.error("Please select a client"); return; }
+    const { error } = await supabase.from("placed_vas").insert({
+      client_profile_id: placeClientId,
+      talent_id: placeTalentId,
+      start_date: placeStartDate || null,
+      created_by: user?.id,
+    });
+    if (error) {
+      if (error.code === "23505") toast.error("Already placed with this client");
+      else toast.error(error.message);
+      return;
+    }
+    const talentName = rows.find(r => r.id === placeTalentId)?.full_name || "Unknown";
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: placeClientId, clientProfileId: placeClientId, action: "create", description: `Placed talent: ${talentName}` });
+    }
+    toast.success("Talent placed with client");
+    setPlaceDialogOpen(false);
+    fetchData();
+  };
+
+  const handleMoveToFree = async (talentId: string) => {
+    const talent = rows.find(r => r.id === talentId);
+    const { error } = await supabase.from("placed_vas").delete().eq("talent_id", talentId);
+    if (error) { toast.error("Failed to remove placement"); return; }
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({ userId: user.id, userName, entityType: "placed_va", entityId: talentId, action: "delete", description: `Moved talent back to free: ${talent?.full_name || "Unknown"}` });
+    }
+    toast.success("Talent moved back to available");
+    fetchData();
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
 
@@ -419,6 +476,15 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
                     <TableCell className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        {filter === "free" ? (
+                          <Button variant="ghost" size="icon" title="Place with client" onClick={(e) => { e.stopPropagation(); handleMoveToPlaced(r.id, r.full_name); }}>
+                            <ArrowLeftRight className="h-4 w-4 text-primary" />
+                          </Button>
+                        ) : (
+                          <Button variant="ghost" size="icon" title="Move back to available" onClick={(e) => { e.stopPropagation(); handleMoveToFree(r.id); }}>
+                            <ArrowLeftRight className="h-4 w-4 text-primary" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); openEdit(r); }}><Pencil className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDelete(r.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                       </div>
@@ -488,6 +554,31 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
           </div>
         </div>
       )}
+
+      {/* Place talent dialog */}
+      <Dialog open={placeDialogOpen} onOpenChange={setPlaceDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Place Talent with Client</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-2">
+              <Label>Select Client *</Label>
+              <Select value={placeClientId} onValueChange={setPlaceClientId}>
+                <SelectTrigger><SelectValue placeholder="Choose a client..." /></SelectTrigger>
+                <SelectContent>
+                  {clientOptions.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Start Date</Label>
+              <Input type="date" value={placeStartDate} onChange={(e) => setPlaceStartDate(e.target.value)} />
+            </div>
+            <Button onClick={confirmPlace}>Place Talent</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCropped} />
     </div>
