@@ -250,5 +250,21 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
         </Table>
       </CardContent>
     </Card>
+
+    <AlertDialog open={!!freeConfirm} onOpenChange={() => setFreeConfirm(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Move VA Back to Available?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to remove <strong>{freeConfirm?.talentName}</strong> from this client and move them back to the Free tab in the Talent Pool?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmMoveToFree}>Move to Free</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
