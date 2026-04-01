@@ -574,9 +574,14 @@ export default function Tasks() {
     if (diff !== 0) return diff;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
+  const sortByCompleted = (arr: Task[]) => [...arr].sort((a, b) => {
+    const aTime = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+    const bTime = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+    return bTime - aTime;
+  });
   const todoTasks = sortByDue(tasks.filter((t) => t.status === "todo"));
   const inProgressTasks = sortByDue(tasks.filter((t) => t.status === "in_progress"));
-  const doneTasks = sortByDue(tasks.filter((t) => t.status === "done"));
+  const doneTasks = sortByCompleted(tasks.filter((t) => t.status === "done"));
 
   const renderFormFields = (f: typeof emptyForm, setF: (fn: (prev: typeof emptyForm) => typeof emptyForm) => void) => (
     <>
