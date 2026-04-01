@@ -53,6 +53,9 @@ interface TalentRow {
   created_at: string;
   notes: string | null;
   links: TalentLink[];
+  // Placed tab enrichment
+  placed_client_name?: string | null;
+  placed_start_date?: string | null;
 }
 
 const ITEMS_PER_PAGE = 10;
