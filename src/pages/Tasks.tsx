@@ -182,6 +182,11 @@ function DraggableTaskCard({
               {getDueDateLabel(task.due_date)}
             </span>
           )}
+          {task.completed_at && (
+            <span className="text-[10px] text-muted-foreground">
+              ✓ {new Date(task.completed_at).toLocaleDateString()}
+            </span>
+          )}
         </div>
         <div className="flex gap-1">
           {STATUS_OPTIONS.filter((s) => s !== task.status).map((s) => (
