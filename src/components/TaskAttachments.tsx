@@ -17,6 +17,7 @@ interface Attachment {
   file_type: string | null;
   file_size: number | null;
   created_at: string;
+  _signedUrl?: string;
 }
 
 const fileIcon = (type: string | null) => {
@@ -38,13 +39,29 @@ export default function TaskAttachments({ taskId }: TaskAttachmentsProps) {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const extractStoragePath = (fileUrl: string): string => {
+    const match = fileUrl.match(/task-attachments\/(.+?)(\?|$)/);
+    if (match) return decodeURIComponent(match[1]);
+    return fileUrl;
+  };
+
   const fetchAttachments = async () => {
     const { data } = await supabase
       .from("task_attachments")
       .select("*")
       .eq("task_id", taskId)
       .order("created_at", { ascending: false });
-    if (data) setAttachments(data as Attachment[]);
+    if (!data) return;
+    const withUrls = await Promise.all(
+      (data as Attachment[]).map(async (att) => {
+        const path = extractStoragePath(att.file_url);
+        const { data: signed } = await supabase.storage
+          .from("task-attachments")
+          .createSignedUrl(path, 3600);
+        return { ...att, _signedUrl: signed?.signedUrl || att.file_url };
+      })
+    );
+    setAttachments(withUrls);
   };
 
   useEffect(() => { fetchAttachments(); }, [taskId]);
@@ -61,12 +78,10 @@ export default function TaskAttachments({ taskId }: TaskAttachmentsProps) {
       const { error: uploadError } = await supabase.storage.from("task-attachments").upload(path, file);
       if (uploadError) { toast.error(`Failed to upload ${file.name}`); continue; }
 
-      const { data: { publicUrl } } = supabase.storage.from("task-attachments").getPublicUrl(path);
-
       await supabase.from("task_attachments").insert({
         task_id: taskId,
         file_name: file.name,
-        file_url: publicUrl,
+        file_url: path,
         file_type: file.type,
         file_size: file.size,
         uploaded_by: user?.id,
@@ -81,10 +96,8 @@ export default function TaskAttachments({ taskId }: TaskAttachmentsProps) {
 
   const deleteAttachment = async (att: Attachment) => {
     await supabase.from("task_attachments").delete().eq("id", att.id);
-    const pathMatch = att.file_url.match(/task-attachments\/(.+?)(\?|$)/);
-    if (pathMatch) {
-      await supabase.storage.from("task-attachments").remove([decodeURIComponent(pathMatch[1])]);
-    }
+    const path = extractStoragePath(att.file_url);
+    await supabase.storage.from("task-attachments").remove([path]);
     fetchAttachments();
     toast.success("Attachment deleted");
   };
@@ -110,7 +123,7 @@ export default function TaskAttachments({ taskId }: TaskAttachmentsProps) {
             <div key={att.id} className="flex items-center gap-2 p-1.5 rounded border bg-card hover:bg-muted/50 transition-colors">
               {fileIcon(att.file_type)}
               <div className="flex-1 min-w-0">
-                <a href={att.file_url} target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-primary hover:underline truncate block">
+                <a href={att._signedUrl || att.file_url} target="_blank" rel="noopener noreferrer" className="text-[11px] font-medium text-primary hover:underline truncate block">
                   {att.file_name}
                 </a>
                 <div className="flex gap-2 text-[9px] text-muted-foreground">
