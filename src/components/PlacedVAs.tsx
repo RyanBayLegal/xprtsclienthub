@@ -59,6 +59,7 @@ export default function PlacedVAs({ clientProfileId, staffStartDate, onStaffStar
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTalent, setSelectedTalent] = useState("");
   const [startDate, setStartDate] = useState("");
+  const [freeConfirm, setFreeConfirm] = useState<{ id: string; talentName: string } | null>(null);
 
   const fetchData = async () => {
     const { data } = await supabase
