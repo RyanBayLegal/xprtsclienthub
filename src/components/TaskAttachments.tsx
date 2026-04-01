@@ -96,10 +96,8 @@ export default function TaskAttachments({ taskId }: TaskAttachmentsProps) {
 
   const deleteAttachment = async (att: Attachment) => {
     await supabase.from("task_attachments").delete().eq("id", att.id);
-    const pathMatch = att.file_url.match(/task-attachments\/(.+?)(\?|$)/);
-    if (pathMatch) {
-      await supabase.storage.from("task-attachments").remove([decodeURIComponent(pathMatch[1])]);
-    }
+    const path = extractStoragePath(att.file_url);
+    await supabase.storage.from("task-attachments").remove([path]);
     fetchAttachments();
     toast.success("Attachment deleted");
   };
