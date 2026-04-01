@@ -752,7 +752,7 @@ export default function Tasks() {
                 </TableHeader>
                 <TableBody>
                   {tasks.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No tasks yet</TableCell></TableRow>
                   ) : tasks.slice(listPage * LIST_PAGE_SIZE, (listPage + 1) * LIST_PAGE_SIZE).map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-medium">{task.title}</TableCell>
