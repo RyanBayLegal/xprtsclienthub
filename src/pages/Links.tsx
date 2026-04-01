@@ -88,19 +88,23 @@ export default function Links() {
       creatorName = profile?.full_name || user.email || null;
     }
 
-    const { error } = await supabase.from("team_links").insert({
+    const { data: inserted, error } = await supabase.from("team_links").insert({
       title: title.trim(),
       url: finalUrl,
       category: resolveCategory(category, customCategory),
       created_by: user?.id,
       created_by_name: creatorName,
-    });
+    }).select().single();
 
     setLoading(false);
 
     if (error) {
       toast({ title: "Error adding link", description: error.message, variant: "destructive" });
     } else {
+      if (user) {
+        const userName = await getUserName(user.id);
+        await logAudit({ userId: user.id, userName, entityType: "team_link", entityId: inserted?.id || "", action: "create", description: `Added link: ${title.trim()}` });
+      }
       setTitle("");
       setUrl("");
       setCategory("General");
