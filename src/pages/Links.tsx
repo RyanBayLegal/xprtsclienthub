@@ -114,10 +114,15 @@ export default function Links() {
   };
 
   const handleDelete = async (id: string) => {
+    const link = links.find(l => l.id === id);
     const { error } = await supabase.from("team_links").delete().eq("id", id);
     if (error) {
       toast({ title: "Error deleting link", description: error.message, variant: "destructive" });
     } else {
+      if (user) {
+        const userName = await getUserName(user.id);
+        await logAudit({ userId: user.id, userName, entityType: "team_link", entityId: id, action: "delete", description: `Deleted link: ${link?.title || id}` });
+      }
       fetchLinks();
     }
   };
