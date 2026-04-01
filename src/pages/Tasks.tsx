@@ -746,6 +746,7 @@ export default function Tasks() {
                     <TableHead>Client</TableHead>
                     <TableHead>Staff</TableHead>
                     <TableHead>Due</TableHead>
+                    <TableHead>Completed</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
