@@ -154,11 +154,19 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
   const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
 
   const fetchData = async () => {
-    // Get all placed talent IDs
+    // Get all placed talent data with client info
     const { data: placedData } = await supabase
       .from("placed_vas")
-      .select("talent_id");
-    const placedIds = new Set((placedData || []).map((p) => p.talent_id));
+      .select("talent_id, client_profile_id, start_date, client_profiles(name)");
+    const placedMap = new Map<string, { clientName: string; startDate: string | null }>();
+    const placedIds = new Set<string>();
+    (placedData || []).forEach((p: any) => {
+      placedIds.add(p.talent_id);
+      placedMap.set(p.talent_id, {
+        clientName: p.client_profiles?.name || "Unknown",
+        startDate: p.start_date,
+      });
+    });
 
     // Fetch all talent, then filter client-side for free/placed
     const { data: allData, error } = await supabase
@@ -170,6 +178,8 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
       const all = (allData as any[]).map((r) => ({
         ...r,
         links: Array.isArray(r.links) ? r.links : [],
+        placed_client_name: placedMap.get(r.id)?.clientName || null,
+        placed_start_date: placedMap.get(r.id)?.startDate || null,
       }));
       const filtered = filter === "placed"
         ? all.filter((r) => placedIds.has(r.id))
