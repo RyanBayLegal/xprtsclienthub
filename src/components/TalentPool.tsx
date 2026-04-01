@@ -542,7 +542,7 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
                   </TableRow>
                   {expandedId === r.id && (
                     <TableRow key={`${r.id}-detail`}>
-                      <TableCell colSpan={8} className="bg-muted/30 px-6 py-4">
+                      <TableCell colSpan={filter === "placed" ? 7 : 8} className="bg-muted/30 px-6 py-4">
                         <div className="grid gap-4 md:grid-cols-3">
                           {/* Notes */}
                           <div>
