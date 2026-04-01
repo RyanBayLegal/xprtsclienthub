@@ -599,6 +599,22 @@ export default function TalentPool({ filter = "free" }: { filter?: "free" | "pla
         </DialogContent>
       </Dialog>
 
+      {/* Confirm move to free */}
+      <AlertDialog open={!!freeConfirm} onOpenChange={() => setFreeConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move Talent Back to Available?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove all placements for <strong>{freeConfirm?.name}</strong> and move them back to the Free tab?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMoveToFree}>Move to Free</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCropped} />
     </div>
   );
