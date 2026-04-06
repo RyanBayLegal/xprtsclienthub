@@ -109,6 +109,22 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
       setClients((prev) => prev.map((c) => c.id === draggedId ? { ...c, stage: oldStage } : c));
       return;
     }
+
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({
+        userId: user.id,
+        userName,
+        entityType: "client_profile",
+        entityId: draggedId,
+        clientProfileId: draggedId,
+        action: "update",
+        fieldName: "Stage",
+        oldValue: oldStage,
+        newValue: newStage,
+        description: `Moved client "${client.name}" from ${oldStage} to ${newStage}`,
+      });
+    }
     toast.success(`Moved to ${newStage}`);
   };
 
