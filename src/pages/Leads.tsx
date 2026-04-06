@@ -122,8 +122,25 @@ export default function Leads() {
       if (error) { toast.error(error.message); return; }
       if (user && oldLead) {
         const userName = await getUserName(user.id);
-        await logFieldChanges(user.id, userName, "lead", editingId, oldLead as any, form as any, null,
-          { name: "Name", contact: "Contact", source: "Source", stage: "Stage", needs: "Needs", notes: "Notes", website: "Website" }
+        // Log explicit stage change with time-in-stage
+        if (oldLead.stage !== form.stage) {
+          const stageAge = oldLead.stage_changed_at
+            ? Math.floor((Date.now() - new Date(oldLead.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          await logAudit({
+            userId: user.id,
+            userName,
+            entityType: "lead",
+            entityId: editingId,
+            action: "update",
+            fieldName: "Stage",
+            oldValue: oldLead.stage,
+            newValue: form.stage,
+            description: `Moved lead "${oldLead.name}" from ${oldLead.stage} to ${form.stage} (was in ${oldLead.stage} for ${stageAge} day${stageAge !== 1 ? "s" : ""})`,
+          });
+        }
+        await logFieldChanges(user.id, userName, "lead", editingId, oldLead as any, { ...form, stage: oldLead.stage } as any, null,
+          { name: "Name", contact: "Contact", source: "Source", needs: "Needs", notes: "Notes", website: "Website" }
         );
       }
       toast.success("Lead updated");

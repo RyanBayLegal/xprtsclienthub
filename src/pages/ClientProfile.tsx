@@ -169,10 +169,30 @@ export default function ClientProfile() {
       const { error } = await supabase.from("client_profiles").update(payload as any).eq("id", profile.id);
       if (error) { toast.error(error.message); return; }
       if (user && originalProfile) {
-        await logFieldChanges(user.id, userName, "client_profile", profile.id, originalProfile as any, profile as any, profile.id, {
+        // Log explicit stage change with time-in-stage
+        if (originalProfile.stage !== profile.stage) {
+          const stageAge = originalProfile.stage_changed_at
+            ? Math.floor((Date.now() - new Date(originalProfile.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+          await logAudit({
+            userId: user.id,
+            userName,
+            entityType: "client_profile",
+            entityId: profile.id,
+            clientProfileId: profile.id,
+            action: "update",
+            fieldName: "Stage",
+            oldValue: originalProfile.stage || null,
+            newValue: profile.stage || null,
+            description: `Moved client "${profile.name}" from ${originalProfile.stage} to ${profile.stage} (was in ${originalProfile.stage} for ${stageAge} day${stageAge !== 1 ? "s" : ""})`,
+          });
+        }
+        // Log other field changes (exclude stage since we logged it separately)
+        const profileWithoutStage = { ...profile, stage: originalProfile.stage };
+        await logFieldChanges(user.id, userName, "client_profile", profile.id, originalProfile as any, profileWithoutStage as any, profile.id, {
           name: "Name", role: "Role", company: "Company", practice_area: "Practice Area",
           email: "Email", phone: "Phone", state: "State", timezone: "Time Zone",
-          stage: "Stage", attitude: "Attitude", birthday: "Birthday",
+          attitude: "Attitude", birthday: "Birthday",
           staff_start_date: "Staff Start Date", company_established_date: "Business Established Date",
           pain_points: "Pain Points", influences: "Influences", motivators: "Motivators",
           future_plans: "Future Plans", discovery_source: "Discovery Source",
