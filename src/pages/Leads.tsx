@@ -59,7 +59,7 @@ interface Lead {
 }
 
 const emptyLead = {
-  name: "", contact: "", source: "", website: "", date_reached: "",
+  name: "", email: "", phone: "", contact: "", source: "", website: "", date_reached: "",
   follow_up_email_sent: false, follow_up_date: "", needs: "", booked: false,
   email_sent_with_info: false, next_steps: "", follow_up_email_after: "", stage: "Prospecting Stage", notes: "",
 };
@@ -105,8 +105,11 @@ export default function Leads() {
   useEffect(() => { setLeadsPage(0); fetchLeads(); }, [search, stageFilter]);
 
   const handleSave = async () => {
+    const combinedContact = [form.email, form.phone].filter(Boolean).join(" | ") || form.contact;
+    const { email: _e, phone: _p, ...formRest } = form;
     const payload = {
-      ...form,
+      ...formRest,
+      contact: combinedContact || null,
       date_reached: form.date_reached || null,
       follow_up_date: form.follow_up_date || null,
       follow_up_email_after: form.follow_up_email_after || null,
@@ -141,8 +144,12 @@ export default function Leads() {
   };
 
   const handleEdit = (lead: Lead) => {
+    const contactParts = (lead.contact || "").split(" | ");
+    const emailPart = contactParts.find(p => p.includes("@")) || "";
+    const phonePart = contactParts.find(p => !p.includes("@")) || "";
     setForm({
-      name: lead.name, contact: lead.contact || "", source: lead.source || "",
+      name: lead.name, email: emailPart.trim(), phone: phonePart.trim(), contact: lead.contact || "",
+      source: lead.source || "",
       website: lead.website || "", date_reached: lead.date_reached || "",
       follow_up_email_sent: lead.follow_up_email_sent || false,
       follow_up_date: lead.follow_up_date || "", needs: lead.needs || "",
@@ -263,8 +270,12 @@ export default function Leads() {
                     <Input value={form.name} onChange={(e) => updateField("name", e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Contact</Label>
-                    <Input value={form.contact} onChange={(e) => updateField("contact", e.target.value)} />
+                    <Label>Email</Label>
+                    <Input type="email" placeholder="email@example.com" value={form.email} onChange={(e) => updateField("email", e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input type="tel" placeholder="+1 (555) 000-0000" value={form.phone} onChange={(e) => updateField("phone", e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label>Source</Label>
