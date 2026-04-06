@@ -115,6 +115,9 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
 
     if (user) {
       const userName = await getUserName(user.id);
+      const stageAge = client.stage_changed_at
+        ? Math.floor((Date.now() - new Date(client.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
       await logAudit({
         userId: user.id,
         userName,
@@ -125,7 +128,7 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
         fieldName: "Stage",
         oldValue: oldStage,
         newValue: newStage,
-        description: `Moved client "${client.name}" from ${oldStage} to ${newStage}`,
+        description: `Moved client "${client.name}" from ${oldStage} to ${newStage} (was in ${oldStage} for ${stageAge} day${stageAge !== 1 ? "s" : ""})`,
       });
     }
     toast.success(`Moved to ${newStage}`);
