@@ -53,6 +53,7 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     localStorage.setItem(CLIENTS_KANBAN_STAGES_KEY, JSON.stringify(stages));
