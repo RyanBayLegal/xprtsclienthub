@@ -138,6 +138,9 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
 
     if (user) {
       const userName = await getUserName(user.id);
+      const stageAge = lead.stage_changed_at
+        ? Math.floor((Date.now() - new Date(lead.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
       await logAudit({
         userId: user.id,
         userName,
@@ -147,9 +150,6 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
         fieldName: "Stage",
         oldValue: oldStage,
         newValue: newStage,
-        const stageAge = lead.stage_changed_at
-          ? Math.floor((Date.now() - new Date(lead.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
-          : 0;
         description: `Moved lead "${lead.name}" from ${oldStage} to ${newStage} (was in ${oldStage} for ${stageAge} day${stageAge !== 1 ? "s" : ""})`,
       });
 
