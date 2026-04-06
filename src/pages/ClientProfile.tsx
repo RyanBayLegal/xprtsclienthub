@@ -60,6 +60,7 @@ interface ClientProfileData {
   birthday: string | null;
   staff_start_date: string | null;
   company_established_date: string | null;
+  stage_changed_at?: string | null;
 }
 
 interface RoleOpen {
