@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Plus, X, Search } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
+import { useAuth } from "@/lib/auth";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 const DEFAULT_STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 const CLIENTS_KANBAN_STAGES_KEY = "clients_kanban_custom_stages";
@@ -51,6 +53,7 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     localStorage.setItem(CLIENTS_KANBAN_STAGES_KEY, JSON.stringify(stages));
@@ -108,6 +111,22 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
       toast.error("Failed to update stage");
       setClients((prev) => prev.map((c) => c.id === draggedId ? { ...c, stage: oldStage } : c));
       return;
+    }
+
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({
+        userId: user.id,
+        userName,
+        entityType: "client_profile",
+        entityId: draggedId,
+        clientProfileId: draggedId,
+        action: "update",
+        fieldName: "Stage",
+        oldValue: oldStage,
+        newValue: newStage,
+        description: `Moved client "${client.name}" from ${oldStage} to ${newStage}`,
+      });
     }
     toast.success(`Moved to ${newStage}`);
   };

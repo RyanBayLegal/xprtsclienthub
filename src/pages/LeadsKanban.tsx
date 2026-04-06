@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 
 import { UserCheck, Plus, X, Search, Pencil } from "lucide-react";
 import { executeWorkflows } from "@/lib/workflow-engine";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 const DEFAULT_STAGES = [
   "Prospecting Stage",
@@ -136,6 +137,19 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
     }
 
     if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({
+        userId: user.id,
+        userName,
+        entityType: "lead",
+        entityId: lead.id,
+        action: "update",
+        fieldName: "Stage",
+        oldValue: oldStage,
+        newValue: newStage,
+        description: `Moved lead "${lead.name}" from ${oldStage} to ${newStage}`,
+      });
+
       await supabase.from("notifications").insert({
         user_id: user.id,
         type: "stage_change",
