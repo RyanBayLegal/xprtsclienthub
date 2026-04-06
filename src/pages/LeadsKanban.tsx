@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 
 import { UserCheck, Plus, X, Search, Pencil } from "lucide-react";
 import { executeWorkflows } from "@/lib/workflow-engine";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 const DEFAULT_STAGES = [
   "Prospecting Stage",

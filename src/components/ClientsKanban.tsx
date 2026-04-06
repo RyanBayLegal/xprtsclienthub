@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { Plus, X, Search } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
+import { useAuth } from "@/lib/auth";
+import { logAudit, getUserName } from "@/lib/audit-logger";
 
 const DEFAULT_STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
 const CLIENTS_KANBAN_STAGES_KEY = "clients_kanban_custom_stages";
