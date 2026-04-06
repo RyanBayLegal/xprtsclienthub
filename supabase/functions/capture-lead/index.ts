@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       needs: service || null,
       notes: notesParts.join("\n") || null,
       website: firm ? `Firm: ${firm}` : null,
-      stage: "New",
+      stage: "Prospecting Stage",
     }).select("id, name").single();
 
     if (error) {
