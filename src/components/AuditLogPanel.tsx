@@ -142,7 +142,7 @@ export default function AuditLogPanel({ clientProfileId, entityType, entityId, t
                       )}
                     </div>
                   )}
-                  {log.description && !log.field_name && (
+                  {log.description && (
                     <p className="text-xs text-muted-foreground mt-0.5">{log.description}</p>
                   )}
                 </div>

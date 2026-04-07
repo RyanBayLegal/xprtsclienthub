@@ -27,6 +27,7 @@ import ClientPayments from "@/components/ClientPayments";
 import KeyPeople from "@/components/KeyPeople";
 import PlacedVAs from "@/components/PlacedVAs";
 import AuditLogPanel from "@/components/AuditLogPanel";
+import StageHistoryTimeline from "@/components/StageHistoryTimeline";
 import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
@@ -334,6 +335,7 @@ export default function ClientProfile() {
           {isTeam && !isNew && <TabsTrigger value="audit">Systems Audit</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="notes">Notes</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="payments">Payments</TabsTrigger>}
+          {isTeam && !isNew && <TabsTrigger value="stage-history">Stage History</TabsTrigger>}
           {isTeam && !isNew && <TabsTrigger value="activity-log">Activity Log</TabsTrigger>}
         </TabsList>
 
@@ -709,6 +711,12 @@ export default function ClientProfile() {
         {isTeam && !isNew && profile.id && (
           <TabsContent value="payments">
             <ClientPayments clientProfileId={profile.id} />
+          </TabsContent>
+        )}
+
+        {isTeam && !isNew && profile.id && (
+          <TabsContent value="stage-history">
+            <StageHistoryTimeline entityType="client_profile" entityId={profile.id} />
           </TabsContent>
         )}
 
