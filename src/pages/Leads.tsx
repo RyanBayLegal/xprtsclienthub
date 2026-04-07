@@ -21,6 +21,7 @@ import LeadsKanban from "./LeadsKanban";
 import NDABuilder from "@/components/NDABuilder";
 import AgreementBuilder from "@/components/AgreementBuilder";
 import WorkflowAutomations from "@/components/WorkflowAutomations";
+import StageHistoryTimeline from "@/components/StageHistoryTimeline";
 
 
 const STAGES = [
@@ -353,6 +354,9 @@ export default function Leads() {
                   </div>
                 </div>
                 <Button onClick={handleSave}>{editingId ? "Update" : "Create"} Lead</Button>
+                {editingId && (
+                  <StageHistoryTimeline entityType="lead" entityId={editingId} />
+                )}
               </div>
             </DialogContent>
           </Dialog>
