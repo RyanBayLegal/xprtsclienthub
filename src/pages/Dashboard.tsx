@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
+import PipelineAgingWidget from "@/components/PipelineAgingWidget";
 
 const STAGES = [
   "Prospecting Stage",
@@ -236,6 +237,9 @@ function AdminDashboard({ user, profile }: { user: any; profile: any }) {
           })}
         </div>
       </div>
+
+      {/* Pipeline Aging */}
+      <PipelineAgingWidget />
 
       {/* Bottom: Timeline + Staff */}
       <div className="grid gap-4 md:grid-cols-3">
