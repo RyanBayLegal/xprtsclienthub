@@ -715,6 +715,12 @@ export default function ClientProfile() {
         )}
 
         {isTeam && !isNew && profile.id && (
+          <TabsContent value="stage-history">
+            <StageHistoryTimeline entityType="client_profile" entityId={profile.id} />
+          </TabsContent>
+        )}
+
+        {isTeam && !isNew && profile.id && (
           <TabsContent value="activity-log">
             <AuditLogPanel clientProfileId={profile.id} title="Client Activity Log" />
           </TabsContent>
