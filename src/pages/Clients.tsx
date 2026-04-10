@@ -143,13 +143,35 @@ export default function Clients() {
     toast.success(`Exported ${rows.length} clients`);
   };
 
+  const exportLeads = async () => {
+    const { data, error } = await supabase
+      .from("leads")
+      .select("name, source, website, created_at")
+      .order("created_at", { ascending: false });
+    if (error) { toast.error("Failed to export leads"); return; }
+    const headers = ["Name", "Law Firm / Website", "Source", "Date Added"];
+    const rows = (data || []).map((l) => [
+      l.name,
+      l.website,
+      l.source,
+      l.created_at ? new Date(l.created_at).toLocaleDateString() : "",
+    ]);
+    exportToCSV("leads-export", headers, rows);
+    toast.success(`Exported ${rows.length} leads`);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Client Profiles</h1>
-        <Button variant="outline" size="sm" onClick={exportClients}>
-          <Download className="mr-2 h-4 w-4" />Export CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportLeads}>
+            <Download className="mr-2 h-4 w-4" />Export Leads CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportClients}>
+            <Download className="mr-2 h-4 w-4" />Export Clients CSV
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="list">
