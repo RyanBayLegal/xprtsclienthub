@@ -213,22 +213,26 @@ export default function Staff() {
         </Card>
       </div>
 
-      <Tabs defaultValue="active" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="active" className="gap-2">
-            <Users className="h-4 w-4" /> Active ({activeStaff.length})
-          </TabsTrigger>
-          <TabsTrigger value="previous" className="gap-2">
-            <UserX className="h-4 w-4" /> Previous ({previousStaff.length})
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="active">
-          <StaffTable rows={activeStaff} />
-        </TabsContent>
-        <TabsContent value="previous">
-          <StaffTable rows={previousStaff} />
-        </TabsContent>
-      </Tabs>
+      {isAdmin ? (
+        <Tabs defaultValue="active" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="active" className="gap-2">
+              <Users className="h-4 w-4" /> Active ({activeStaff.length})
+            </TabsTrigger>
+            <TabsTrigger value="previous" className="gap-2">
+              <UserX className="h-4 w-4" /> Previous ({previousStaff.length})
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="active">
+            <StaffTable rows={activeStaff} />
+          </TabsContent>
+          <TabsContent value="previous">
+            <StaffTable rows={previousStaff} />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <StaffTable rows={activeStaff} showToggle={false} />
+      )}
 
       <AlertDialog open={!!confirmDialog} onOpenChange={() => setConfirmDialog(null)}>
         <AlertDialogContent>
