@@ -146,14 +146,14 @@ export default function Clients() {
   const exportLeads = async () => {
     const { data, error } = await supabase
       .from("leads")
-      .select("name, source, website, created_at")
+      .select("name, contact, source, website, stage, needs, notes, next_steps, date_reached, follow_up_date, created_at")
       .order("created_at", { ascending: false });
     if (error) { toast.error("Failed to export leads"); return; }
-    const headers = ["Name", "Law Firm / Website", "Source", "Date Added"];
+    const headers = ["Name", "Contact", "Law Firm / Website", "Source", "Stage", "Needs", "Notes", "Next Steps", "Date Reached", "Follow-up Date", "Date Added"];
     const rows = (data || []).map((l) => [
-      l.name,
-      l.website,
-      l.source,
+      l.name, l.contact, l.website, l.source, l.stage, l.needs, l.notes, l.next_steps,
+      l.date_reached ? new Date(l.date_reached).toLocaleDateString() : "",
+      l.follow_up_date ? new Date(l.follow_up_date).toLocaleDateString() : "",
       l.created_at ? new Date(l.created_at).toLocaleDateString() : "",
     ]);
     exportToCSV("leads-export", headers, rows);
