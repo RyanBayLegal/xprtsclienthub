@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,8 @@ interface StaffRow {
 }
 
 export default function Staff() {
+  const { role } = useAuth();
+  const isAdmin = role === "team_admin";
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmDialog, setConfirmDialog] = useState<{ userId: string; name: string; activate: boolean } | null>(null);
@@ -101,7 +104,9 @@ export default function Staff() {
 
   if (loading) return <div className="flex items-center justify-center h-64 text-muted-foreground">Loading...</div>;
 
-  const StaffTable = ({ rows, showToggle = true }: { rows: StaffRow[]; showToggle?: boolean }) => (
+  const StaffTable = ({ rows, showToggle = true }: { rows: StaffRow[]; showToggle?: boolean }) => {
+    const canToggle = showToggle && isAdmin;
+    return (
     <Card>
       <CardContent className="p-0">
         <Table>
@@ -112,13 +117,13 @@ export default function Staff() {
               <TableHead>Assigned Tasks</TableHead>
               <TableHead>Completed Tasks</TableHead>
               <TableHead>Completion Rate</TableHead>
-              {showToggle && <TableHead className="text-right">Active</TableHead>}
+              {canToggle && <TableHead className="text-right">Active</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showToggle ? 6 : 5} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={canToggle ? 6 : 5} className="text-center text-muted-foreground py-8">
                   No staff members found
                 </TableCell>
               </TableRow>
@@ -150,7 +155,7 @@ export default function Staff() {
                       <span className="text-xs text-muted-foreground">{rate}%</span>
                     </div>
                   </TableCell>
-                  {showToggle && (
+                  {canToggle && (
                     <TableCell className="text-right">
                       <Switch
                         checked={s.is_active}
@@ -172,6 +177,7 @@ export default function Staff() {
       </CardContent>
     </Card>
   );
+  };
 
   return (
     <div>
@@ -207,22 +213,26 @@ export default function Staff() {
         </Card>
       </div>
 
-      <Tabs defaultValue="active" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="active" className="gap-2">
-            <Users className="h-4 w-4" /> Active ({activeStaff.length})
-          </TabsTrigger>
-          <TabsTrigger value="previous" className="gap-2">
-            <UserX className="h-4 w-4" /> Previous ({previousStaff.length})
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="active">
-          <StaffTable rows={activeStaff} />
-        </TabsContent>
-        <TabsContent value="previous">
-          <StaffTable rows={previousStaff} />
-        </TabsContent>
-      </Tabs>
+      {isAdmin ? (
+        <Tabs defaultValue="active" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="active" className="gap-2">
+              <Users className="h-4 w-4" /> Active ({activeStaff.length})
+            </TabsTrigger>
+            <TabsTrigger value="previous" className="gap-2">
+              <UserX className="h-4 w-4" /> Previous ({previousStaff.length})
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="active">
+            <StaffTable rows={activeStaff} />
+          </TabsContent>
+          <TabsContent value="previous">
+            <StaffTable rows={previousStaff} />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <StaffTable rows={activeStaff} showToggle={false} />
+      )}
 
       <AlertDialog open={!!confirmDialog} onOpenChange={() => setConfirmDialog(null)}>
         <AlertDialogContent>
