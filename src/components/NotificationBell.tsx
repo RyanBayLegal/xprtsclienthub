@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Bell } from "lucide-react";
@@ -17,10 +17,38 @@ interface Notification {
   created_at: string;
 }
 
+const NOTIFICATION_SOUND_URL = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGg+I0NxnMnV0LFnQjY3WYWmvb+3oYNkW0o9OVNxkbS5t6qUem5YSEA5RFl0kLO5uKeVfnFdUUI5P1Zwkra7vKmWf3RiWUg8QFl0k7a6u6mZhHdpYVVLRVR0l7u/vq2ei35xZl1VT1Fxl7vBwbGkkoR8c2tkXVdWcpe+xMS2q52Qh39za2ZfWlhxmL/GxriqoJWSi4V+eHNwaGV0mcHIyLuupZqUj4qEf3p2c3BvmsLKyry1q6OdmJORjYmGg4J8ncTMzr64sq2on5qWk5CRjouKhJ7Fzs/Bvbeyraegnp2bmpqYl5aFoMbP0MO/u7azr62sq6qqqqmpppmIocfQ0cTBvbu5t7a2trW1tbW1tbaYi6LI0NHFwr+9vLu7u7u7u7u7u7u8m46jydDRxcPBv767u7u7u7u7u7u7u7yeko2kytHRxcTCwL+/v7+/v7+/v7+/v72gj42ly9LRxcTDwcHAwMDAwMDAwMDAwMC+oZGPps3S0cXFxMLCwcHBwcHBwcHBwcHBv6OSkKfO09HGxsXDw8LCwsLCwsLCwsLCwMCkk5GozNPRxsbFxMPDw8PDw8PDw8PDw8HBpaWTkqnN09HGxsXExMPDw8PDw8PDw8PDwsKmp5WTqs7T0cbGxcXExMTExMTExMTExMTDw6iol5Srz9PRxsbFxcXExMTExMTExMTExMTExKqpmJWs0NPRxsfGxcXFxcXFxcXFxcXFxcXFxauqmpar0dTSx8fGxsbFxcXFxcXFxcXFxcXFxq2smpet0tTSyMfHxsbGxsbGxsbGxsbGxsbGx6+tnJiu09XTyMjHx8bGxsbGxsbGxsbGxsbHyLGvnpqv1NXTycjIx8fHx8fHx8fHx8fHx8fHybKwnpuw1dXUycnIyMfHx8fHx8fHx8fHx8fIyrSwn52x1tXUysnJyMjIyMjIyMjIyMjIyMjJy7axoJ6y19bVy8rJycnIyMjIyMjIyMjIyMnKzLeyoZ+z2NfWy8rKycnJycnJycnJycnJycnJy83EtKOgtNnX1szLysrKycnJycnJycnJycnJysvOxbWkobXa2NfNzMvKysrKysrKysrKysrKysvMz8e2paK23NnY";
+
 export function NotificationBell() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const prevCountRef = useRef(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const initialLoadRef = useRef(true);
+
+  const playNotificationSound = useCallback(() => {
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+        // Use Web Audio API for a simple notification beep
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 800;
+        oscillator.type = "sine";
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+        return;
+      }
+    } catch (e) {
+      console.log("Audio notification not available:", e);
+    }
+  }, []);
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -30,16 +58,53 @@ export function NotificationBell() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(20);
-    if (data) setNotifications(data as Notification[]);
+    if (data) {
+      const newNotifs = data as Notification[];
+      const newUnread = newNotifs.filter((n) => !n.read).length;
+
+      // Play sound if unread count increased (not on initial load)
+      if (!initialLoadRef.current && newUnread > prevCountRef.current) {
+        playNotificationSound();
+      }
+      initialLoadRef.current = false;
+      prevCountRef.current = newUnread;
+      setNotifications(newNotifs);
+    }
   };
 
-  useEffect(() => { fetchNotifications(); }, [user]);
+  useEffect(() => {
+    fetchNotifications();
+
+    if (!user) return;
+
+    // Subscribe to realtime notifications
+    const channel = supabase
+      .channel("notifications-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAsRead = async (id: string) => {
     await supabase.from("notifications").update({ read: true }).eq("id", id);
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    prevCountRef.current = Math.max(0, prevCountRef.current - 1);
   };
 
   const markAllRead = async () => {
@@ -48,6 +113,7 @@ export function NotificationBell() {
     if (unreadIds.length === 0) return;
     await supabase.from("notifications").update({ read: true }).in("id", unreadIds);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    prevCountRef.current = 0;
   };
 
   return (

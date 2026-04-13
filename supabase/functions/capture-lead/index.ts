@@ -89,6 +89,28 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Notify all team admins about the new lead
+    try {
+      const { data: admins } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "team_admin");
+
+      if (admins && admins.length > 0) {
+        const notifications = admins.map((admin: { user_id: string }) => ({
+          user_id: admin.user_id,
+          type: "new_lead",
+          title: `New Lead: ${lead.name}`,
+          message: `A new lead from Strategy Review Form has been added.${service ? ` Interest: ${service}` : ""}`,
+          lead_id: lead.id,
+        }));
+
+        await supabase.from("notifications").insert(notifications);
+      }
+    } catch (notifErr) {
+      console.error("Notification error (non-fatal):", notifErr);
+    }
+
     return new Response(JSON.stringify({ success: true, lead_id: lead.id, name: lead.name }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

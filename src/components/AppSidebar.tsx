@@ -7,6 +7,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
@@ -48,6 +49,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const [profile, setProfile] = useState<{ full_name: string | null; avatar_url: string | null } | null>(null);
+  const [newLeadCount, setNewLeadCount] = useState(0);
   const items = allItems.filter((item) => role && item.roles.includes(role));
   const logoSrc = branding.logo_url || xprtsLogoFallback;
 
@@ -57,6 +59,39 @@ export function AppSidebar() {
       if (data) setProfile(data);
     });
   }, [user]);
+
+  // Fetch unread new_lead notification count for badge
+  useEffect(() => {
+    if (!user || role !== "team_admin") return;
+
+    const fetchLeadNotifs = async () => {
+      const { count } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("type", "new_lead")
+        .eq("read", false);
+      setNewLeadCount(count || 0);
+    };
+
+    fetchLeadNotifs();
+
+    const channel = supabase
+      .channel("lead-notif-badge")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => fetchLeadNotifs()
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, role]);
 
   const profilePath = "/my-profile";
   const portalLabel = role === "team_admin" ? "Team Dashboard" : role === "staff_member" ? "Staff Portal" : "Client Portal";
@@ -89,17 +124,23 @@ export function AppSidebar() {
                         <NavLink
                           to={item.url}
                           end={item.url === "/"}
-                          className="hover:bg-sidebar-accent"
+                          className="hover:bg-sidebar-accent relative"
                           activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                         >
                           <item.icon className={collapsed ? "h-5 w-5" : "mr-2 h-4 w-4"} />
                           {!collapsed && <span>{item.title}</span>}
+                          {item.title === "Leads" && newLeadCount > 0 && (
+                            <Badge className="ml-auto h-5 min-w-[20px] px-1 flex items-center justify-center text-[10px] bg-destructive text-destructive-foreground">
+                              {newLeadCount}
+                            </Badge>
+                          )}
                         </NavLink>
                       </SidebarMenuButton>
                     </TooltipTrigger>
                     {collapsed && (
                       <TooltipContent side="right">
                         {item.title}
+                        {item.title === "Leads" && newLeadCount > 0 && ` (${newLeadCount} new)`}
                       </TooltipContent>
                     )}
                   </Tooltip>
