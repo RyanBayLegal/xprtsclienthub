@@ -133,11 +133,12 @@ export default function Clients() {
   const hasFilters = stageFilter !== "all" || practiceFilter !== "all";
 
   const exportClients = () => {
-    const headers = ["Name", "Company", "Role", "Practice Area", "Stage", "Stage Age (days)", "Health Score", "Stage Changed At", "Open Tasks"];
+    const headers = ["Name", "Company", "Role", "Practice Area", "Stage", "Stage Age (days)", "Health Score", "Source", "Stage Changed At", "Open Tasks"];
     const rows = sorted.map((c) => [
       c.name, c.company, c.role, c.practice_area, c.stage,
       getStageAgeDays(c.stage_changed_at),
-      c.client_health_score, c.stage_changed_at ? new Date(c.stage_changed_at).toLocaleDateString() : "",
+      c.client_health_score, c.how_they_found_us,
+      c.stage_changed_at ? new Date(c.stage_changed_at).toLocaleDateString() : "",
       taskCounts[c.id] || 0,
     ]);
     exportToCSV("clients-export", headers, rows);
