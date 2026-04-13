@@ -26,6 +26,7 @@ interface ClientRow {
   client_health_score: number | null;
   stage_changed_at: string | null;
   avatar_url: string | null;
+  how_they_found_us: string | null;
 }
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
@@ -71,7 +72,7 @@ export default function Clients() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchClients = async () => {
-    let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score, stage_changed_at, avatar_url").order("created_at", { ascending: false }) as any;
+    let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score, stage_changed_at, avatar_url, how_they_found_us").order("created_at", { ascending: false }) as any;
     if (search) q = q.ilike("name", `%${search}%`);
     if (stageFilter !== "all") q = q.eq("stage", stageFilter);
     if (practiceFilter !== "all") q = q.eq("practice_area", practiceFilter);
@@ -133,11 +134,12 @@ export default function Clients() {
   const hasFilters = stageFilter !== "all" || practiceFilter !== "all";
 
   const exportClients = () => {
-    const headers = ["Name", "Company", "Role", "Practice Area", "Stage", "Stage Age (days)", "Health Score", "Stage Changed At", "Open Tasks"];
+    const headers = ["Name", "Company", "Role", "Practice Area", "Stage", "Stage Age (days)", "Health Score", "Source", "Stage Changed At", "Open Tasks"];
     const rows = sorted.map((c) => [
       c.name, c.company, c.role, c.practice_area, c.stage,
       getStageAgeDays(c.stage_changed_at),
-      c.client_health_score, c.stage_changed_at ? new Date(c.stage_changed_at).toLocaleDateString() : "",
+      c.client_health_score, c.how_they_found_us,
+      c.stage_changed_at ? new Date(c.stage_changed_at).toLocaleDateString() : "",
       taskCounts[c.id] || 0,
     ]);
     exportToCSV("clients-export", headers, rows);
