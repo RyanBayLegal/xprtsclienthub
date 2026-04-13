@@ -26,6 +26,7 @@ interface ClientRow {
   client_health_score: number | null;
   stage_changed_at: string | null;
   avatar_url: string | null;
+  how_they_found_us: string | null;
 }
 
 const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
@@ -71,7 +72,7 @@ export default function Clients() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchClients = async () => {
-    let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score, stage_changed_at, avatar_url").order("created_at", { ascending: false }) as any;
+    let q = supabase.from("client_profiles").select("id, name, company, role, stage, practice_area, client_health_score, stage_changed_at, avatar_url, how_they_found_us").order("created_at", { ascending: false }) as any;
     if (search) q = q.ilike("name", `%${search}%`);
     if (stageFilter !== "all") q = q.eq("stage", stageFilter);
     if (practiceFilter !== "all") q = q.eq("practice_area", practiceFilter);
