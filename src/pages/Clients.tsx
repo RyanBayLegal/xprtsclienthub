@@ -133,9 +133,10 @@ export default function Clients() {
   const hasFilters = stageFilter !== "all" || practiceFilter !== "all";
 
   const exportClients = () => {
-    const headers = ["Name", "Company", "Role", "Practice Area", "Stage", "Health Score", "Stage Changed At", "Open Tasks"];
+    const headers = ["Name", "Company", "Role", "Practice Area", "Stage", "Stage Age (days)", "Health Score", "Stage Changed At", "Open Tasks"];
     const rows = sorted.map((c) => [
       c.name, c.company, c.role, c.practice_area, c.stage,
+      getStageAgeDays(c.stage_changed_at),
       c.client_health_score, c.stage_changed_at ? new Date(c.stage_changed_at).toLocaleDateString() : "",
       taskCounts[c.id] || 0,
     ]);
@@ -146,12 +147,14 @@ export default function Clients() {
   const exportLeads = async () => {
     const { data, error } = await supabase
       .from("leads")
-      .select("name, contact, source, website, stage, needs, notes, next_steps, date_reached, follow_up_date, created_at")
+      .select("name, contact, source, website, stage, stage_changed_at, needs, notes, next_steps, date_reached, follow_up_date, created_at")
       .order("created_at", { ascending: false });
     if (error) { toast.error("Failed to export leads"); return; }
-    const headers = ["Name", "Contact", "Law Firm / Website", "Source", "Stage", "Needs", "Notes", "Next Steps", "Date Reached", "Follow-up Date", "Date Added"];
+    const headers = ["Name", "Contact", "Law Firm / Website", "Source", "Stage", "Stage Age (days)", "Needs", "Notes", "Next Steps", "Date Reached", "Follow-up Date", "Date Added"];
     const rows = (data || []).map((l) => [
-      l.name, l.contact, l.website, l.source, l.stage, l.needs, l.notes, l.next_steps,
+      l.name, l.contact, l.website, l.source, l.stage,
+      getStageAgeDays(l.stage_changed_at),
+      l.needs, l.notes, l.next_steps,
       l.date_reached ? new Date(l.date_reached).toLocaleDateString() : "",
       l.follow_up_date ? new Date(l.follow_up_date).toLocaleDateString() : "",
       l.created_at ? new Date(l.created_at).toLocaleDateString() : "",
