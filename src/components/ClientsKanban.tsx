@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, X, Search } from "lucide-react";
+import { Plus, X, Search, Pencil } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/lib/auth";
 import { logAudit, getUserName } from "@/lib/audit-logger";
