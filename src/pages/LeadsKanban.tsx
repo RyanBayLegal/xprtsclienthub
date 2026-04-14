@@ -348,6 +348,19 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
           );
         })}
       </div>
+      {reasonDialog && (
+        <StageReasonDialog
+          open={reasonDialog.open}
+          onOpenChange={(v) => { if (!v) setReasonDialog(null); }}
+          stageName="Lost"
+          entityName={reasonDialog.leadName}
+          onConfirm={(reason) => {
+            const lead = leads.find((l) => l.id === reasonDialog.leadId);
+            if (lead) performStageDrop(lead, reasonDialog.newStage, reason);
+            setReasonDialog(null);
+          }}
+        />
+      )}
     </>
   );
 }
