@@ -217,6 +217,29 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
     toast.success(`Removed "${stage}" stage`);
   };
 
+  const handleRenameStage = async () => {
+    if (!renameDialog) return;
+    const newName = renameValue.trim();
+    if (!newName) { toast.error("Stage name is required"); return; }
+    if (newName === renameDialog.oldName) { setRenameDialog(null); return; }
+    if (stages.includes(newName)) { toast.error("Stage already exists"); return; }
+
+    const oldName = renameDialog.oldName;
+    setStages(stages.map((s) => s === oldName ? newName : s));
+    const leadsInStage = leads.filter((l) => l.stage === oldName);
+    if (leadsInStage.length > 0) {
+      const { error } = await supabase.from("leads").update({ stage: newName }).eq("stage", oldName);
+      if (error) {
+        toast.error("Failed to rename stage in database");
+        setStages(stages);
+        return;
+      }
+      setLeads((prev) => prev.map((l) => l.stage === oldName ? { ...l, stage: newName } : l));
+    }
+    setRenameDialog(null);
+    toast.success(`Renamed "${oldName}" to "${newName}"`);
+  };
+
   return (
     <>
       <div className="flex items-center gap-2 mb-3">
