@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, X, Search } from "lucide-react";
+import { Plus, X, Search, Pencil } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/lib/auth";
 import { logAudit, getUserName } from "@/lib/audit-logger";
@@ -53,6 +53,8 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; oldName: string } | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [reasonDialog, setReasonDialog] = useState<{ open: boolean; clientId: string; clientName: string; newStage: string; oldStage: string } | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -180,6 +182,31 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
     toast.success(`Removed "${stage}" stage`);
   };
 
+  const handleRenameStage = async () => {
+    if (!renameDialog) return;
+    const newName = renameValue.trim();
+    if (!newName) { toast.error("Stage name is required"); return; }
+    if (newName === renameDialog.oldName) { setRenameDialog(null); return; }
+    if (stages.includes(newName)) { toast.error("Stage already exists"); return; }
+
+    const oldName = renameDialog.oldName;
+    // Update stages list
+    setStages(stages.map((s) => s === oldName ? newName : s));
+    // Update clients in DB
+    const clientsInStage = clients.filter((c) => c.stage === oldName);
+    if (clientsInStage.length > 0) {
+      const { error } = await supabase.from("client_profiles").update({ stage: newName }).eq("stage", oldName);
+      if (error) {
+        toast.error("Failed to rename stage in database");
+        setStages(stages); // revert
+        return;
+      }
+      setClients((prev) => prev.map((c) => c.stage === oldName ? { ...c, stage: newName } : c));
+    }
+    setRenameDialog(null);
+    toast.success(`Renamed "${oldName}" to "${newName}"`);
+  };
+
   function getStageAgeDays(stageChangedAt: string | null): number {
     if (!stageChangedAt) return 0;
     return Math.floor((Date.now() - new Date(stageChangedAt).getTime()) / (1000 * 60 * 60 * 24));
@@ -212,6 +239,16 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!renameDialog?.open} onOpenChange={(v) => { if (!v) setRenameDialog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Rename Stage</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleRenameStage()} />
+            <Button onClick={handleRenameStage} className="w-full">Rename</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-10rem)]">
         {stages.map((stage) => {
           const stageClients = getClientsByStage(stage);
@@ -227,6 +264,9 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
                 <h3 className="font-semibold text-sm truncate">{stage}</h3>
                 <div className="flex items-center gap-1">
                   <Badge variant="secondary" className="text-xs">{stageClients.length}</Badge>
+                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => { setRenameDialog({ open: true, oldName: stage }); setRenameValue(stage); }} title="Rename stage">
+                    <Pencil className="h-3 w-3" />
+                  </Button>
                   {isCustom && (
                     <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleRemoveStage(stage)} title="Remove stage">
                       <X className="h-3 w-3" />

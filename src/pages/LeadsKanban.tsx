@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 
-import { UserCheck, Plus, X, Search, Pencil } from "lucide-react";
+import { UserCheck, Plus, X, Search, Pencil, Check } from "lucide-react";
 import { executeWorkflows } from "@/lib/workflow-engine";
 import { logAudit, getUserName } from "@/lib/audit-logger";
 import { StageReasonDialog } from "@/components/StageReasonDialog";
@@ -65,6 +65,8 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; oldName: string } | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [reasonDialog, setReasonDialog] = useState<{ open: boolean; leadId: string; leadName: string; newStage: string; oldStage: string } | null>(null);
   
   const { user } = useAuth();
@@ -215,6 +217,29 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
     toast.success(`Removed "${stage}" stage`);
   };
 
+  const handleRenameStage = async () => {
+    if (!renameDialog) return;
+    const newName = renameValue.trim();
+    if (!newName) { toast.error("Stage name is required"); return; }
+    if (newName === renameDialog.oldName) { setRenameDialog(null); return; }
+    if (stages.includes(newName)) { toast.error("Stage already exists"); return; }
+
+    const oldName = renameDialog.oldName;
+    setStages(stages.map((s) => s === oldName ? newName : s));
+    const leadsInStage = leads.filter((l) => l.stage === oldName);
+    if (leadsInStage.length > 0) {
+      const { error } = await supabase.from("leads").update({ stage: newName }).eq("stage", oldName);
+      if (error) {
+        toast.error("Failed to rename stage in database");
+        setStages(stages);
+        return;
+      }
+      setLeads((prev) => prev.map((l) => l.stage === oldName ? { ...l, stage: newName } : l));
+    }
+    setRenameDialog(null);
+    toast.success(`Renamed "${oldName}" to "${newName}"`);
+  };
+
   return (
     <>
       <div className="flex items-center gap-2 mb-3">
@@ -247,6 +272,16 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!renameDialog?.open} onOpenChange={(v) => { if (!v) setRenameDialog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Rename Stage</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleRenameStage()} />
+            <Button onClick={handleRenameStage} className="w-full">Rename</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-10rem)]">
         {stages.map((stage) => {
           const stageLeads = getLeadsByStage(stage);
@@ -262,6 +297,9 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
                 <h3 className="font-semibold text-sm truncate">{stage.replace(" Stage", "")}</h3>
                 <div className="flex items-center gap-1">
                   <Badge variant="secondary" className="text-xs">{stageLeads.length}</Badge>
+                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => { setRenameDialog({ open: true, oldName: stage }); setRenameValue(stage); }} title="Rename stage">
+                    <Pencil className="h-3 w-3" />
+                  </Button>
                   {isCustom && (
                     <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleRemoveStage(stage)} title="Remove stage">
                       <X className="h-3 w-3" />
