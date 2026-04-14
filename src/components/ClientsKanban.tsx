@@ -283,6 +283,19 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
           );
         })}
       </div>
+      {reasonDialog && (
+        <StageReasonDialog
+          open={reasonDialog.open}
+          onOpenChange={(v) => { if (!v) setReasonDialog(null); }}
+          stageName="Inactive"
+          entityName={reasonDialog.clientName}
+          onConfirm={(reason) => {
+            const client = clients.find((c) => c.id === reasonDialog.clientId);
+            if (client) performStageDrop(client, reasonDialog.newStage, reason);
+            setReasonDialog(null);
+          }}
+        />
+      )}
     </>
   );
 }
