@@ -53,6 +53,8 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; oldName: string } | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const [reasonDialog, setReasonDialog] = useState<{ open: boolean; clientId: string; clientName: string; newStage: string; oldStage: string } | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
