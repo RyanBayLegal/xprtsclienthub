@@ -104,14 +104,29 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
     const client = clients.find((c) => c.id === draggedId);
     if (!client || client.stage === newStage) { setDraggedId(null); return; }
 
-    const oldStage = client.stage;
-    setClients((prev) => prev.map((c) => c.id === draggedId ? { ...c, stage: newStage, stage_changed_at: new Date().toISOString() } : c));
-    setDraggedId(null);
+    // Intercept Inactive — require reason
+    if (newStage === "Inactive") {
+      setReasonDialog({ open: true, clientId: client.id, clientName: client.name, newStage, oldStage: client.stage || "" });
+      setDraggedId(null);
+      return;
+    }
 
-    const { error } = await supabase.from("client_profiles").update({ stage: newStage } as any).eq("id", draggedId);
+    setDraggedId(null);
+    await performStageDrop(client, newStage);
+  };
+
+  const performStageDrop = async (client: ClientRow, newStage: string, stageReason?: string) => {
+    const oldStage = client.stage;
+    setClients((prev) => prev.map((c) => c.id === client.id ? { ...c, stage: newStage, stage_changed_at: new Date().toISOString() } : c));
+
+    const updatePayload: any = { stage: newStage };
+    if (stageReason) updatePayload.stage_reason = stageReason;
+    else updatePayload.stage_reason = null;
+
+    const { error } = await supabase.from("client_profiles").update(updatePayload).eq("id", client.id);
     if (error) {
       toast.error("Failed to update stage");
-      setClients((prev) => prev.map((c) => c.id === draggedId ? { ...c, stage: oldStage } : c));
+      setClients((prev) => prev.map((c) => c.id === client.id ? { ...c, stage: oldStage } : c));
       return;
     }
 
@@ -120,17 +135,18 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
       const stageAge = client.stage_changed_at
         ? Math.floor((Date.now() - new Date(client.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
+      const reasonText = stageReason ? ` — Reason: ${stageReason}` : "";
       await logAudit({
         userId: user.id,
         userName,
         entityType: "client_profile",
-        entityId: draggedId,
-        clientProfileId: draggedId,
+        entityId: client.id,
+        clientProfileId: client.id,
         action: "update",
         fieldName: "Stage",
         oldValue: oldStage,
         newValue: newStage,
-        description: `Moved client "${client.name}" from ${oldStage} to ${newStage} (was in ${oldStage} for ${stageAge} day${stageAge !== 1 ? "s" : ""})`,
+        description: `Moved client "${client.name}" from ${oldStage} to ${newStage} (was in ${oldStage} for ${stageAge} day${stageAge !== 1 ? "s" : ""})${reasonText}`,
       });
     }
     toast.success(`Moved to ${newStage}`);
