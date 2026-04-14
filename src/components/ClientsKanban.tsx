@@ -239,7 +239,16 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
         </DialogContent>
       </Dialog>
 
-      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-10rem)]">
+      <Dialog open={!!renameDialog?.open} onOpenChange={(v) => { if (!v) setRenameDialog(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Rename Stage</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-2">
+            <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleRenameStage()} />
+            <Button onClick={handleRenameStage} className="w-full">Rename</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
         {stages.map((stage) => {
           const stageClients = getClientsByStage(stage);
           const isCustom = !DEFAULT_STAGES.includes(stage);
