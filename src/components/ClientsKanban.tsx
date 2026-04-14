@@ -182,6 +182,31 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
     toast.success(`Removed "${stage}" stage`);
   };
 
+  const handleRenameStage = async () => {
+    if (!renameDialog) return;
+    const newName = renameValue.trim();
+    if (!newName) { toast.error("Stage name is required"); return; }
+    if (newName === renameDialog.oldName) { setRenameDialog(null); return; }
+    if (stages.includes(newName)) { toast.error("Stage already exists"); return; }
+
+    const oldName = renameDialog.oldName;
+    // Update stages list
+    setStages(stages.map((s) => s === oldName ? newName : s));
+    // Update clients in DB
+    const clientsInStage = clients.filter((c) => c.stage === oldName);
+    if (clientsInStage.length > 0) {
+      const { error } = await supabase.from("client_profiles").update({ stage: newName }).eq("stage", oldName);
+      if (error) {
+        toast.error("Failed to rename stage in database");
+        setStages(stages); // revert
+        return;
+      }
+      setClients((prev) => prev.map((c) => c.stage === oldName ? { ...c, stage: newName } : c));
+    }
+    setRenameDialog(null);
+    toast.success(`Renamed "${oldName}" to "${newName}"`);
+  };
+
   function getStageAgeDays(stageChangedAt: string | null): number {
     if (!stageChangedAt) return 0;
     return Math.floor((Date.now() - new Date(stageChangedAt).getTime()) / (1000 * 60 * 60 * 24));
