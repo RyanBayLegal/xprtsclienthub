@@ -249,6 +249,7 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
         </DialogContent>
       </Dialog>
 
+      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-10rem)]">
         {stages.map((stage) => {
           const stageClients = getClientsByStage(stage);
           const isCustom = !DEFAULT_STAGES.includes(stage);
