@@ -254,6 +254,9 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
                 <h3 className="font-semibold text-sm truncate">{stage}</h3>
                 <div className="flex items-center gap-1">
                   <Badge variant="secondary" className="text-xs">{stageClients.length}</Badge>
+                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => { setRenameDialog({ open: true, oldName: stage }); setRenameValue(stage); }} title="Rename stage">
+                    <Pencil className="h-3 w-3" />
+                  </Button>
                   {isCustom && (
                     <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleRemoveStage(stage)} title="Remove stage">
                       <X className="h-3 w-3" />
