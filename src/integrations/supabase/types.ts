@@ -319,6 +319,7 @@ export type Database = {
           staff_start_date: string | null
           stage: string | null
           stage_changed_at: string | null
+          stage_reason: string | null
           state: string | null
           timezone: string | null
           updated_at: string
@@ -355,6 +356,7 @@ export type Database = {
           staff_start_date?: string | null
           stage?: string | null
           stage_changed_at?: string | null
+          stage_reason?: string | null
           state?: string | null
           timezone?: string | null
           updated_at?: string
@@ -391,6 +393,7 @@ export type Database = {
           staff_start_date?: string | null
           stage?: string | null
           stage_changed_at?: string | null
+          stage_reason?: string | null
           state?: string | null
           timezone?: string | null
           updated_at?: string
@@ -570,6 +573,7 @@ export type Database = {
           source: string | null
           stage: string
           stage_changed_at: string | null
+          stage_reason: string | null
           updated_at: string
           website: string | null
         }
@@ -591,6 +595,7 @@ export type Database = {
           source?: string | null
           stage?: string
           stage_changed_at?: string | null
+          stage_reason?: string | null
           updated_at?: string
           website?: string | null
         }
@@ -612,6 +617,7 @@ export type Database = {
           source?: string | null
           stage?: string
           stage_changed_at?: string | null
+          stage_reason?: string | null
           updated_at?: string
           website?: string | null
         }

@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth";
 import { UserCheck, Plus, X, Search, Pencil } from "lucide-react";
 import { executeWorkflows } from "@/lib/workflow-engine";
 import { logAudit, getUserName } from "@/lib/audit-logger";
+import { StageReasonDialog } from "@/components/StageReasonDialog";
 
 const DEFAULT_STAGES = [
   "Prospecting Stage",
@@ -64,6 +65,7 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newStageName, setNewStageName] = useState("");
+  const [reasonDialog, setReasonDialog] = useState<{ open: boolean; leadId: string; leadName: string; newStage: string; oldStage: string } | null>(null);
   
   const { user } = useAuth();
 
@@ -125,14 +127,28 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
     const lead = leads.find((l) => l.id === draggedId);
     if (!lead || lead.stage === newStage) { setDraggedId(null); return; }
 
-    const oldStage = lead.stage;
-    setLeads((prev) => prev.map((l) => l.id === draggedId ? { ...l, stage: newStage, stage_changed_at: new Date().toISOString() } : l));
-    setDraggedId(null);
+    // Intercept Lost Stage — require reason
+    if (newStage === "Lost Stage") {
+      setReasonDialog({ open: true, leadId: lead.id, leadName: lead.name, newStage, oldStage: lead.stage });
+      setDraggedId(null);
+      return;
+    }
 
-    const { error } = await supabase.from("leads").update({ stage: newStage }).eq("id", draggedId);
+    await performStageDrop(lead, newStage);
+  };
+
+  const performStageDrop = async (lead: Lead, newStage: string, stageReason?: string) => {
+    const oldStage = lead.stage;
+    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, stage: newStage, stage_changed_at: new Date().toISOString() } : l));
+
+    const updatePayload: any = { stage: newStage };
+    if (stageReason) updatePayload.stage_reason = stageReason;
+    else updatePayload.stage_reason = null;
+
+    const { error } = await supabase.from("leads").update(updatePayload).eq("id", lead.id);
     if (error) {
       toast.error("Failed to update stage");
-      setLeads((prev) => prev.map((l) => l.id === draggedId ? { ...l, stage: oldStage } : l));
+      setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, stage: oldStage } : l));
       return;
     }
 
@@ -141,6 +157,7 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
       const stageAge = lead.stage_changed_at
         ? Math.floor((Date.now() - new Date(lead.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
+      const reasonText = stageReason ? ` — Reason: ${stageReason}` : "";
       await logAudit({
         userId: user.id,
         userName,
@@ -150,14 +167,14 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
         fieldName: "Stage",
         oldValue: oldStage,
         newValue: newStage,
-        description: `Moved lead "${lead.name}" from ${oldStage} to ${newStage} (was in ${oldStage} for ${stageAge} day${stageAge !== 1 ? "s" : ""})`,
+        description: `Moved lead "${lead.name}" from ${oldStage} to ${newStage} (was in ${oldStage} for ${stageAge} day${stageAge !== 1 ? "s" : ""})${reasonText}`,
       });
 
       await supabase.from("notifications").insert({
         user_id: user.id,
         type: "stage_change",
         title: `Lead moved to ${newStage}`,
-        message: `${lead.name} moved from ${oldStage} to ${newStage}`,
+        message: `${lead.name} moved from ${oldStage} to ${newStage}${reasonText}`,
         lead_id: lead.id,
       });
 
@@ -331,6 +348,19 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
           );
         })}
       </div>
+      {reasonDialog && (
+        <StageReasonDialog
+          open={reasonDialog.open}
+          onOpenChange={(v) => { if (!v) setReasonDialog(null); }}
+          stageName="Lost"
+          entityName={reasonDialog.leadName}
+          onConfirm={(reason) => {
+            const lead = leads.find((l) => l.id === reasonDialog.leadId);
+            if (lead) performStageDrop(lead, reasonDialog.newStage, reason);
+            setReasonDialog(null);
+          }}
+        />
+      )}
     </>
   );
 }
