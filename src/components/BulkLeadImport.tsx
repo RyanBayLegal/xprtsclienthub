@@ -20,6 +20,7 @@ interface ParsedLead {
   needs: string;
   notes: string;
   stage: string;
+  date_contacted: string;
   valid: boolean;
   error?: string;
 }
