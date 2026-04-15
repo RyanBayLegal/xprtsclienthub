@@ -144,6 +144,7 @@ export default function BulkLeadImport({ onImported }: Props) {
         needs: "",
         notes: "",
         stage: defaultStage,
+        date_contacted: "",
         valid: !!name,
         error: !name ? "Name is required" : undefined,
       };
