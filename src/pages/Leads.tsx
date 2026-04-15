@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap } from "lucide-react";
+import BulkLeadImport from "@/components/BulkLeadImport";
 import { exportToCSV } from "@/lib/csv-export";
 import { toast } from "sonner";
 import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
@@ -362,6 +363,7 @@ export default function Leads() {
           </Dialog>
         </div>
         <div className="flex gap-2">
+          <BulkLeadImport onImported={() => { fetchLeads(); setKanbanKey((k) => k + 1); }} />
           <Button variant="outline" size="sm" onClick={exportLeads}>
             <Download className="mr-2 h-4 w-4" />Export CSV
           </Button>
