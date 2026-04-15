@@ -55,6 +55,17 @@ export default function BulkLeadImport({ onImported }: Props) {
     setImporting(false);
   };
 
+  const downloadTemplate = () => {
+    const csv = CSV_HEADERS.join(",") + "\nJohn Smith,john@example.com,555-1234,Referral,https://example.com,VA support,Great prospect,Prospecting Stage,2026-01-15";
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "leads_import_template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const parseCSVContent = (text: string) => {
     const lines = text.trim().split("\n");
     if (lines.length < 2) { toast.error("CSV must have a header row and at least one data row"); return; }
