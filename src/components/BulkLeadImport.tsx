@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileText, List, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, FileText, List, AlertCircle, CheckCircle2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { logAudit, getUserName } from "@/lib/audit-logger";
 
@@ -20,6 +20,7 @@ interface ParsedLead {
   needs: string;
   notes: string;
   stage: string;
+  date_contacted: string;
   valid: boolean;
   error?: string;
 }
@@ -32,7 +33,7 @@ const STAGES = [
   "Onboarding/Kickoff Stage",
 ];
 
-const CSV_HEADERS = ["name", "email", "phone", "source", "website", "needs", "notes", "stage"];
+const CSV_HEADERS = ["name", "email", "phone", "source", "website", "needs", "notes", "stage", "date_contacted"];
 
 interface Props {
   onImported: () => void;
@@ -54,6 +55,17 @@ export default function BulkLeadImport({ onImported }: Props) {
     setImporting(false);
   };
 
+  const downloadTemplate = () => {
+    const csv = CSV_HEADERS.join(",") + "\nJohn Smith,john@example.com,555-1234,Referral,https://example.com,VA support,Great prospect,Prospecting Stage,2026-01-15";
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "leads_import_template.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const parseCSVContent = (text: string) => {
     const lines = text.trim().split("\n");
     if (lines.length < 2) { toast.error("CSV must have a header row and at least one data row"); return; }
@@ -70,6 +82,7 @@ export default function BulkLeadImport({ onImported }: Props) {
     const needsIdx = headers.findIndex(h => h.includes("need"));
     const notesIdx = headers.findIndex(h => h.includes("note"));
     const stageIdx = headers.findIndex(h => h.includes("stage"));
+    const dateIdx = headers.findIndex(h => h.includes("date") || h.includes("contacted"));
 
     const results: ParsedLead[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -89,6 +102,7 @@ export default function BulkLeadImport({ onImported }: Props) {
         needs: needsIdx >= 0 ? (cols[needsIdx] || "").trim() : "",
         notes: notesIdx >= 0 ? (cols[notesIdx] || "").trim() : "",
         stage: STAGES.includes(stage) ? stage : defaultStage,
+        date_contacted: dateIdx >= 0 ? (cols[dateIdx] || "").trim() : "",
         valid: !!name,
         error: !name ? "Name is required" : undefined,
       });
@@ -141,6 +155,7 @@ export default function BulkLeadImport({ onImported }: Props) {
         needs: "",
         notes: "",
         stage: defaultStage,
+        date_contacted: "",
         valid: !!name,
         error: !name ? "Name is required" : undefined,
       };
@@ -161,6 +176,7 @@ export default function BulkLeadImport({ onImported }: Props) {
       needs: l.needs || null,
       notes: l.notes || null,
       stage: l.stage,
+      date_reached: l.date_contacted || null,
       created_by: user?.id,
     }));
 
@@ -220,12 +236,17 @@ export default function BulkLeadImport({ onImported }: Props) {
 
             <TabsContent value="csv" className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Upload a CSV file with columns: <strong>name</strong> (required), email, phone, source, website, needs, notes, stage.
+                Upload a CSV file with columns: <strong>name</strong> (required), email, phone, source, website, needs, notes, stage, date_contacted.
               </p>
               <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-              <Button variant="outline" onClick={() => fileRef.current?.click()}>
-                <Upload className="mr-2 h-4 w-4" />Choose CSV File
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => fileRef.current?.click()}>
+                  <Upload className="mr-2 h-4 w-4" />Choose CSV File
+                </Button>
+                <Button variant="ghost" size="sm" onClick={downloadTemplate}>
+                  <Download className="mr-2 h-4 w-4" />Download Template
+                </Button>
+              </div>
             </TabsContent>
 
             <TabsContent value="list" className="space-y-3">
