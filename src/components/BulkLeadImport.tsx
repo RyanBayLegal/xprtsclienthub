@@ -71,6 +71,7 @@ export default function BulkLeadImport({ onImported }: Props) {
     const needsIdx = headers.findIndex(h => h.includes("need"));
     const notesIdx = headers.findIndex(h => h.includes("note"));
     const stageIdx = headers.findIndex(h => h.includes("stage"));
+    const dateIdx = headers.findIndex(h => h.includes("date") || h.includes("contacted"));
 
     const results: ParsedLead[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -90,6 +91,7 @@ export default function BulkLeadImport({ onImported }: Props) {
         needs: needsIdx >= 0 ? (cols[needsIdx] || "").trim() : "",
         notes: notesIdx >= 0 ? (cols[notesIdx] || "").trim() : "",
         stage: STAGES.includes(stage) ? stage : defaultStage,
+        date_contacted: dateIdx >= 0 ? (cols[dateIdx] || "").trim() : "",
         valid: !!name,
         error: !name ? "Name is required" : undefined,
       });
