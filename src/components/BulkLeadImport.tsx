@@ -165,6 +165,7 @@ export default function BulkLeadImport({ onImported }: Props) {
       needs: l.needs || null,
       notes: l.notes || null,
       stage: l.stage,
+      date_reached: l.date_contacted || null,
       created_by: user?.id,
     }));
 
