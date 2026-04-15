@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileText, List, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, FileText, List, AlertCircle, CheckCircle2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { logAudit, getUserName } from "@/lib/audit-logger";
 
