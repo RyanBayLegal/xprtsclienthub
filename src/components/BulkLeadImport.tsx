@@ -32,7 +32,7 @@ const STAGES = [
   "Onboarding/Kickoff Stage",
 ];
 
-const CSV_HEADERS = ["name", "email", "phone", "source", "website", "needs", "notes", "stage"];
+const CSV_HEADERS = ["name", "email", "phone", "source", "website", "needs", "notes", "stage", "date_contacted"];
 
 interface Props {
   onImported: () => void;
