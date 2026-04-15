@@ -3,12 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileText, List, AlertCircle, CheckCircle2, Download } from "lucide-react";
+import { Upload, FileText, List, AlertCircle, CheckCircle2, Download, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { logAudit, getUserName } from "@/lib/audit-logger";
 
@@ -20,9 +20,21 @@ interface ParsedLead {
   needs: string;
   notes: string;
   stage: string;
-  date_contacted: string;
+  date_reached: string;
   valid: boolean;
   error?: string;
+}
+
+interface ManualLead {
+  name: string;
+  email: string;
+  phone: string;
+  source: string;
+  website: string;
+  needs: string;
+  notes: string;
+  stage: string;
+  date_reached: string;
 }
 
 const STAGES = [
@@ -33,7 +45,11 @@ const STAGES = [
   "Onboarding/Kickoff Stage",
 ];
 
-const CSV_HEADERS = ["name", "email", "phone", "source", "website", "needs", "notes", "stage", "date_contacted"];
+const CSV_HEADERS = ["name", "email", "phone", "source", "website", "needs", "notes", "stage", "date_reached"];
+
+const emptyManualLead = (): ManualLead => ({
+  name: "", email: "", phone: "", source: "", website: "", needs: "", notes: "", stage: "", date_reached: "",
+});
 
 interface Props {
   onImported: () => void;
@@ -45,13 +61,13 @@ export default function BulkLeadImport({ onImported }: Props) {
   const [tab, setTab] = useState("csv");
   const [parsed, setParsed] = useState<ParsedLead[]>([]);
   const [importing, setImporting] = useState(false);
-  const [listText, setListText] = useState("");
+  const [manualLeads, setManualLeads] = useState<ManualLead[]>([emptyManualLead()]);
   const [defaultStage, setDefaultStage] = useState("Prospecting Stage");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setParsed([]);
-    setListText("");
+    setManualLeads([emptyManualLead()]);
     setImporting(false);
   };
 
@@ -82,7 +98,7 @@ export default function BulkLeadImport({ onImported }: Props) {
     const needsIdx = headers.findIndex(h => h.includes("need"));
     const notesIdx = headers.findIndex(h => h.includes("note"));
     const stageIdx = headers.findIndex(h => h.includes("stage"));
-    const dateIdx = headers.findIndex(h => h.includes("date") || h.includes("contacted"));
+    const dateIdx = headers.findIndex(h => h.includes("date") || h.includes("reached"));
 
     const results: ParsedLead[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -102,7 +118,7 @@ export default function BulkLeadImport({ onImported }: Props) {
         needs: needsIdx >= 0 ? (cols[needsIdx] || "").trim() : "",
         notes: notesIdx >= 0 ? (cols[notesIdx] || "").trim() : "",
         stage: STAGES.includes(stage) ? stage : defaultStage,
-        date_contacted: dateIdx >= 0 ? (cols[dateIdx] || "").trim() : "",
+        date_reached: dateIdx >= 0 ? (cols[dateIdx] || "").trim() : "",
         valid: !!name,
         error: !name ? "Name is required" : undefined,
       });
@@ -142,24 +158,36 @@ export default function BulkLeadImport({ onImported }: Props) {
     e.target.value = "";
   };
 
-  const parseList = () => {
-    const lines = listText.trim().split("\n").filter(Boolean);
-    if (!lines.length) { toast.error("Enter at least one lead name"); return; }
-    const results: ParsedLead[] = lines.map(line => {
-      const name = line.trim();
-      return {
-        name,
-        contact: "",
-        source: "",
-        website: "",
-        needs: "",
-        notes: "",
-        stage: defaultStage,
-        date_contacted: "",
-        valid: !!name,
-        error: !name ? "Name is required" : undefined,
-      };
-    });
+  const updateManualLead = (index: number, field: keyof ManualLead, value: string) => {
+    setManualLeads(prev => prev.map((l, i) => i === index ? { ...l, [field]: value } : l));
+  };
+
+  const addManualRow = () => setManualLeads(prev => [...prev, emptyManualLead()]);
+
+  const removeManualRow = (index: number) => {
+    if (manualLeads.length <= 1) return;
+    setManualLeads(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const parseManualList = () => {
+    const results: ParsedLead[] = manualLeads
+      .filter(l => l.name.trim())
+      .map(l => {
+        const contact = [l.email.trim(), l.phone.trim()].filter(Boolean).join(" | ");
+        const stage = STAGES.includes(l.stage) ? l.stage : defaultStage;
+        return {
+          name: l.name.trim(),
+          contact,
+          source: l.source.trim(),
+          website: l.website.trim(),
+          needs: l.needs.trim(),
+          notes: l.notes.trim(),
+          stage,
+          date_reached: l.date_reached.trim(),
+          valid: true,
+        };
+      });
+    if (!results.length) { toast.error("Enter at least one lead with a name"); return; }
     setParsed(results);
   };
 
@@ -176,7 +204,7 @@ export default function BulkLeadImport({ onImported }: Props) {
       needs: l.needs || null,
       notes: l.notes || null,
       stage: l.stage,
-      date_reached: l.date_contacted || null,
+      date_reached: l.date_reached || null,
       created_by: user?.id,
     }));
 
@@ -210,7 +238,7 @@ export default function BulkLeadImport({ onImported }: Props) {
       <DialogTrigger asChild>
         <Button size="sm" variant="outline"><Upload className="mr-2 h-4 w-4" />Bulk Import</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Bulk Import Leads</DialogTitle>
         </DialogHeader>
@@ -231,12 +259,12 @@ export default function BulkLeadImport({ onImported }: Props) {
           <Tabs value={tab} onValueChange={(v) => { setTab(v); setParsed([]); }}>
             <TabsList>
               <TabsTrigger value="csv"><FileText className="mr-1 h-4 w-4" />CSV File</TabsTrigger>
-              <TabsTrigger value="list"><List className="mr-1 h-4 w-4" />Name List</TabsTrigger>
+              <TabsTrigger value="list"><List className="mr-1 h-4 w-4" />Manual Entry</TabsTrigger>
             </TabsList>
 
             <TabsContent value="csv" className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Upload a CSV file with columns: <strong>name</strong> (required), email, phone, source, website, needs, notes, stage, date_contacted.
+                Upload a CSV file with columns: <strong>name</strong> (required), email, phone, source, website, needs, notes, stage, date_reached.
               </p>
               <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
               <div className="flex items-center gap-2">
@@ -251,15 +279,76 @@ export default function BulkLeadImport({ onImported }: Props) {
 
             <TabsContent value="list" className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Enter one lead name per line. All leads will be created with the default stage.
+                Add leads manually. Only <strong>Name</strong> is required. Leave other fields blank if not needed.
               </p>
-              <Textarea
-                placeholder={"John Smith\nJane Doe\nAcme Corp"}
-                rows={6}
-                value={listText}
-                onChange={(e) => setListText(e.target.value)}
-              />
-              <Button variant="outline" onClick={parseList}>Parse List</Button>
+              <div className="border rounded-md max-h-[300px] overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[140px]">Name *</TableHead>
+                      <TableHead className="min-w-[140px]">Email</TableHead>
+                      <TableHead className="min-w-[110px]">Phone</TableHead>
+                      <TableHead className="min-w-[100px]">Source</TableHead>
+                      <TableHead className="min-w-[130px]">Website</TableHead>
+                      <TableHead className="min-w-[110px]">Needs</TableHead>
+                      <TableHead className="min-w-[110px]">Notes</TableHead>
+                      <TableHead className="min-w-[160px]">Stage</TableHead>
+                      <TableHead className="min-w-[120px]">Date Reached</TableHead>
+                      <TableHead className="w-10"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {manualLeads.map((lead, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="p-1">
+                          <Input value={lead.name} onChange={e => updateManualLead(i, "name", e.target.value)} placeholder="Name" className="h-8 text-sm" />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input value={lead.email} onChange={e => updateManualLead(i, "email", e.target.value)} placeholder="Email" className="h-8 text-sm" />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input value={lead.phone} onChange={e => updateManualLead(i, "phone", e.target.value)} placeholder="Phone" className="h-8 text-sm" />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input value={lead.source} onChange={e => updateManualLead(i, "source", e.target.value)} placeholder="Source" className="h-8 text-sm" />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input value={lead.website} onChange={e => updateManualLead(i, "website", e.target.value)} placeholder="Website" className="h-8 text-sm" />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input value={lead.needs} onChange={e => updateManualLead(i, "needs", e.target.value)} placeholder="Needs" className="h-8 text-sm" />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input value={lead.notes} onChange={e => updateManualLead(i, "notes", e.target.value)} placeholder="Notes" className="h-8 text-sm" />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Select value={lead.stage || "__default__"} onValueChange={v => updateManualLead(i, "stage", v === "__default__" ? "" : v)}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Default" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__default__">Default</SelectItem>
+                              {STAGES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Input type="date" value={lead.date_reached} onChange={e => updateManualLead(i, "date_reached", e.target.value)} className="h-8 text-sm" />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeManualRow(i)} disabled={manualLeads.length <= 1}>
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={addManualRow}>
+                  <Plus className="mr-1 h-4 w-4" />Add Row
+                </Button>
+                <Button variant="outline" onClick={parseManualList}>Preview & Validate</Button>
+              </div>
             </TabsContent>
           </Tabs>
 
@@ -285,6 +374,7 @@ export default function BulkLeadImport({ onImported }: Props) {
                       <TableHead>Contact</TableHead>
                       <TableHead>Source</TableHead>
                       <TableHead>Stage</TableHead>
+                      <TableHead>Date Reached</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -296,6 +386,7 @@ export default function BulkLeadImport({ onImported }: Props) {
                         <TableCell className="text-sm">{lead.contact || "—"}</TableCell>
                         <TableCell className="text-sm">{lead.source || "—"}</TableCell>
                         <TableCell className="text-sm">{lead.stage}</TableCell>
+                        <TableCell className="text-sm">{lead.date_reached || "—"}</TableCell>
                         <TableCell>
                           {lead.valid ? (
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
