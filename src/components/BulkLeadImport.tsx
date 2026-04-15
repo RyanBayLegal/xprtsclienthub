@@ -236,12 +236,17 @@ export default function BulkLeadImport({ onImported }: Props) {
 
             <TabsContent value="csv" className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Upload a CSV file with columns: <strong>name</strong> (required), email, phone, source, website, needs, notes, stage.
+                Upload a CSV file with columns: <strong>name</strong> (required), email, phone, source, website, needs, notes, stage, date_contacted.
               </p>
               <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-              <Button variant="outline" onClick={() => fileRef.current?.click()}>
-                <Upload className="mr-2 h-4 w-4" />Choose CSV File
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => fileRef.current?.click()}>
+                  <Upload className="mr-2 h-4 w-4" />Choose CSV File
+                </Button>
+                <Button variant="ghost" size="sm" onClick={downloadTemplate}>
+                  <Download className="mr-2 h-4 w-4" />Download Template
+                </Button>
+              </div>
             </TabsContent>
 
             <TabsContent value="list" className="space-y-3">
