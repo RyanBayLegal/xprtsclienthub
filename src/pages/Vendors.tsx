@@ -65,10 +65,16 @@ export default function Vendors() {
     setFilesByVendor(grouped);
   };
 
-  const getSignedUrl = async (path: string) => {
+  const getSignedUrl = async (path: string): Promise<string | null> => {
     const cleanPath = path.match(/vendor-attachments\/(.+?)(\?|$)/)?.[1] || path;
     const { data } = await supabase.storage.from("vendor-attachments").createSignedUrl(decodeURIComponent(cleanPath), 3600);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    return data?.signedUrl || null;
+  };
+
+  const openPreview = async (f: VendorFile) => {
+    const url = await getSignedUrl(f.file_url);
+    if (!url) { toast.error("Could not load file"); return; }
+    setPreviewFile({ name: f.file_name, url, type: f.file_type });
   };
 
   useEffect(() => { fetchVendors(); fetchAttachments(); }, []);
