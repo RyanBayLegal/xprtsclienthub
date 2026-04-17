@@ -793,7 +793,9 @@ export default function Tasks() {
                           <button onClick={() => navigate(`/clients/${task.client_profile_id}`)} className="text-primary underline underline-offset-2 hover:opacity-80 text-sm">
                             {task.client_name}
                           </button>
-                        ) : task.client_name || "—"}
+                        ) : (
+                          <Badge variant="outline" className="text-[10px]">Internal</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {task.staff_name ? (
