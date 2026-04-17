@@ -46,13 +46,31 @@ export default function Vendors() {
   const [sortBy, setSortBy] = useState<"name" | "company_name">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [attachmentsVendor, setAttachmentsVendor] = useState<Vendor | null>(null);
+  const [filesByVendor, setFilesByVendor] = useState<Record<string, VendorFile[]>>({});
 
   const fetchVendors = async () => {
     const { data } = await supabase.from("vendors").select("id, name, description, company_name, email, phone").order("created_at", { ascending: false });
     if (data) setVendors(data as unknown as Vendor[]);
   };
 
-  useEffect(() => { fetchVendors(); }, []);
+  const fetchAttachments = async () => {
+    const { data } = await supabase.from("vendor_attachments" as any).select("id, vendor_id, file_name, file_url, file_type").order("created_at", { ascending: false });
+    if (!data) return;
+    const grouped: Record<string, VendorFile[]> = {};
+    (data as any[]).forEach((f) => {
+      if (!grouped[f.vendor_id]) grouped[f.vendor_id] = [];
+      grouped[f.vendor_id].push({ id: f.id, file_name: f.file_name, file_url: f.file_url, file_type: f.file_type });
+    });
+    setFilesByVendor(grouped);
+  };
+
+  const getSignedUrl = async (path: string) => {
+    const cleanPath = path.match(/vendor-attachments\/(.+?)(\?|$)/)?.[1] || path;
+    const { data } = await supabase.storage.from("vendor-attachments").createSignedUrl(decodeURIComponent(cleanPath), 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  };
+
+  useEffect(() => { fetchVendors(); fetchAttachments(); }, []);
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error("Vendor name is required"); return; }
