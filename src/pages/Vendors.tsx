@@ -218,7 +218,7 @@ export default function Vendors() {
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 6 : 5} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">
                   No vendors yet.
                 </TableCell>
               </TableRow>
