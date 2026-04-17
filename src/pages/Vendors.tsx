@@ -246,7 +246,7 @@ export default function Vendors() {
                         return (
                           <button
                             key={f.id}
-                            onClick={() => getSignedUrl(f.file_url)}
+                            onClick={() => openPreview(f)}
                             title={f.file_name}
                             className="inline-flex items-center gap-1 max-w-[140px] px-2 py-0.5 rounded-md border bg-muted/50 hover:bg-muted text-xs transition-colors"
                           >
