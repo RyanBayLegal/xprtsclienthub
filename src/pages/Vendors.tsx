@@ -211,13 +211,14 @@ export default function Vendors() {
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Attachments</TableHead>
               {isAdmin && <TableHead className="w-24">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 6 : 5} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">
                   No vendors yet.
                 </TableCell>
               </TableRow>
@@ -228,6 +229,28 @@ export default function Vendors() {
                 <TableCell>{v.email || "—"}</TableCell>
                 <TableCell>{v.phone || "—"}</TableCell>
                 <TableCell className="max-w-[200px] truncate">{v.description || "—"}</TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1 max-w-[260px]">
+                    {(filesByVendor[v.id]?.length || 0) === 0 ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      filesByVendor[v.id].map((f) => {
+                        const Icon = f.file_type?.startsWith("image/") ? ImageIcon : f.file_type?.includes("pdf") ? FileText : FileIcon;
+                        return (
+                          <button
+                            key={f.id}
+                            onClick={() => getSignedUrl(f.file_url)}
+                            title={f.file_name}
+                            className="inline-flex items-center gap-1 max-w-[140px] px-2 py-0.5 rounded-md border bg-muted/50 hover:bg-muted text-xs transition-colors"
+                          >
+                            <Icon className="h-3 w-3 shrink-0 text-muted-foreground" />
+                            <span className="truncate">{f.file_name}</span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </TableCell>
                 {isAdmin && (
                   <TableCell>
                     <div className="flex gap-1 items-center">
