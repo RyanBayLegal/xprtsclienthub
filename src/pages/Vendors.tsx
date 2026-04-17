@@ -230,10 +230,41 @@ export default function Vendors() {
                 <TableCell className="max-w-[200px] truncate">{v.description || "—"}</TableCell>
                 {isAdmin && (
                   <TableCell>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => setAttachmentsVendor(v)} title="Attachments">
-                        <Paperclip className="h-4 w-4" />
-                      </Button>
+                    <div className="flex gap-1 items-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="relative" title="Attachments">
+                            <Paperclip className="h-4 w-4" />
+                            {(filesByVendor[v.id]?.length || 0) > 0 && (
+                              <Badge variant="secondary" className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] rounded-full flex items-center justify-center">
+                                {filesByVendor[v.id].length}
+                              </Badge>
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-64 bg-popover z-50">
+                          <DropdownMenuLabel className="flex items-center justify-between">
+                            <span>Attachments ({filesByVendor[v.id]?.length || 0})</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setAttachmentsVendor(v)} title="Manage">
+                              <Settings2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          {(filesByVendor[v.id]?.length || 0) === 0 ? (
+                            <div className="px-2 py-3 text-xs text-muted-foreground text-center">No attachments</div>
+                          ) : (
+                            filesByVendor[v.id].map((f) => {
+                              const Icon = f.file_type?.startsWith("image/") ? ImageIcon : f.file_type?.includes("pdf") ? FileText : FileIcon;
+                              return (
+                                <DropdownMenuItem key={f.id} onClick={() => getSignedUrl(f.file_url)} className="cursor-pointer gap-2">
+                                  <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                  <span className="truncate text-xs">{f.file_name}</span>
+                                </DropdownMenuItem>
+                              );
+                            })
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(v)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
