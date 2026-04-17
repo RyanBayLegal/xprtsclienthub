@@ -211,6 +211,7 @@ export default function Vendors() {
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Attachments</TableHead>
               {isAdmin && <TableHead className="w-24">Actions</TableHead>}
             </TableRow>
           </TableHeader>
