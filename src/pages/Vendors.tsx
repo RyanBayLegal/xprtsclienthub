@@ -280,7 +280,7 @@ export default function Vendors() {
         </Table>
       </div>
 
-      <Dialog open={!!attachmentsVendor} onOpenChange={(o) => !o && setAttachmentsVendor(null)}>
+      <Dialog open={!!attachmentsVendor} onOpenChange={(o) => { if (!o) { setAttachmentsVendor(null); fetchAttachments(); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Attachments — {attachmentsVendor?.name}</DialogTitle>
