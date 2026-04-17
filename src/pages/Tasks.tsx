@@ -164,13 +164,15 @@ function DraggableTaskCard({
         </div>
         {/* description hidden from preview - shown in edit modal */}
         <div className="flex items-center gap-2 flex-wrap">
-          {task.client_profile_id && task.client_name && (
+          {task.client_profile_id && task.client_name ? (
             <button
               onClick={() => navigate(`/clients/${task.client_profile_id}`)}
               className="text-[10px] text-primary underline underline-offset-2 hover:opacity-80"
             >
               📁 {task.client_name}
             </button>
+          ) : (
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5">Internal</Badge>
           )}
           {task.staff_name && (
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -289,7 +291,7 @@ function DroppableColumn({
 
 const emptyForm = {
   title: "", description: "", status: "todo", priority: "medium",
-  due_date: "", client_profile_id: "", assigned_to: "",
+  due_date: "", client_profile_id: "", assigned_to: "", is_internal: false,
 };
 
 export default function Tasks() {
@@ -459,6 +461,7 @@ export default function Tasks() {
       due_date: task.due_date || "",
       client_profile_id: task.client_profile_id || "",
       assigned_to: task.assigned_to || "",
+      is_internal: !task.client_profile_id,
     });
     setEditDialogOpen(true);
   };
@@ -623,16 +626,28 @@ export default function Tasks() {
           <Input type="date" value={f.due_date} onChange={(e) => setF((p) => ({ ...p, due_date: e.target.value }))} />
         </div>
       </div>
-      <div className="space-y-2">
-        <Label>Assign to Client</Label>
-        <Select value={f.client_profile_id} onValueChange={(v) => setF((p) => ({ ...p, client_profile_id: v }))}>
-          <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+      <div className="flex items-center gap-2 rounded-md border p-3 bg-muted/30">
+        <Checkbox
+          id="is_internal"
+          checked={f.is_internal}
+          onCheckedChange={(v) => setF((p) => ({ ...p, is_internal: !!v, client_profile_id: v ? "" : p.client_profile_id }))}
+        />
+        <Label htmlFor="is_internal" className="cursor-pointer font-normal">
+          Internal task <span className="text-xs text-muted-foreground">(no client)</span>
+        </Label>
       </div>
+      {!f.is_internal && (
+        <div className="space-y-2">
+          <Label>Assign to Client</Label>
+          <Select value={f.client_profile_id} onValueChange={(v) => setF((p) => ({ ...p, client_profile_id: v === "none" ? "" : v }))}>
+            <SelectTrigger><SelectValue placeholder="Select a client" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-2">
         <Label>Assign to Staff Member</Label>
         <Select value={f.assigned_to} onValueChange={(v) => setF((p) => ({ ...p, assigned_to: v }))}>
