@@ -203,6 +203,9 @@ export default function Vendors() {
                 {isAdmin && (
                   <TableCell>
                     <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setAttachmentsVendor(v)} title="Attachments">
+                        <Paperclip className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(v)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -217,6 +220,15 @@ export default function Vendors() {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={!!attachmentsVendor} onOpenChange={(o) => !o && setAttachmentsVendor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Attachments — {attachmentsVendor?.name}</DialogTitle>
+          </DialogHeader>
+          {attachmentsVendor && <VendorAttachments vendorId={attachmentsVendor.id} canManage={isAdmin} />}
+        </DialogContent>
+      </Dialog>
 
       {sorted.length > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-4">
