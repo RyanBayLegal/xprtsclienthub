@@ -319,6 +319,55 @@ export default function Vendors() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!previewFile} onOpenChange={(o) => { if (!o) setPreviewFile(null); }}>
+        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+            <DialogTitle className="truncate text-base pr-4">{previewFile?.name}</DialogTitle>
+            {previewFile && (
+              <div className="flex items-center gap-1 mr-6">
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Open in new tab" onClick={() => window.open(previewFile.url, "_blank")}>
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+                <a href={previewFile.url} download={previewFile.name} title="Download">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" asChild={false}>
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </a>
+              </div>
+            )}
+          </DialogHeader>
+          <div className="flex-1 min-h-0 bg-muted/30 overflow-auto">
+            {previewFile && (
+              previewFile.type?.startsWith("image/") ? (
+                <div className="flex items-center justify-center h-full p-4">
+                  <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-full object-contain" />
+                </div>
+              ) : previewFile.type?.includes("pdf") ? (
+                <iframe src={previewFile.url} title={previewFile.name} className="w-full h-full border-0" />
+              ) : previewFile.type?.startsWith("video/") ? (
+                <div className="flex items-center justify-center h-full p-4">
+                  <video src={previewFile.url} controls className="max-w-full max-h-full" />
+                </div>
+              ) : previewFile.type?.startsWith("audio/") ? (
+                <div className="flex items-center justify-center h-full p-4">
+                  <audio src={previewFile.url} controls />
+                </div>
+              ) : previewFile.type?.startsWith("text/") ? (
+                <iframe src={previewFile.url} title={previewFile.name} className="w-full h-full border-0 bg-background" />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
+                  <FileIcon className="h-16 w-16 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Preview not available for this file type.</p>
+                  <a href={previewFile.url} download={previewFile.name}>
+                    <Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Download {previewFile.name}</Button>
+                  </a>
+                </div>
+              )
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {sorted.length > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-xs text-muted-foreground">
