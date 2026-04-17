@@ -286,7 +286,7 @@ export default function Vendors() {
                             filesByVendor[v.id].map((f) => {
                               const Icon = f.file_type?.startsWith("image/") ? ImageIcon : f.file_type?.includes("pdf") ? FileText : FileIcon;
                               return (
-                                <DropdownMenuItem key={f.id} onClick={() => getSignedUrl(f.file_url)} className="cursor-pointer gap-2">
+                                <DropdownMenuItem key={f.id} onClick={() => openPreview(f)} className="cursor-pointer gap-2">
                                   <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                   <span className="truncate text-xs">{f.file_name}</span>
                                 </DropdownMenuItem>
