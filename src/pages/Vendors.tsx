@@ -35,6 +35,7 @@ export default function Vendors() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "company_name">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [attachmentsVendor, setAttachmentsVendor] = useState<Vendor | null>(null);
 
   const fetchVendors = async () => {
     const { data } = await supabase.from("vendors").select("id, name, description, company_name, email, phone").order("created_at", { ascending: false });
