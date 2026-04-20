@@ -106,6 +106,18 @@ export default function Leads() {
 
   useEffect(() => { setLeadsPage(0); fetchLeads(); }, [search, stageFilter]);
 
+  // Mark new_lead notifications as read when user visits the Leads page
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .eq("type", "new_lead")
+      .eq("read", false)
+      .then(() => {});
+  }, [user]);
+
   const handleSave = async () => {
     const combinedContact = [form.email, form.phone].filter(Boolean).join(" | ") || form.contact;
     const { email: _e, phone: _p, ...formRest } = form;
