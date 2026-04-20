@@ -460,6 +460,15 @@ export default function Vendors() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!tasksVendor} onOpenChange={(o) => { if (!o) setTasksVendor(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tasks — {tasksVendor?.name}</DialogTitle>
+          </DialogHeader>
+          {tasksVendor && <VendorTasks vendorId={tasksVendor.id} />}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!previewFile} onOpenChange={(o) => { if (!o) setPreviewFile(null); }}>
         <DialogContent className="max-w-4xl w-[95vw] h-[85vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
