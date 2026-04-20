@@ -149,6 +149,15 @@ export default function Vendors() {
       company_name: v.company_name || "",
       email: v.email || "",
       phone: v.phone || "",
+      vendor_type: v.vendor_type || "",
+      main_contact: v.main_contact || "",
+      service_offered: v.service_offered || "",
+      pricing: v.pricing || "",
+      discovery_call_date: v.discovery_call_date || "",
+      notes: v.notes || "",
+      next_step: v.next_step || "",
+      owner: v.owner || "",
+      stage: v.stage || "Outreach Sent",
     });
     setEditingId(v.id);
     setDialogOpen(true);
@@ -168,13 +177,23 @@ export default function Vendors() {
 
   const filtered = vendors.filter((v) => {
     const q = search.toLowerCase();
-    return !q || v.name.toLowerCase().includes(q) || (v.description || "").toLowerCase().includes(q) || (v.company_name || "").toLowerCase().includes(q) || (v.email || "").toLowerCase().includes(q);
+    if (stageFilter !== "all" && v.stage !== stageFilter) return false;
+    if (!q) return true;
+    return (
+      v.name.toLowerCase().includes(q) ||
+      (v.company_name || "").toLowerCase().includes(q) ||
+      (v.email || "").toLowerCase().includes(q) ||
+      (v.main_contact || "").toLowerCase().includes(q) ||
+      (v.service_offered || "").toLowerCase().includes(q) ||
+      (v.owner || "").toLowerCase().includes(q)
+    );
   });
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
     if (sortBy === "name") cmp = a.name.localeCompare(b.name);
     else if (sortBy === "company_name") cmp = (a.company_name || "").localeCompare(b.company_name || "");
+    else if (sortBy === "stage") cmp = (a.stage || "").localeCompare(b.stage || "");
     return sortDir === "asc" ? cmp : -cmp;
   });
 
