@@ -10,9 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown, Paperclip, FileText, Image as ImageIcon, File as FileIcon, Settings2, Download, ExternalLink } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown, Paperclip, FileText, Image as ImageIcon, File as FileIcon, Settings2, Download, ExternalLink, ListTodo, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 import VendorAttachments from "@/components/VendorAttachments";
+import VendorsKanban, { VENDOR_STAGES, KanbanVendor } from "@/components/VendorsKanban";
+import VendorTasks from "@/components/VendorTasks";
 
 interface VendorFile {
   id: string;
@@ -29,10 +33,23 @@ interface Vendor {
   company_name: string | null;
   email: string | null;
   phone: string | null;
+  vendor_type: string | null;
+  main_contact: string | null;
+  service_offered: string | null;
+  pricing: string | null;
+  discovery_call_date: string | null;
+  notes: string | null;
+  next_step: string | null;
+  owner: string | null;
+  stage: string;
 }
 
 const PAGE_SIZE = 15;
-const emptyForm = { name: "", description: "", company_name: "", email: "", phone: "" };
+const emptyForm = {
+  name: "", description: "", company_name: "", email: "", phone: "",
+  vendor_type: "", main_contact: "", service_offered: "", pricing: "",
+  discovery_call_date: "", notes: "", next_step: "", owner: "", stage: "Outreach Sent",
+};
 
 export default function Vendors() {
   const { role, user } = useAuth();
@@ -43,14 +60,17 @@ export default function Vendors() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "company_name">("name");
+  const [sortBy, setSortBy] = useState<"name" | "company_name" | "stage">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [view, setView] = useState<"table" | "kanban">("table");
+  const [tasksVendor, setTasksVendor] = useState<Vendor | KanbanVendor | null>(null);
   const [attachmentsVendor, setAttachmentsVendor] = useState<Vendor | null>(null);
   const [filesByVendor, setFilesByVendor] = useState<Record<string, VendorFile[]>>({});
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string; type: string | null } | null>(null);
 
   const fetchVendors = async () => {
-    const { data } = await supabase.from("vendors").select("id, name, description, company_name, email, phone").order("created_at", { ascending: false });
+    const { data } = await supabase.from("vendors").select("*").order("created_at", { ascending: false });
     if (data) setVendors(data as unknown as Vendor[]);
   };
 
