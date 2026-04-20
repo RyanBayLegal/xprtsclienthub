@@ -107,6 +107,15 @@ export default function Vendors() {
       company_name: form.company_name || null,
       email: form.email || null,
       phone: form.phone || null,
+      vendor_type: form.vendor_type || null,
+      main_contact: form.main_contact || null,
+      service_offered: form.service_offered || null,
+      pricing: form.pricing || null,
+      discovery_call_date: form.discovery_call_date || null,
+      notes: form.notes || null,
+      next_step: form.next_step || null,
+      owner: form.owner || null,
+      stage: form.stage || "Outreach Sent",
     };
     const userName = user ? await getUserName(user.id) : "Unknown";
     if (editingId) {
