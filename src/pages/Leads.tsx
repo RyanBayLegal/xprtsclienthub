@@ -506,6 +506,9 @@ export default function Leads() {
               <SelectContent>
                 <SelectItem value="all">All Stages</SelectItem>
                 {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                <SelectItem value="Hired Stage">Hired</SelectItem>
+                <SelectItem value="Lost Stage">Lost</SelectItem>
+                <SelectItem value="For Nurture">For Nurture</SelectItem>
               </SelectContent>
             </Select>
           </div>
