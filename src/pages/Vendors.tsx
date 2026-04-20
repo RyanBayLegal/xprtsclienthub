@@ -10,9 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown, Paperclip, FileText, Image as ImageIcon, File as FileIcon, Settings2, Download, ExternalLink } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Search, ArrowUpDown, ArrowUp, ArrowDown, Paperclip, FileText, Image as ImageIcon, File as FileIcon, Settings2, Download, ExternalLink, ListTodo, LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
 import VendorAttachments from "@/components/VendorAttachments";
+import VendorsKanban, { VENDOR_STAGES, KanbanVendor } from "@/components/VendorsKanban";
+import VendorTasks from "@/components/VendorTasks";
 
 interface VendorFile {
   id: string;
@@ -29,10 +33,23 @@ interface Vendor {
   company_name: string | null;
   email: string | null;
   phone: string | null;
+  vendor_type: string | null;
+  main_contact: string | null;
+  service_offered: string | null;
+  pricing: string | null;
+  discovery_call_date: string | null;
+  notes: string | null;
+  next_step: string | null;
+  owner: string | null;
+  stage: string;
 }
 
 const PAGE_SIZE = 15;
-const emptyForm = { name: "", description: "", company_name: "", email: "", phone: "" };
+const emptyForm = {
+  name: "", description: "", company_name: "", email: "", phone: "",
+  vendor_type: "", main_contact: "", service_offered: "", pricing: "",
+  discovery_call_date: "", notes: "", next_step: "", owner: "", stage: "Outreach Sent",
+};
 
 export default function Vendors() {
   const { role, user } = useAuth();
@@ -43,14 +60,17 @@ export default function Vendors() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "company_name">("name");
+  const [sortBy, setSortBy] = useState<"name" | "company_name" | "stage">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [view, setView] = useState<"table" | "kanban">("table");
+  const [tasksVendor, setTasksVendor] = useState<Vendor | KanbanVendor | null>(null);
   const [attachmentsVendor, setAttachmentsVendor] = useState<Vendor | null>(null);
   const [filesByVendor, setFilesByVendor] = useState<Record<string, VendorFile[]>>({});
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string; type: string | null } | null>(null);
 
   const fetchVendors = async () => {
-    const { data } = await supabase.from("vendors").select("id, name, description, company_name, email, phone").order("created_at", { ascending: false });
+    const { data } = await supabase.from("vendors").select("*").order("created_at", { ascending: false });
     if (data) setVendors(data as unknown as Vendor[]);
   };
 
@@ -87,6 +107,15 @@ export default function Vendors() {
       company_name: form.company_name || null,
       email: form.email || null,
       phone: form.phone || null,
+      vendor_type: form.vendor_type || null,
+      main_contact: form.main_contact || null,
+      service_offered: form.service_offered || null,
+      pricing: form.pricing || null,
+      discovery_call_date: form.discovery_call_date || null,
+      notes: form.notes || null,
+      next_step: form.next_step || null,
+      owner: form.owner || null,
+      stage: form.stage || "Outreach Sent",
     };
     const userName = user ? await getUserName(user.id) : "Unknown";
     if (editingId) {
@@ -120,6 +149,15 @@ export default function Vendors() {
       company_name: v.company_name || "",
       email: v.email || "",
       phone: v.phone || "",
+      vendor_type: v.vendor_type || "",
+      main_contact: v.main_contact || "",
+      service_offered: v.service_offered || "",
+      pricing: v.pricing || "",
+      discovery_call_date: v.discovery_call_date || "",
+      notes: v.notes || "",
+      next_step: v.next_step || "",
+      owner: v.owner || "",
+      stage: v.stage || "Outreach Sent",
     });
     setEditingId(v.id);
     setDialogOpen(true);
@@ -139,13 +177,23 @@ export default function Vendors() {
 
   const filtered = vendors.filter((v) => {
     const q = search.toLowerCase();
-    return !q || v.name.toLowerCase().includes(q) || (v.description || "").toLowerCase().includes(q) || (v.company_name || "").toLowerCase().includes(q) || (v.email || "").toLowerCase().includes(q);
+    if (stageFilter !== "all" && v.stage !== stageFilter) return false;
+    if (!q) return true;
+    return (
+      v.name.toLowerCase().includes(q) ||
+      (v.company_name || "").toLowerCase().includes(q) ||
+      (v.email || "").toLowerCase().includes(q) ||
+      (v.main_contact || "").toLowerCase().includes(q) ||
+      (v.service_offered || "").toLowerCase().includes(q) ||
+      (v.owner || "").toLowerCase().includes(q)
+    );
   });
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
     if (sortBy === "name") cmp = a.name.localeCompare(b.name);
     else if (sortBy === "company_name") cmp = (a.company_name || "").localeCompare(b.company_name || "");
+    else if (sortBy === "stage") cmp = (a.stage || "").localeCompare(b.stage || "");
     return sortDir === "asc" ? cmp : -cmp;
   });
 
@@ -161,16 +209,28 @@ export default function Vendors() {
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Add Vendor</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingId ? "Edit Vendor" : "New Vendor"}</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label>Vendor Name *</Label>
-                  <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Vendor Name *</Label>
+                    <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Vendor Type</Label>
+                    <Input value={form.vendor_type} onChange={(e) => setForm((f) => ({ ...f, vendor_type: e.target.value }))} placeholder="Software, Agency..." />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Company Name</Label>
-                  <Input value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Company Name</Label>
+                    <Input value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Main Contact</Label>
+                    <Input value={form.main_contact} onChange={(e) => setForm((f) => ({ ...f, main_contact: e.target.value }))} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -181,6 +241,43 @@ export default function Vendors() {
                     <Label>Phone</Label>
                     <Input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Service Offered</Label>
+                    <Input value={form.service_offered} onChange={(e) => setForm((f) => ({ ...f, service_offered: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Pricing</Label>
+                    <Input value={form.pricing} onChange={(e) => setForm((f) => ({ ...f, pricing: e.target.value }))} placeholder="e.g. $200/mo" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Discovery Call Date</Label>
+                    <Input type="date" value={form.discovery_call_date} onChange={(e) => setForm((f) => ({ ...f, discovery_call_date: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Owner</Label>
+                    <Input value={form.owner} onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Status / Stage</Label>
+                  <Select value={form.stage} onValueChange={(v) => setForm((f) => ({ ...f, stage: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {VENDOR_STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Next Step</Label>
+                  <Input value={form.next_step} onChange={(e) => setForm((f) => ({ ...f, next_step: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea rows={3} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Description</Label>
@@ -193,7 +290,7 @@ export default function Vendors() {
         )}
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -203,8 +300,30 @@ export default function Vendors() {
             className="pl-9"
           />
         </div>
+        <Select value={stageFilter} onValueChange={(v) => { setStageFilter(v); setPage(0); }}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="All stages" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Stages</SelectItem>
+            {VENDOR_STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="ml-auto">
+          <TabsList>
+            <TabsTrigger value="table"><List className="h-4 w-4 mr-1" />Table</TabsTrigger>
+            <TabsTrigger value="kanban"><LayoutGrid className="h-4 w-4 mr-1" />Kanban</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
+      {view === "kanban" ? (
+        <VendorsKanban
+          vendors={sorted as KanbanVendor[]}
+          isAdmin={isAdmin}
+          onChanged={fetchVendors}
+          onEdit={(v) => handleEdit(vendors.find((x) => x.id === v.id) as Vendor)}
+          onTasks={(v) => setTasksVendor(v)}
+        />
+      ) : (
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
@@ -212,30 +331,46 @@ export default function Vendors() {
               <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("name"); setSortDir(sortBy === "name" && sortDir === "asc" ? "desc" : "asc"); }}>
                 <span className="flex items-center gap-1">Vendor Name {sortBy === "name" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
               </TableHead>
+              <TableHead>Type</TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("company_name"); setSortDir(sortBy === "company_name" && sortDir === "asc" ? "desc" : "asc"); }}>
                 <span className="flex items-center gap-1">Company {sortBy === "company_name" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
               </TableHead>
+              <TableHead>Main Contact</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
-              <TableHead>Description</TableHead>
+              <TableHead>Service</TableHead>
+              <TableHead>Pricing</TableHead>
+              <TableHead>Discovery</TableHead>
+              <TableHead>Owner</TableHead>
+              <TableHead>Next Step</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("stage"); setSortDir(sortBy === "stage" && sortDir === "asc" ? "desc" : "asc"); }}>
+                <span className="flex items-center gap-1">Stage {sortBy === "stage" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
+              </TableHead>
               <TableHead>Attachments</TableHead>
-              {isAdmin && <TableHead className="w-24">Actions</TableHead>}
+              <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                   No vendors yet.
                 </TableCell>
               </TableRow>
             ) : paginated.map((v) => (
               <TableRow key={v.id}>
                 <TableCell className="font-medium">{v.name}</TableCell>
+                <TableCell>{v.vendor_type || "—"}</TableCell>
                 <TableCell>{v.company_name || "—"}</TableCell>
+                <TableCell>{v.main_contact || "—"}</TableCell>
                 <TableCell>{v.email || "—"}</TableCell>
                 <TableCell>{v.phone || "—"}</TableCell>
-                <TableCell className="max-w-[200px] truncate">{v.description || "—"}</TableCell>
+                <TableCell className="max-w-[160px] truncate" title={v.service_offered || ""}>{v.service_offered || "—"}</TableCell>
+                <TableCell>{v.pricing || "—"}</TableCell>
+                <TableCell className="whitespace-nowrap">{v.discovery_call_date || "—"}</TableCell>
+                <TableCell>{v.owner || "—"}</TableCell>
+                <TableCell className="max-w-[160px] truncate" title={v.next_step || ""}>{v.next_step || "—"}</TableCell>
+                <TableCell><Badge variant="outline" className="whitespace-nowrap">{v.stage || "—"}</Badge></TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1 max-w-[260px]">
                     {(filesByVendor[v.id]?.length || 0) === 0 ? (
@@ -258,9 +393,13 @@ export default function Vendors() {
                     )}
                   </div>
                 </TableCell>
-                {isAdmin && (
-                  <TableCell>
+                <TableCell>
                     <div className="flex gap-1 items-center">
+                      <Button variant="ghost" size="icon" onClick={() => setTasksVendor(v)} title="Tasks">
+                        <ListTodo className="h-4 w-4" />
+                      </Button>
+                      {isAdmin && (
+                        <>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="relative" title="Attachments">
@@ -301,14 +440,16 @@ export default function Vendors() {
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
+                        </>
+                      )}
                     </div>
-                  </TableCell>
-                )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+      )}
 
       <Dialog open={!!attachmentsVendor} onOpenChange={(o) => { if (!o) { setAttachmentsVendor(null); fetchAttachments(); } }}>
         <DialogContent>
@@ -316,6 +457,15 @@ export default function Vendors() {
             <DialogTitle>Attachments — {attachmentsVendor?.name}</DialogTitle>
           </DialogHeader>
           {attachmentsVendor && <VendorAttachments vendorId={attachmentsVendor.id} canManage={isAdmin} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!tasksVendor} onOpenChange={(o) => { if (!o) setTasksVendor(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tasks — {tasksVendor?.name}</DialogTitle>
+          </DialogHeader>
+          {tasksVendor && <VendorTasks vendorId={tasksVendor.id} />}
         </DialogContent>
       </Dialog>
 
