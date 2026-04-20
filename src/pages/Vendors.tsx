@@ -290,7 +290,7 @@ export default function Vendors() {
         )}
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -300,8 +300,30 @@ export default function Vendors() {
             className="pl-9"
           />
         </div>
+        <Select value={stageFilter} onValueChange={(v) => { setStageFilter(v); setPage(0); }}>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="All stages" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Stages</SelectItem>
+            {VENDOR_STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")} className="ml-auto">
+          <TabsList>
+            <TabsTrigger value="table"><List className="h-4 w-4 mr-1" />Table</TabsTrigger>
+            <TabsTrigger value="kanban"><LayoutGrid className="h-4 w-4 mr-1" />Kanban</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
+      {view === "kanban" ? (
+        <VendorsKanban
+          vendors={sorted as KanbanVendor[]}
+          isAdmin={isAdmin}
+          onChanged={fetchVendors}
+          onEdit={(v) => handleEdit(vendors.find((x) => x.id === v.id) as Vendor)}
+          onTasks={(v) => setTasksVendor(v)}
+        />
+      ) : (
       <div className="rounded-lg border bg-card">
         <Table>
           <TableHeader>
@@ -309,30 +331,46 @@ export default function Vendors() {
               <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("name"); setSortDir(sortBy === "name" && sortDir === "asc" ? "desc" : "asc"); }}>
                 <span className="flex items-center gap-1">Vendor Name {sortBy === "name" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
               </TableHead>
+              <TableHead>Type</TableHead>
               <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("company_name"); setSortDir(sortBy === "company_name" && sortDir === "asc" ? "desc" : "asc"); }}>
                 <span className="flex items-center gap-1">Company {sortBy === "company_name" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
               </TableHead>
+              <TableHead>Main Contact</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
-              <TableHead>Description</TableHead>
+              <TableHead>Service</TableHead>
+              <TableHead>Pricing</TableHead>
+              <TableHead>Discovery</TableHead>
+              <TableHead>Owner</TableHead>
+              <TableHead>Next Step</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => { setSortBy("stage"); setSortDir(sortBy === "stage" && sortDir === "asc" ? "desc" : "asc"); }}>
+                <span className="flex items-center gap-1">Stage {sortBy === "stage" ? (sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />) : <ArrowUpDown className="h-3 w-3 opacity-30" />}</span>
+              </TableHead>
               <TableHead>Attachments</TableHead>
-              {isAdmin && <TableHead className="w-24">Actions</TableHead>}
+              <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginated.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                   No vendors yet.
                 </TableCell>
               </TableRow>
             ) : paginated.map((v) => (
               <TableRow key={v.id}>
                 <TableCell className="font-medium">{v.name}</TableCell>
+                <TableCell>{v.vendor_type || "—"}</TableCell>
                 <TableCell>{v.company_name || "—"}</TableCell>
+                <TableCell>{v.main_contact || "—"}</TableCell>
                 <TableCell>{v.email || "—"}</TableCell>
                 <TableCell>{v.phone || "—"}</TableCell>
-                <TableCell className="max-w-[200px] truncate">{v.description || "—"}</TableCell>
+                <TableCell className="max-w-[160px] truncate" title={v.service_offered || ""}>{v.service_offered || "—"}</TableCell>
+                <TableCell>{v.pricing || "—"}</TableCell>
+                <TableCell className="whitespace-nowrap">{v.discovery_call_date || "—"}</TableCell>
+                <TableCell>{v.owner || "—"}</TableCell>
+                <TableCell className="max-w-[160px] truncate" title={v.next_step || ""}>{v.next_step || "—"}</TableCell>
+                <TableCell><Badge variant="outline" className="whitespace-nowrap">{v.stage || "—"}</Badge></TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1 max-w-[260px]">
                     {(filesByVendor[v.id]?.length || 0) === 0 ? (
@@ -355,9 +393,13 @@ export default function Vendors() {
                     )}
                   </div>
                 </TableCell>
-                {isAdmin && (
-                  <TableCell>
+                <TableCell>
                     <div className="flex gap-1 items-center">
+                      <Button variant="ghost" size="icon" onClick={() => setTasksVendor(v)} title="Tasks">
+                        <ListTodo className="h-4 w-4" />
+                      </Button>
+                      {isAdmin && (
+                        <>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="relative" title="Attachments">
@@ -398,14 +440,16 @@ export default function Vendors() {
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(v.id)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
+                        </>
+                      )}
                     </div>
-                  </TableCell>
-                )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+      )}
 
       <Dialog open={!!attachmentsVendor} onOpenChange={(o) => { if (!o) { setAttachmentsVendor(null); fetchAttachments(); } }}>
         <DialogContent>
