@@ -41,10 +41,10 @@ export default function VendorTasks({ vendorId }: { vendorId: string }) {
   const [form, setForm] = useState(emptyForm);
 
   const fetch = async () => {
-    const { data } = await supabase
+    const { data } = await (supabase
       .from("tasks")
       .select("id, title, description, status, priority, due_date, assigned_to_name")
-      .eq("vendor_id" as any, vendorId)
+      .eq("vendor_id" as any, vendorId) as any)
       .order("created_at", { ascending: false });
     if (data) setTasks(data as any);
   };
