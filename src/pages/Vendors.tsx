@@ -209,16 +209,28 @@ export default function Vendors() {
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Add Vendor</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingId ? "Edit Vendor" : "New Vendor"}</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label>Vendor Name *</Label>
-                  <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Vendor Name *</Label>
+                    <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Vendor Type</Label>
+                    <Input value={form.vendor_type} onChange={(e) => setForm((f) => ({ ...f, vendor_type: e.target.value }))} placeholder="Software, Agency..." />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Company Name</Label>
-                  <Input value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Company Name</Label>
+                    <Input value={form.company_name} onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Main Contact</Label>
+                    <Input value={form.main_contact} onChange={(e) => setForm((f) => ({ ...f, main_contact: e.target.value }))} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -229,6 +241,43 @@ export default function Vendors() {
                     <Label>Phone</Label>
                     <Input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Service Offered</Label>
+                    <Input value={form.service_offered} onChange={(e) => setForm((f) => ({ ...f, service_offered: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Pricing</Label>
+                    <Input value={form.pricing} onChange={(e) => setForm((f) => ({ ...f, pricing: e.target.value }))} placeholder="e.g. $200/mo" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Discovery Call Date</Label>
+                    <Input type="date" value={form.discovery_call_date} onChange={(e) => setForm((f) => ({ ...f, discovery_call_date: e.target.value }))} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Owner</Label>
+                    <Input value={form.owner} onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Status / Stage</Label>
+                  <Select value={form.stage} onValueChange={(v) => setForm((f) => ({ ...f, stage: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {VENDOR_STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Next Step</Label>
+                  <Input value={form.next_step} onChange={(e) => setForm((f) => ({ ...f, next_step: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea rows={3} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Description</Label>
