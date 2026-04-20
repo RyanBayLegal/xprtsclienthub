@@ -1166,6 +1166,7 @@ export type Database = {
           template_name: string | null
           title: string
           updated_at: string
+          vendor_id: string | null
         }
         Insert: {
           assigned_to?: string | null
@@ -1185,6 +1186,7 @@ export type Database = {
           template_name?: string | null
           title: string
           updated_at?: string
+          vendor_id?: string | null
         }
         Update: {
           assigned_to?: string | null
@@ -1204,6 +1206,7 @@ export type Database = {
           template_name?: string | null
           title?: string
           updated_at?: string
+          vendor_id?: string | null
         }
         Relationships: [
           {
@@ -1218,6 +1221,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -1359,42 +1369,72 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          discovery_call_date: string | null
           email: string | null
           fee: string | null
           id: string
+          main_contact: string | null
           name: string
+          next_step: string | null
+          notes: string | null
+          owner: string | null
           phone: string | null
+          pricing: string | null
+          service_offered: string | null
+          stage: string
+          stage_changed_at: string | null
           subscribed_by: string | null
           subscribed_date: string | null
           updated_at: string
+          vendor_type: string | null
         }
         Insert: {
           company_name?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          discovery_call_date?: string | null
           email?: string | null
           fee?: string | null
           id?: string
+          main_contact?: string | null
           name: string
+          next_step?: string | null
+          notes?: string | null
+          owner?: string | null
           phone?: string | null
+          pricing?: string | null
+          service_offered?: string | null
+          stage?: string
+          stage_changed_at?: string | null
           subscribed_by?: string | null
           subscribed_date?: string | null
           updated_at?: string
+          vendor_type?: string | null
         }
         Update: {
           company_name?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
+          discovery_call_date?: string | null
           email?: string | null
           fee?: string | null
           id?: string
+          main_contact?: string | null
           name?: string
+          next_step?: string | null
+          notes?: string | null
+          owner?: string | null
           phone?: string | null
+          pricing?: string | null
+          service_offered?: string | null
+          stage?: string
+          stage_changed_at?: string | null
           subscribed_by?: string | null
           subscribed_date?: string | null
           updated_at?: string
+          vendor_type?: string | null
         }
         Relationships: []
       }
