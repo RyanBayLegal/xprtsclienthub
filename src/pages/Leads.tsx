@@ -72,6 +72,7 @@ export default function Leads() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadSources, setLeadSources] = useState<{ id: string; name: string }[]>([]);
   const [kanbanKey, setKanbanKey] = useState(0);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
@@ -105,6 +106,14 @@ export default function Leads() {
   };
 
   useEffect(() => { setLeadsPage(0); fetchLeads(); }, [search, stageFilter]);
+
+  useEffect(() => {
+    supabase
+      .from("lead_sources")
+      .select("id, name")
+      .order("name", { ascending: true })
+      .then(({ data }) => setLeadSources(data || []));
+  }, []);
 
   // Mark new_lead notifications as read when user visits the Leads page
   useEffect(() => {
@@ -310,7 +319,23 @@ export default function Leads() {
                   </div>
                   <div className="space-y-2">
                     <Label>Source</Label>
-                    <Input value={form.source} onChange={(e) => updateField("source", e.target.value)} />
+                    <Select
+                      value={form.source || "__none__"}
+                      onValueChange={(v) => updateField("source", v === "__none__" ? "" : v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— None —</SelectItem>
+                        {leadSources.map((s) => (
+                          <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                        ))}
+                        {form.source && !leadSources.some((s) => s.name === form.source) && (
+                          <SelectItem value={form.source}>{form.source} (legacy)</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Website</Label>
