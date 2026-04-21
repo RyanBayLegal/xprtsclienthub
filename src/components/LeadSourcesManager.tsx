@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -25,6 +26,8 @@ export default function LeadSourcesManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const fetchSources = async () => {
     setLoading(true);
@@ -34,6 +37,7 @@ export default function LeadSourcesManager() {
       .order("name", { ascending: true });
     if (error) toast.error(error.message);
     else setSources(data || []);
+    setSelected(new Set());
     setLoading(false);
   };
 
@@ -89,6 +93,33 @@ export default function LeadSourcesManager() {
     }
   };
 
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selected.size === sources.length) setSelected(new Set());
+    else setSelected(new Set(sources.map((s) => s.id)));
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} source${selected.size === 1 ? "" : "s"}? Leads using these sources will keep their existing values.`)) return;
+    setBulkDeleting(true);
+    const { error } = await supabase.from("lead_sources").delete().in("id", Array.from(selected));
+    setBulkDeleting(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`${selected.size} source${selected.size === 1 ? "" : "s"} deleted`);
+      fetchSources();
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -98,10 +129,18 @@ export default function LeadSourcesManager() {
             Manage the dropdown options available in the Source field on Leads.
           </CardDescription>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Source
-        </Button>
+        <div className="flex items-center gap-2">
+          {selected.size > 0 && (
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              {bulkDeleting ? "Deleting…" : `Delete (${selected.size})`}
+            </Button>
+          )}
+          <Button onClick={openNew}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Source
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -112,6 +151,13 @@ export default function LeadSourcesManager() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[40px]">
+                  <Checkbox
+                    checked={sources.length > 0 && selected.size === sources.length}
+                    onCheckedChange={toggleAll}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-[120px] text-right">Actions</TableHead>
@@ -120,6 +166,13 @@ export default function LeadSourcesManager() {
             <TableBody>
               {sources.map((s) => (
                 <TableRow key={s.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(s.id)}
+                      onCheckedChange={() => toggleOne(s.id)}
+                      aria-label={`Select ${s.name}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{s.name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {format(new Date(s.created_at), "MMM d, yyyy")}
