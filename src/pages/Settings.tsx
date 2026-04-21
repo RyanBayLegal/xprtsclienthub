@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield } from "lucide-react";
+import LeadSourcesManager from "@/components/LeadSourcesManager";
 
 interface ManagedUser {
   id: string;
@@ -275,6 +276,7 @@ export default function Settings() {
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="lead-sources">Lead Sources</TabsTrigger>
         </TabsList>
 
         {/* ── BRANDING TAB ── */}
