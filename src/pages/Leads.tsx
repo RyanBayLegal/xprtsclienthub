@@ -661,6 +661,8 @@ export default function Leads() {
               </div>
             </div>
           )}
+          </>
+          )}
         </TabsContent>
 
         <TabsContent value="automations" className="mt-0">
