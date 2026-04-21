@@ -107,6 +107,14 @@ export default function Leads() {
 
   useEffect(() => { setLeadsPage(0); fetchLeads(); }, [search, stageFilter]);
 
+  useEffect(() => {
+    supabase
+      .from("lead_sources")
+      .select("id, name")
+      .order("name", { ascending: true })
+      .then(({ data }) => setLeadSources(data || []));
+  }, []);
+
   // Mark new_lead notifications as read when user visits the Leads page
   useEffect(() => {
     if (!user) return;
