@@ -373,26 +373,45 @@ export default function Vendors() {
                 <TableCell className="max-w-[160px] truncate" title={v.next_step || ""}>{v.next_step || "—"}</TableCell>
                 <TableCell><Badge variant="outline" className="whitespace-nowrap">{v.stage || "—"}</Badge></TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-1 max-w-[260px]">
-                    {(filesByVendor[v.id]?.length || 0) === 0 ? (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    ) : (
-                      filesByVendor[v.id].map((f) => {
-                        const Icon = f.file_type?.startsWith("image/") ? ImageIcon : f.file_type?.includes("pdf") ? FileText : FileIcon;
-                        return (
-                          <button
-                            key={f.id}
-                            onClick={() => openPreview(f)}
-                            title={f.file_name}
-                            className="inline-flex items-center gap-1 max-w-[140px] px-2 py-0.5 rounded-md border bg-muted/50 hover:bg-muted text-xs transition-colors"
-                          >
-                            <Icon className="h-3 w-3 shrink-0 text-muted-foreground" />
-                            <span className="truncate">{f.file_name}</span>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
+                  {(filesByVendor[v.id]?.length || 0) === 0 ? (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  ) : (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-7 px-2 gap-1.5 text-xs">
+                          <Paperclip className="h-3 w-3" />
+                          <span>{filesByVendor[v.id].length}</span>
+                          <span className="text-muted-foreground">file{filesByVendor[v.id].length === 1 ? "" : "s"}</span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-72 p-2 bg-popover z-50">
+                        <div className="flex items-center justify-between px-1 py-1 mb-1 border-b">
+                          <span className="text-xs font-medium">Attachments ({filesByVendor[v.id].length})</span>
+                          {isAdmin && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setAttachmentsVendor(v)} title="Manage">
+                              <Settings2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                        <div className="space-y-1 max-h-64 overflow-y-auto">
+                          {filesByVendor[v.id].map((f) => {
+                            const Icon = f.file_type?.startsWith("image/") ? ImageIcon : f.file_type?.includes("pdf") ? FileText : FileIcon;
+                            return (
+                              <button
+                                key={f.id}
+                                onClick={() => openPreview(f)}
+                                title={f.file_name}
+                                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left transition-colors"
+                              >
+                                <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span className="truncate text-xs flex-1">{f.file_name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
                 </TableCell>
                 <TableCell>
                     <div className="flex gap-1 items-center">
