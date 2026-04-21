@@ -2,7 +2,7 @@ import { useState, DragEvent } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, ListTodo, Mail, Phone, DollarSign } from "lucide-react";
+import { Pencil, ListTodo, Mail, Phone, DollarSign, ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -47,6 +47,17 @@ interface Props {
 
 export default function VendorsKanban({ vendors, isAdmin, onChanged, onEdit, onTasks }: Props) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggle = (stage: string) =>
+    setCollapsed((c) => ({ ...c, [stage]: !c[stage] }));
+  const allCollapsed = VENDOR_STAGES.every((s) => collapsed[s]);
+  const toggleAll = () => {
+    const next = !allCollapsed;
+    const map: Record<string, boolean> = {};
+    VENDOR_STAGES.forEach((s) => (map[s] = next));
+    setCollapsed(map);
+  };
 
   const onDragStart = (e: DragEvent, id: string) => {
     setDraggedId(id);
@@ -66,20 +77,37 @@ export default function VendorsKanban({ vendors, isAdmin, onChanged, onEdit, onT
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={toggleAll}>
+          {allCollapsed ? <Eye className="h-3.5 w-3.5 mr-1" /> : <EyeOff className="h-3.5 w-3.5 mr-1" />}
+          {allCollapsed ? "Expand all" : "Collapse all"}
+        </Button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 items-start">
       {VENDOR_STAGES.map((stage) => {
         const list = vendors.filter((v) => v.stage === stage);
+        const isCollapsed = !!collapsed[stage];
         return (
           <div
             key={stage}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => onDrop(e, stage)}
-            className={`rounded-lg border-2 ${STAGE_COLORS[stage] || "bg-muted/30 border-muted"} p-2 min-h-[400px] flex flex-col`}
+            className={`rounded-lg border-2 ${STAGE_COLORS[stage] || "bg-muted/30 border-muted"} p-2 ${isCollapsed ? "" : "min-h-[400px]"} flex flex-col`}
           >
-            <div className="flex items-center justify-between px-2 py-1.5 mb-2">
-              <h3 className="font-semibold text-sm">{stage}</h3>
-              <Badge variant="secondary" className="text-[10px]">{list.length}</Badge>
-            </div>
+            <button
+              type="button"
+              onClick={() => toggle(stage)}
+              className="flex items-center justify-between gap-2 px-2 py-1.5 mb-2 w-full text-left hover:bg-background/40 rounded transition-colors"
+              title={isCollapsed ? "Expand" : "Collapse"}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                {isCollapsed ? <ChevronRight className="h-3.5 w-3.5 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
+                <h3 className="font-semibold text-sm truncate">{stage}</h3>
+              </div>
+              <Badge variant="secondary" className="text-[10px] shrink-0">{list.length}</Badge>
+            </button>
+            {!isCollapsed && (
             <div className="flex-1 space-y-2">
               {list.map((v) => (
                 <Card
@@ -130,9 +158,11 @@ export default function VendorsKanban({ vendors, isAdmin, onChanged, onEdit, onT
                 <p className="text-xs text-muted-foreground text-center py-4">Drop vendors here</p>
               )}
             </div>
+            )}
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
