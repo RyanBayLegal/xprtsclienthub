@@ -609,6 +609,10 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="lead-sources">
+          <LeadSourcesManager />
+        </TabsContent>
       </Tabs>
     </div>
   );
