@@ -23,6 +23,7 @@ import NDABuilder from "@/components/NDABuilder";
 import AgreementBuilder from "@/components/AgreementBuilder";
 import WorkflowAutomations from "@/components/WorkflowAutomations";
 import StageHistoryTimeline from "@/components/StageHistoryTimeline";
+import LeadsBulkEdit from "@/components/LeadsBulkEdit";
 
 
 const STAGES = [
@@ -74,6 +75,7 @@ export default function Leads() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [leadSources, setLeadSources] = useState<{ id: string; name: string }[]>([]);
   const [kanbanKey, setKanbanKey] = useState(0);
+  const [bulkEditMode, setBulkEditMode] = useState(false);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
