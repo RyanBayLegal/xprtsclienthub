@@ -72,6 +72,7 @@ export default function Leads() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadSources, setLeadSources] = useState<{ id: string; name: string }[]>([]);
   const [kanbanKey, setKanbanKey] = useState(0);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
