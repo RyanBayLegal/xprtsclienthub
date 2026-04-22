@@ -59,13 +59,18 @@ interface Lead {
   stage: string;
   notes: string | null;
   stage_changed_at: string | null;
+  created_at?: string | null;
+  referrer_name?: string | null;
 }
 
 const emptyLead = {
   name: "", email: "", phone: "", contact: "", source: "", website: "", date_reached: "",
   follow_up_email_sent: false, follow_up_date: "", needs: "", booked: false,
   email_sent_with_info: false, next_steps: "", follow_up_email_after: "", stage: "Prospecting Stage", notes: "",
+  referrer_name: "",
 };
+
+const REFERRAL_SOURCES = ["Referral from Client", "Referral from Partner"];
 
 const LEADS_PAGE_SIZE = 15;
 
