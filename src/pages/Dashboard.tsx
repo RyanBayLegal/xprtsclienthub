@@ -9,6 +9,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
 import PipelineAgingWidget from "@/components/PipelineAgingWidget";
+import LeadSourcesBreakdown from "@/components/LeadSourcesBreakdown";
 
 const STAGES = [
   "Prospecting Stage",
@@ -240,6 +241,9 @@ function AdminDashboard({ user, profile }: { user: any; profile: any }) {
 
       {/* Pipeline Aging */}
       <PipelineAgingWidget />
+
+      {/* Leads by Source */}
+      <LeadSourcesBreakdown />
 
       {/* Bottom: Timeline + Staff */}
       <div className="grid gap-4 md:grid-cols-3">

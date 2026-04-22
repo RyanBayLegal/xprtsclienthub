@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import LeadSourcesBreakdown from "@/components/LeadSourcesBreakdown";
 
 const PIPELINE_STAGES = [
   "Prospecting Stage",
@@ -168,6 +169,10 @@ export default function Analytics() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mt-6">
+        <LeadSourcesBreakdown />
       </div>
     </div>
   );
