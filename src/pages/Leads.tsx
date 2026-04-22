@@ -618,7 +618,7 @@ export default function Leads() {
                   const paginatedLeads = leads.slice(leadsPage * LEADS_PAGE_SIZE, (leadsPage + 1) * LEADS_PAGE_SIZE);
                   return paginatedLeads.length === 0 ? (
                       <TableRow>
-                       <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                       <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                          No leads yet. Click &quot;Add Lead&quot; to get started.
                        </TableCell>
                      </TableRow>
@@ -642,6 +642,11 @@ export default function Leads() {
                         </TableCell>
                         <TableCell>{lead.contact}</TableCell>
                         <TableCell>{lead.source}</TableCell>
+                        <TableCell className="text-xs">
+                          {REFERRAL_SOURCES.includes(lead.source || "")
+                            ? (lead.referrer_name || <span className="text-muted-foreground">—</span>)
+                            : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
                         <TableCell>
                           <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
                             {lead.stage}
@@ -654,6 +659,11 @@ export default function Leads() {
                             const color = days < 7 ? "text-green-600" : days < 14 ? "text-amber-600" : "text-destructive";
                             return <span className={`text-xs font-medium ${color}`}>{days}d</span>;
                           })()}
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {lead.created_at
+                            ? new Date(lead.created_at).toLocaleDateString()
+                            : <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell>{lead.date_reached}</TableCell>
                         <TableCell>{lead.booked ? "✓" : "—"}</TableCell>
