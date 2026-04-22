@@ -362,6 +362,31 @@ export default function Leads() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {REFERRAL_SOURCES.includes(form.source) && (
+                    <div className="space-y-2 col-span-2">
+                      <Label>Referrer Name *</Label>
+                      <Input
+                        placeholder="Who referred this lead?"
+                        value={form.referrer_name}
+                        onChange={(e) => updateField("referrer_name", e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {editingId && (
+                    <div className="space-y-2 col-span-2">
+                      <Label>Date Added</Label>
+                      <Input
+                        readOnly
+                        disabled
+                        value={
+                          leads.find((l) => l.id === editingId)?.created_at
+                            ? new Date(leads.find((l) => l.id === editingId)!.created_at!).toLocaleString()
+                            : ""
+                        }
+                      />
+                      <p className="text-[11px] text-muted-foreground">Auto-set when the lead was created. Cannot be edited.</p>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Needs</Label>
