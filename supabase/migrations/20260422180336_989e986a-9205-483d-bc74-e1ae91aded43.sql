@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ADD COLUMN referrer_name text;

@@ -6,6 +6,7 @@ import LeadSourcesBreakdown from "@/components/LeadSourcesBreakdown";
 import TasksSummaryWidget from "@/components/TasksSummaryWidget";
 import VendorsSummaryWidget from "@/components/VendorsSummaryWidget";
 import TalentPoolBreakdown from "@/components/TalentPoolBreakdown";
+import LeadStageDurations from "@/components/LeadStageDurations";
 
 const PIPELINE_STAGES = [
   "Prospecting Stage",
@@ -176,6 +177,10 @@ export default function Analytics() {
 
       <div className="mt-6">
         <LeadSourcesBreakdown />
+      </div>
+
+      <div className="mt-6">
+        <LeadStageDurations />
       </div>
 
       <div className="mt-6">

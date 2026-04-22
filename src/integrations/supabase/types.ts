@@ -594,6 +594,7 @@ export type Database = {
           needs: string | null
           next_steps: string | null
           notes: string | null
+          referrer_name: string | null
           source: string | null
           stage: string
           stage_changed_at: string | null
@@ -616,6 +617,7 @@ export type Database = {
           needs?: string | null
           next_steps?: string | null
           notes?: string | null
+          referrer_name?: string | null
           source?: string | null
           stage?: string
           stage_changed_at?: string | null
@@ -638,6 +640,7 @@ export type Database = {
           needs?: string | null
           next_steps?: string | null
           notes?: string | null
+          referrer_name?: string | null
           source?: string | null
           stage?: string
           stage_changed_at?: string | null

@@ -59,13 +59,18 @@ interface Lead {
   stage: string;
   notes: string | null;
   stage_changed_at: string | null;
+  created_at?: string | null;
+  referrer_name?: string | null;
 }
 
 const emptyLead = {
   name: "", email: "", phone: "", contact: "", source: "", website: "", date_reached: "",
   follow_up_email_sent: false, follow_up_date: "", needs: "", booked: false,
   email_sent_with_info: false, next_steps: "", follow_up_email_after: "", stage: "Prospecting Stage", notes: "",
+  referrer_name: "",
 };
+
+const REFERRAL_SOURCES = ["Referral from Client", "Referral from Partner"];
 
 const LEADS_PAGE_SIZE = 15;
 
@@ -138,8 +143,15 @@ export default function Leads() {
       date_reached: form.date_reached || null,
       follow_up_date: form.follow_up_date || null,
       follow_up_email_after: form.follow_up_email_after || null,
+      referrer_name: REFERRAL_SOURCES.includes(form.source)
+        ? (form.referrer_name?.trim() || null)
+        : null,
       created_by: user?.id,
     };
+    if (REFERRAL_SOURCES.includes(form.source) && !form.referrer_name?.trim()) {
+      toast.error("Referrer name is required for referral sources");
+      return;
+    }
     if (editingId) {
       const { created_by, ...updatePayload } = payload;
       const oldLead = leads.find(l => l.id === editingId);
@@ -198,6 +210,7 @@ export default function Leads() {
       booked: lead.booked || false, email_sent_with_info: lead.email_sent_with_info || false,
       next_steps: lead.next_steps || "", follow_up_email_after: lead.follow_up_email_after || "",
       stage: lead.stage, notes: lead.notes || "",
+      referrer_name: lead.referrer_name || "",
     });
     setEditingId(lead.id);
     setDialogOpen(true);
@@ -283,10 +296,11 @@ export default function Leads() {
   const updateField = (field: string, value: string | boolean) => setForm((f) => ({ ...f, [field]: value }));
 
   const exportLeads = () => {
-    const headers = ["Name", "Contact", "Source", "Website", "Stage", "Date Reached", "Follow-up Date", "Booked", "Needs", "Next Steps", "Notes"];
+    const headers = ["Name", "Contact", "Source", "Referrer", "Website", "Stage", "Date Added", "Date Reached", "Follow-up Date", "Booked", "Needs", "Next Steps", "Notes"];
     const rows = leads.map((l) => [
-      l.name, l.contact, l.source, l.website, l.stage, l.date_reached,
-      l.follow_up_date, l.booked ? "Yes" : "No", l.needs, l.next_steps, l.notes,
+      l.name, l.contact, l.source, l.referrer_name || "", l.website, l.stage,
+      l.created_at ? new Date(l.created_at).toLocaleString() : "",
+      l.date_reached, l.follow_up_date, l.booked ? "Yes" : "No", l.needs, l.next_steps, l.notes,
     ]);
     exportToCSV("leads-export", headers, rows);
     toast.success(`Exported ${rows.length} leads`);
@@ -356,6 +370,31 @@ export default function Leads() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {REFERRAL_SOURCES.includes(form.source) && (
+                    <div className="space-y-2 col-span-2">
+                      <Label>Referrer Name *</Label>
+                      <Input
+                        placeholder="Who referred this lead?"
+                        value={form.referrer_name}
+                        onChange={(e) => updateField("referrer_name", e.target.value)}
+                      />
+                    </div>
+                  )}
+                  {editingId && (
+                    <div className="space-y-2 col-span-2">
+                      <Label>Date Added</Label>
+                      <Input
+                        readOnly
+                        disabled
+                        value={
+                          leads.find((l) => l.id === editingId)?.created_at
+                            ? new Date(leads.find((l) => l.id === editingId)!.created_at!).toLocaleString()
+                            : ""
+                        }
+                      />
+                      <p className="text-[11px] text-muted-foreground">Auto-set when the lead was created. Cannot be edited.</p>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Needs</Label>
@@ -564,8 +603,10 @@ export default function Leads() {
                   <TableHead>Name</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Source</TableHead>
+                  <TableHead>Referrer</TableHead>
                   <TableHead>Stage</TableHead>
                   <TableHead>Stage Age</TableHead>
+                  <TableHead>Date Added</TableHead>
                   <TableHead>Date Reached</TableHead>
                   <TableHead>Booked</TableHead>
                   <TableHead>Next Steps</TableHead>
@@ -578,7 +619,7 @@ export default function Leads() {
                   const paginatedLeads = leads.slice(leadsPage * LEADS_PAGE_SIZE, (leadsPage + 1) * LEADS_PAGE_SIZE);
                   return paginatedLeads.length === 0 ? (
                       <TableRow>
-                       <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                       <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                          No leads yet. Click &quot;Add Lead&quot; to get started.
                        </TableCell>
                      </TableRow>
@@ -602,6 +643,11 @@ export default function Leads() {
                         </TableCell>
                         <TableCell>{lead.contact}</TableCell>
                         <TableCell>{lead.source}</TableCell>
+                        <TableCell className="text-xs">
+                          {REFERRAL_SOURCES.includes(lead.source || "")
+                            ? (lead.referrer_name || <span className="text-muted-foreground">—</span>)
+                            : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
                         <TableCell>
                           <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary/10 text-primary">
                             {lead.stage}
@@ -614,6 +660,11 @@ export default function Leads() {
                             const color = days < 7 ? "text-green-600" : days < 14 ? "text-amber-600" : "text-destructive";
                             return <span className={`text-xs font-medium ${color}`}>{days}d</span>;
                           })()}
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {lead.created_at
+                            ? new Date(lead.created_at).toLocaleDateString()
+                            : <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell>{lead.date_reached}</TableCell>
                         <TableCell>{lead.booked ? "✓" : "—"}</TableCell>
