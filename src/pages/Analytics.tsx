@@ -3,6 +3,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import LeadSourcesBreakdown from "@/components/LeadSourcesBreakdown";
+import TasksSummaryWidget from "@/components/TasksSummaryWidget";
+import VendorsSummaryWidget from "@/components/VendorsSummaryWidget";
+import TalentPoolBreakdown from "@/components/TalentPoolBreakdown";
 
 const PIPELINE_STAGES = [
   "Prospecting Stage",
@@ -173,6 +176,15 @@ export default function Analytics() {
 
       <div className="mt-6">
         <LeadSourcesBreakdown />
+      </div>
+
+      <div className="mt-6">
+        <TasksSummaryWidget />
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <VendorsSummaryWidget />
+        <TalentPoolBreakdown />
       </div>
     </div>
   );
