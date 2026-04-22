@@ -602,8 +602,10 @@ export default function Leads() {
                   <TableHead>Name</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Source</TableHead>
+                  <TableHead>Referrer</TableHead>
                   <TableHead>Stage</TableHead>
                   <TableHead>Stage Age</TableHead>
+                  <TableHead>Date Added</TableHead>
                   <TableHead>Date Reached</TableHead>
                   <TableHead>Booked</TableHead>
                   <TableHead>Next Steps</TableHead>
