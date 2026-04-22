@@ -296,10 +296,11 @@ export default function Leads() {
   const updateField = (field: string, value: string | boolean) => setForm((f) => ({ ...f, [field]: value }));
 
   const exportLeads = () => {
-    const headers = ["Name", "Contact", "Source", "Website", "Stage", "Date Reached", "Follow-up Date", "Booked", "Needs", "Next Steps", "Notes"];
+    const headers = ["Name", "Contact", "Source", "Referrer", "Website", "Stage", "Date Added", "Date Reached", "Follow-up Date", "Booked", "Needs", "Next Steps", "Notes"];
     const rows = leads.map((l) => [
-      l.name, l.contact, l.source, l.website, l.stage, l.date_reached,
-      l.follow_up_date, l.booked ? "Yes" : "No", l.needs, l.next_steps, l.notes,
+      l.name, l.contact, l.source, l.referrer_name || "", l.website, l.stage,
+      l.created_at ? new Date(l.created_at).toLocaleString() : "",
+      l.date_reached, l.follow_up_date, l.booked ? "Yes" : "No", l.needs, l.next_steps, l.notes,
     ]);
     exportToCSV("leads-export", headers, rows);
     toast.success(`Exported ${rows.length} leads`);
