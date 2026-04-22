@@ -143,8 +143,15 @@ export default function Leads() {
       date_reached: form.date_reached || null,
       follow_up_date: form.follow_up_date || null,
       follow_up_email_after: form.follow_up_email_after || null,
+      referrer_name: REFERRAL_SOURCES.includes(form.source)
+        ? (form.referrer_name?.trim() || null)
+        : null,
       created_by: user?.id,
     };
+    if (REFERRAL_SOURCES.includes(form.source) && !form.referrer_name?.trim()) {
+      toast.error("Referrer name is required for referral sources");
+      return;
+    }
     if (editingId) {
       const { created_by, ...updatePayload } = payload;
       const oldLead = leads.find(l => l.id === editingId);
