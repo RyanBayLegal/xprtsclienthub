@@ -203,6 +203,7 @@ export default function Leads() {
       booked: lead.booked || false, email_sent_with_info: lead.email_sent_with_info || false,
       next_steps: lead.next_steps || "", follow_up_email_after: lead.follow_up_email_after || "",
       stage: lead.stage, notes: lead.notes || "",
+      referrer_name: lead.referrer_name || "",
     });
     setEditingId(lead.id);
     setDialogOpen(true);
