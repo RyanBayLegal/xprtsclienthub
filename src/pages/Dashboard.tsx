@@ -10,6 +10,9 @@ import { useNavigate } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
 import PipelineAgingWidget from "@/components/PipelineAgingWidget";
 import LeadSourcesBreakdown from "@/components/LeadSourcesBreakdown";
+import TasksSummaryWidget from "@/components/TasksSummaryWidget";
+import VendorsSummaryWidget from "@/components/VendorsSummaryWidget";
+import TalentPoolBreakdown from "@/components/TalentPoolBreakdown";
 
 const STAGES = [
   "Prospecting Stage",
@@ -244,6 +247,15 @@ function AdminDashboard({ user, profile }: { user: any; profile: any }) {
 
       {/* Leads by Source */}
       <LeadSourcesBreakdown />
+
+      {/* Tasks Summary */}
+      <TasksSummaryWidget />
+
+      {/* Vendors + Talent Pool */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <VendorsSummaryWidget />
+        <TalentPoolBreakdown />
+      </div>
 
       {/* Bottom: Timeline + Staff */}
       <div className="grid gap-4 md:grid-cols-3">
