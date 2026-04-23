@@ -5,10 +5,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Clock, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Clock, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, Inbox, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportToCSV } from "@/lib/csv-export";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+const PIPELINE_STAGES = [
+  "New",
+  "Prospecting Stage",
+  "Discovery Stage",
+  "Solution Mapping Stage",
+  "Proposal/Contract Stage",
+  "Onboarding/Kickoff Stage",
+  "Lost Stage",
+];
 
 interface Lead {
   id: string;
@@ -92,6 +104,10 @@ export default function LeadStageDurations() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const [detailLead, setDetailLead] = useState<{ id: string; name: string; segment: StageSegment } | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -101,6 +117,11 @@ export default function LeadStageDurations() {
     }, 300);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [stageFilter, fromDate, toDate]);
 
   // Server-side fetch: only the current page of leads + their stage logs
   useEffect(() => {
@@ -116,6 +137,9 @@ export default function LeadStageDurations() {
         .range(from, to);
 
       if (search) query = query.ilike("name", `%${search}%`);
+      if (stageFilter !== "all") query = query.eq("stage", stageFilter);
+      if (fromDate) query = query.gte("created_at", fromDate);
+      if (toDate) query = query.lte("created_at", `${toDate}T23:59:59`);
 
       const { data: leadsData, count } = await query;
       const pageLeads = (leadsData || []) as Lead[];
@@ -138,7 +162,7 @@ export default function LeadStageDurations() {
       setLoading(false);
     };
     fetchPage();
-  }, [page, search]);
+  }, [page, search, stageFilter, fromDate, toDate]);
 
   const durations = useMemo<LeadDuration[]>(() => {
     const now = Date.now();
@@ -168,6 +192,9 @@ export default function LeadStageDurations() {
       .select("id, name, stage, created_at, stage_changed_at")
       .order("created_at", { ascending: false });
     if (search) leadsQuery = leadsQuery.ilike("name", `%${search}%`);
+    if (stageFilter !== "all") leadsQuery = leadsQuery.eq("stage", stageFilter);
+    if (fromDate) leadsQuery = leadsQuery.gte("created_at", fromDate);
+    if (toDate) leadsQuery = leadsQuery.lte("created_at", `${toDate}T23:59:59`);
     const { data: allLeads } = await leadsQuery;
     const leadsArr = (allLeads || []) as Lead[];
     if (leadsArr.length === 0) return;
@@ -225,6 +252,38 @@ export default function LeadStageDurations() {
               Export CSV
             </Button>
           </div>
+        </div>
+        <div className="flex flex-wrap items-end gap-2 mt-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Current stage</label>
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="h-8 w-[200px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All stages</SelectItem>
+                {PIPELINE_STAGES.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Created from</label>
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 w-[150px] text-xs" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Created to</label>
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-8 w-[150px] text-xs" />
+          </div>
+          {(stageFilter !== "all" || fromDate || toDate) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => { setStageFilter("all"); setFromDate(""); setToDate(""); }}
+            >
+              <X className="h-3 w-3 mr-1" />Clear
+            </Button>
+          )}
         </div>
         <p className="text-xs text-muted-foreground mt-1">
           Days each lead has stayed in every stage. Click a row to see the day-by-day timeline.
@@ -297,7 +356,11 @@ export default function LeadStageDurations() {
                         {isOpen && (
                           <TableRow className="bg-muted/20 hover:bg-muted/20">
                             <TableCell colSpan={5} className="py-4">
-                              <StageTimeline segments={d.segments} totalDays={Math.max(d.totalDays, 1)} />
+                              <StageTimeline
+                                segments={d.segments}
+                                totalDays={Math.max(d.totalDays, 1)}
+                                onSegmentClick={(seg) => setDetailLead({ id: d.id, name: d.name, segment: seg })}
+                              />
                             </TableCell>
                           </TableRow>
                         )}
@@ -326,11 +389,23 @@ export default function LeadStageDurations() {
           </>
         )}
       </CardContent>
+      <SegmentDetailDialog
+        lead={detailLead}
+        onClose={() => setDetailLead(null)}
+      />
     </Card>
   );
 }
 
-function StageTimeline({ segments, totalDays }: { segments: StageSegment[]; totalDays: number }) {
+function StageTimeline({
+  segments,
+  totalDays,
+  onSegmentClick,
+}: {
+  segments: StageSegment[];
+  totalDays: number;
+  onSegmentClick?: (segment: StageSegment) => void;
+}) {
   const stageColor = new Map<string, string>();
   segments.forEach((s) => {
     if (!stageColor.has(s.stage)) {
@@ -362,11 +437,14 @@ function StageTimeline({ segments, totalDays }: { segments: StageSegment[]; tota
 
       <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
         {segments.map((s, i) => (
-          <div
+          <button
             key={i}
-            className={`flex items-center gap-2 text-xs rounded-md border px-2 py-1.5 ${
+            type="button"
+            onClick={() => onSegmentClick?.(s)}
+            className={`flex items-center gap-2 text-xs rounded-md border px-2 py-1.5 text-left transition-colors hover:bg-muted/60 hover:border-primary/40 cursor-pointer ${
               s.current ? "bg-emerald-500/5 border-emerald-300" : "bg-background border-border"
             }`}
+            title="Click to view audit details"
           >
             <span
               className="h-3 w-3 rounded-sm flex-shrink-0"
@@ -387,9 +465,127 @@ function StageTimeline({ segments, totalDays }: { segments: StageSegment[]; tota
                 <span className="font-semibold text-foreground">{s.days}d</span>
               </div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
+  );
+}
+
+interface AuditEntry {
+  id: string;
+  user_name: string | null;
+  field_name: string | null;
+  old_value: string | null;
+  new_value: string | null;
+  description: string | null;
+  action: string;
+  created_at: string;
+}
+
+function SegmentDetailDialog({
+  lead,
+  onClose,
+}: {
+  lead: { id: string; name: string; segment: StageSegment } | null;
+  onClose: () => void;
+}) {
+  const [logs, setLogs] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!lead) return;
+    const load = async () => {
+      setLoading(true);
+      // Fetch audit logs in the segment's date window for this lead
+      const start = lead.segment.startDate;
+      const end = lead.segment.current ? new Date().toISOString() : lead.segment.endDate;
+      const { data } = await (supabase.from as any)("audit_logs")
+        .select("id, user_name, field_name, old_value, new_value, description, action, created_at")
+        .eq("entity_type", "lead")
+        .eq("entity_id", lead.id)
+        .gte("created_at", start)
+        .lte("created_at", end)
+        .order("created_at", { ascending: true });
+      setLogs((data || []) as AuditEntry[]);
+      setLoading(false);
+    };
+    load();
+  }, [lead]);
+
+  const open = !!lead;
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            {lead?.name} · {lead?.segment.stage}
+          </DialogTitle>
+          <DialogDescription>
+            {lead && (
+              <>
+                {format(new Date(lead.segment.startDate), "MMM d, yyyy")} →{" "}
+                {lead.segment.current ? "now" : format(new Date(lead.segment.endDate), "MMM d, yyyy")}{" "}
+                · <span className="font-semibold">{lead.segment.days} day{lead.segment.days === 1 ? "" : "s"}</span>
+                {lead.segment.current && " (ongoing)"}
+              </>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="space-y-2">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Inbox className="h-10 w-10 text-muted-foreground/60 mb-2" />
+            <p className="text-sm font-medium">No audit activity</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Nothing was logged for this lead during this stage window.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {logs.map((log) => (
+              <div key={log.id} className="border rounded-md p-3 bg-card">
+                <div className="flex items-start justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Badge variant="outline" className="text-[10px]">{log.action}</Badge>
+                    <span className="font-medium">{log.user_name || "System"}</span>
+                    {log.field_name && (
+                      <>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-primary font-medium">{log.field_name}</span>
+                      </>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground" title={format(new Date(log.created_at), "PPpp")}>
+                    {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
+                  </span>
+                </div>
+                {(log.old_value || log.new_value) && (
+                  <div className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1 flex-wrap">
+                    {log.old_value && (
+                      <span className="line-through bg-destructive/5 px-1.5 py-0.5 rounded">{log.old_value}</span>
+                    )}
+                    {log.old_value && log.new_value && <span>→</span>}
+                    {log.new_value && (
+                      <span className="bg-emerald-500/10 px-1.5 py-0.5 rounded">{log.new_value}</span>
+                    )}
+                  </div>
+                )}
+                {log.description && (
+                  <p className="text-xs text-muted-foreground mt-1">{log.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
