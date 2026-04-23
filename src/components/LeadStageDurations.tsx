@@ -5,10 +5,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Clock, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Clock, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, History, Inbox, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportToCSV } from "@/lib/csv-export";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+const PIPELINE_STAGES = [
+  "New",
+  "Prospecting Stage",
+  "Discovery Stage",
+  "Solution Mapping Stage",
+  "Proposal/Contract Stage",
+  "Onboarding/Kickoff Stage",
+  "Lost Stage",
+];
 
 interface Lead {
   id: string;
