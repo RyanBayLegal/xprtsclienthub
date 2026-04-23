@@ -253,6 +253,38 @@ export default function LeadStageDurations() {
             </Button>
           </div>
         </div>
+        <div className="flex flex-wrap items-end gap-2 mt-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Current stage</label>
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="h-8 w-[200px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All stages</SelectItem>
+                {PIPELINE_STAGES.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Created from</label>
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 w-[150px] text-xs" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Created to</label>
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-8 w-[150px] text-xs" />
+          </div>
+          {(stageFilter !== "all" || fromDate || toDate) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => { setStageFilter("all"); setFromDate(""); setToDate(""); }}
+            >
+              <X className="h-3 w-3 mr-1" />Clear
+            </Button>
+          )}
+        </div>
         <p className="text-xs text-muted-foreground mt-1">
           Days each lead has stayed in every stage. Click a row to see the day-by-day timeline.
         </p>
