@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Clock, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Clock, Download, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportToCSV } from "@/lib/csv-export";
+import { format } from "date-fns";
 
 interface Lead {
   id: string;
@@ -27,6 +28,8 @@ interface StageLog {
 interface StageSegment {
   stage: string;
   days: number;
+  startDate: string;
+  endDate: string;
   current?: boolean;
 }
 
@@ -43,35 +46,99 @@ const dayDiff = (from: string, to: string | number) => {
   return Math.max(0, Math.floor((t - new Date(from).getTime()) / (1000 * 60 * 60 * 24)));
 };
 
+const PAGE_SIZE = 15;
+
+const TIMELINE_COLORS = [
+  "hsl(220, 70%, 55%)",
+  "hsl(38, 92%, 50%)",
+  "hsl(280, 60%, 55%)",
+  "hsl(160, 60%, 40%)",
+  "hsl(350, 60%, 50%)",
+  "hsl(195, 70%, 45%)",
+  "hsl(25, 85%, 55%)",
+];
+
+function buildSegments(lead: Lead, leadLogs: StageLog[], now: number): StageSegment[] {
+  const nowIso = new Date(now).toISOString();
+  const segments: StageSegment[] = [];
+  let cursorTime = lead.created_at;
+  let cursorStage = leadLogs[0]?.old_value || lead.stage;
+  for (const log of leadLogs) {
+    segments.push({
+      stage: log.old_value || cursorStage,
+      days: dayDiff(cursorTime, log.created_at),
+      startDate: cursorTime,
+      endDate: log.created_at,
+    });
+    cursorTime = log.created_at;
+    cursorStage = log.new_value || cursorStage;
+  }
+  segments.push({
+    stage: lead.stage,
+    days: dayDiff(cursorTime, now),
+    startDate: cursorTime,
+    endDate: nowIso,
+    current: true,
+  });
+  return segments;
+}
+
 export default function LeadStageDurations() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [logs, setLogs] = useState<StageLog[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 15;
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Debounce search
   useEffect(() => {
-    const fetch = async () => {
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Server-side fetch: only the current page of leads + their stage logs
+  useEffect(() => {
+    const fetchPage = async () => {
       setLoading(true);
-      const [{ data: leadsData }, { data: logsData }] = await Promise.all([
-        supabase
-          .from("leads")
-          .select("id, name, stage, created_at, stage_changed_at")
-          .order("created_at", { ascending: false }),
-        supabase
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      let query = supabase
+        .from("leads")
+        .select("id, name, stage, created_at, stage_changed_at", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (search) query = query.ilike("name", `%${search}%`);
+
+      const { data: leadsData, count } = await query;
+      const pageLeads = (leadsData || []) as Lead[];
+      setLeads(pageLeads);
+      setTotalCount(count || 0);
+
+      if (pageLeads.length > 0) {
+        const ids = pageLeads.map((l) => l.id);
+        const { data: logsData } = await supabase
           .from("audit_logs")
           .select("entity_id, old_value, new_value, created_at")
           .eq("entity_type", "lead")
           .eq("field_name", "Stage")
-          .order("created_at", { ascending: true }),
-      ]);
-      setLeads((leadsData || []) as Lead[]);
-      setLogs((logsData || []) as StageLog[]);
+          .in("entity_id", ids)
+          .order("created_at", { ascending: true });
+        setLogs((logsData || []) as StageLog[]);
+      } else {
+        setLogs([]);
+      }
       setLoading(false);
     };
-    fetch();
-  }, []);
+    fetchPage();
+  }, [page, search]);
 
   const durations = useMemo<LeadDuration[]>(() => {
     const now = Date.now();
@@ -80,61 +147,58 @@ export default function LeadStageDurations() {
       if (!logsByLead.has(l.entity_id)) logsByLead.set(l.entity_id, []);
       logsByLead.get(l.entity_id)!.push(l);
     });
-
     return leads.map((lead) => {
-      const leadLogs = logsByLead.get(lead.id) || [];
-      const segments: StageSegment[] = [];
-
-      // First stage starts at created_at. If first log has old_value, it's the original stage.
-      let cursorTime = lead.created_at;
-      let cursorStage = leadLogs[0]?.old_value || lead.stage;
-
-      for (const log of leadLogs) {
-        const days = dayDiff(cursorTime, log.created_at);
-        segments.push({ stage: log.old_value || cursorStage, days });
-        cursorTime = log.created_at;
-        cursorStage = log.new_value || cursorStage;
-      }
-
-      // Current stage segment (still ongoing)
-      const currentDays = dayDiff(cursorTime, now);
-      segments.push({ stage: lead.stage, days: currentDays, current: true });
-
-      const totalDays = dayDiff(lead.created_at, now);
+      const segments = buildSegments(lead, logsByLead.get(lead.id) || [], now);
       return {
         id: lead.id,
         name: lead.name,
         currentStage: lead.stage,
-        totalDays,
+        totalDays: dayDiff(lead.created_at, now),
         segments,
       };
     });
   }, [leads, logs]);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    if (!q) return durations;
-    return durations.filter((d) => d.name.toLowerCase().includes(q));
-  }, [durations, search]);
-
-  useEffect(() => { setPage(1); }, [search]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
-  const paginated = useMemo(
-    () => filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE),
-    [filtered, pageSafe]
-  );
 
-  const handleExport = () => {
-    if (filtered.length === 0) return;
+  const handleExport = async () => {
+    let leadsQuery = supabase
+      .from("leads")
+      .select("id, name, stage, created_at, stage_changed_at")
+      .order("created_at", { ascending: false });
+    if (search) leadsQuery = leadsQuery.ilike("name", `%${search}%`);
+    const { data: allLeads } = await leadsQuery;
+    const leadsArr = (allLeads || []) as Lead[];
+    if (leadsArr.length === 0) return;
+
+    const ids = leadsArr.map((l) => l.id);
+    const { data: allLogs } = await supabase
+      .from("audit_logs")
+      .select("entity_id, old_value, new_value, created_at")
+      .eq("entity_type", "lead")
+      .eq("field_name", "Stage")
+      .in("entity_id", ids)
+      .order("created_at", { ascending: true });
+    const logsArr = (allLogs || []) as StageLog[];
+
+    const now = Date.now();
+    const logsByLead = new Map<string, StageLog[]>();
+    logsArr.forEach((l) => {
+      if (!logsByLead.has(l.entity_id)) logsByLead.set(l.entity_id, []);
+      logsByLead.get(l.entity_id)!.push(l);
+    });
+
     const headers = ["Lead", "Current Stage", "Total Days", "Stage Journey"];
-    const rows = filtered.map((d) => [
-      d.name,
-      d.currentStage,
-      d.totalDays,
-      d.segments.map((s) => `${s.stage}: ${s.days}d${s.current ? " (current)" : ""}`).join(" → "),
-    ]);
+    const rows = leadsArr.map((lead) => {
+      const segs = buildSegments(lead, logsByLead.get(lead.id) || [], now);
+      return [
+        lead.name,
+        lead.stage,
+        dayDiff(lead.created_at, now),
+        segs.map((s) => `${s.stage}: ${s.days}d${s.current ? " (current)" : ""}`).join(" → "),
+      ];
+    });
     exportToCSV("lead-stage-durations", headers, rows);
   };
 
@@ -152,18 +216,18 @@ export default function LeadStageDurations() {
               <Input
                 placeholder="Search lead..."
                 className="pl-8 h-8 text-sm w-56"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={filtered.length === 0}>
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={totalCount === 0}>
               <Download className="mr-1.5 h-3.5 w-3.5" />
               Export CSV
             </Button>
           </div>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          Days each lead has stayed in every stage. Current stage is still counting.
+          Days each lead has stayed in every stage. Click a row to see the day-by-day timeline.
         </p>
       </CardHeader>
       <CardContent>
@@ -173,76 +237,159 @@ export default function LeadStageDurations() {
               <Skeleton key={i} className="h-10 w-full" />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : durations.length === 0 ? (
           <p className="text-center text-muted-foreground py-8 text-sm">No leads to show.</p>
         ) : (
           <>
-          <div className="rounded-lg border overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">Lead</TableHead>
-                  <TableHead className="w-[160px]">Current Stage</TableHead>
-                  <TableHead className="w-[90px] text-right">Total Days</TableHead>
-                  <TableHead>Stage Journey</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginated.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-medium">{d.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20 text-primary">
-                        {d.currentStage}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right text-sm font-semibold">{d.totalDays}d</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {d.segments.map((s, i) => (
-                          <span key={i} className="inline-flex items-center gap-1">
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] ${
-                                s.current
-                                  ? "bg-emerald-500/10 border-emerald-300 text-emerald-700"
-                                  : "bg-muted/50 border-border"
-                              }`}
-                              title={s.current ? "Current stage (ongoing)" : "Past stage"}
-                            >
-                              {s.stage}: {s.days}d{s.current ? " •" : ""}
-                            </Badge>
-                            {i < d.segments.length - 1 && (
-                              <span className="text-muted-foreground text-[10px]">→</span>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    </TableCell>
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[30px]"></TableHead>
+                    <TableHead className="w-[200px]">Lead</TableHead>
+                    <TableHead className="w-[160px]">Current Stage</TableHead>
+                    <TableHead className="w-[90px] text-right">Total Days</TableHead>
+                    <TableHead>Stage Journey</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-              <span>
-                Showing {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, filtered.length)} of {filtered.length}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={pageSafe <= 1}>
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <span>Page {pageSafe} / {totalPages}</span>
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={pageSafe >= totalPages}>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+                </TableHeader>
+                <TableBody>
+                  {durations.map((d) => {
+                    const isOpen = expandedId === d.id;
+                    return (
+                      <Fragment key={d.id}>
+                        <TableRow
+                          className="cursor-pointer hover:bg-muted/40"
+                          onClick={() => setExpandedId(isOpen ? null : d.id)}
+                        >
+                          <TableCell className="text-muted-foreground">
+                            {isOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                          </TableCell>
+                          <TableCell className="font-medium">{d.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px] bg-primary/10 border-primary/20 text-primary">
+                              {d.currentStage}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right text-sm font-semibold">{d.totalDays}d</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {d.segments.map((s, i) => (
+                                <span key={i} className="inline-flex items-center gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] ${
+                                      s.current
+                                        ? "bg-emerald-500/10 border-emerald-300 text-emerald-700"
+                                        : "bg-muted/50 border-border"
+                                    }`}
+                                    title={s.current ? "Current stage (ongoing)" : "Past stage"}
+                                  >
+                                    {s.stage}: {s.days}d{s.current ? " •" : ""}
+                                  </Badge>
+                                  {i < d.segments.length - 1 && (
+                                    <span className="text-muted-foreground text-[10px]">→</span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {isOpen && (
+                          <TableRow className="bg-muted/20 hover:bg-muted/20">
+                            <TableCell colSpan={5} className="py-4">
+                              <StageTimeline segments={d.segments} totalDays={Math.max(d.totalDays, 1)} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
-          )}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
+                <span>
+                  Showing {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, totalCount)} of {totalCount}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={pageSafe <= 1}>
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <span>Page {pageSafe} / {totalPages}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={pageSafe >= totalPages}>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function StageTimeline({ segments, totalDays }: { segments: StageSegment[]; totalDays: number }) {
+  const stageColor = new Map<string, string>();
+  segments.forEach((s) => {
+    if (!stageColor.has(s.stage)) {
+      stageColor.set(s.stage, TIMELINE_COLORS[stageColor.size % TIMELINE_COLORS.length]);
+    }
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex h-9 w-full overflow-hidden rounded-md border border-border">
+        {segments.map((s, i) => {
+          const widthPct = Math.max((s.days / totalDays) * 100, 2);
+          return (
+            <div
+              key={i}
+              className={`flex items-center justify-center text-[10px] font-medium text-white ${
+                s.current ? "ring-2 ring-emerald-400 ring-inset" : ""
+              }`}
+              style={{ width: `${widthPct}%`, backgroundColor: stageColor.get(s.stage) }}
+              title={`${s.stage} • ${s.days}d (${format(new Date(s.startDate), "MMM d, yyyy")} → ${
+                s.current ? "now" : format(new Date(s.endDate), "MMM d, yyyy")
+              })`}
+            >
+              {s.days >= 1 ? `${s.days}d` : ""}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+        {segments.map((s, i) => (
+          <div
+            key={i}
+            className={`flex items-center gap-2 text-xs rounded-md border px-2 py-1.5 ${
+              s.current ? "bg-emerald-500/5 border-emerald-300" : "bg-background border-border"
+            }`}
+          >
+            <span
+              className="h-3 w-3 rounded-sm flex-shrink-0"
+              style={{ backgroundColor: stageColor.get(s.stage) }}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium truncate">{s.stage}</span>
+                {s.current && (
+                  <Badge variant="outline" className="text-[9px] py-0 h-4 bg-emerald-500/10 border-emerald-300 text-emerald-700">
+                    Current
+                  </Badge>
+                )}
+              </div>
+              <div className="text-[10px] text-muted-foreground">
+                {format(new Date(s.startDate), "MMM d, yyyy")} →{" "}
+                {s.current ? "now" : format(new Date(s.endDate), "MMM d, yyyy")} ·{" "}
+                <span className="font-semibold text-foreground">{s.days}d</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
