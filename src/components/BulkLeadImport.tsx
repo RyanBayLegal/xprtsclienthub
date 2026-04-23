@@ -64,7 +64,17 @@ export default function BulkLeadImport({ onImported }: Props) {
   const [importing, setImporting] = useState(false);
   const [manualLeads, setManualLeads] = useState<ManualLead[]>([emptyManualLead()]);
   const [defaultStage, setDefaultStage] = useState("Prospecting Stage");
+  const [sources, setSources] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    supabase
+      .from("lead_sources")
+      .select("name")
+      .order("name")
+      .then(({ data }) => setSources((data || []).map((s) => s.name)));
+  }, [open]);
 
   const reset = () => {
     setParsed([]);
@@ -73,7 +83,16 @@ export default function BulkLeadImport({ onImported }: Props) {
   };
 
   const downloadTemplate = () => {
-    const csv = CSV_HEADERS.join(",") + "\nJohn Smith,john@example.com,555-1234,Referral,https://example.com,VA support,Great prospect,Prospecting Stage,2026-01-15";
+    const sourceList = sources.length ? sources.join(" | ") : "Referral | Website | LinkedIn";
+    const stageList = STAGES.join(" | ");
+    const sampleSource = sources[0] || "Referral";
+    const lines = [
+      CSV_HEADERS.join(","),
+      `# Allowed sources: ${sourceList}`,
+      `# Allowed stages: ${stageList}`,
+      `John Smith,john@example.com,555-1234,${sampleSource},https://example.com,VA support,Great prospect,Prospecting Stage,2026-01-15`,
+    ];
+    const csv = lines.join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
