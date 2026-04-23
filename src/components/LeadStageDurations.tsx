@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -256,9 +256,8 @@ export default function LeadStageDurations() {
                   {durations.map((d) => {
                     const isOpen = expandedId === d.id;
                     return (
-                      <>
+                      <Fragment key={d.id}>
                         <TableRow
-                          key={d.id}
                           className="cursor-pointer hover:bg-muted/40"
                           onClick={() => setExpandedId(isOpen ? null : d.id)}
                         >
@@ -296,13 +295,13 @@ export default function LeadStageDurations() {
                           </TableCell>
                         </TableRow>
                         {isOpen && (
-                          <TableRow key={d.id + "-tl"} className="bg-muted/20 hover:bg-muted/20">
+                          <TableRow className="bg-muted/20 hover:bg-muted/20">
                             <TableCell colSpan={5} className="py-4">
                               <StageTimeline segments={d.segments} totalDays={Math.max(d.totalDays, 1)} />
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
