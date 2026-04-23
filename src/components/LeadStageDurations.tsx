@@ -356,7 +356,11 @@ export default function LeadStageDurations() {
                         {isOpen && (
                           <TableRow className="bg-muted/20 hover:bg-muted/20">
                             <TableCell colSpan={5} className="py-4">
-                              <StageTimeline segments={d.segments} totalDays={Math.max(d.totalDays, 1)} />
+                              <StageTimeline
+                                segments={d.segments}
+                                totalDays={Math.max(d.totalDays, 1)}
+                                onSegmentClick={(seg) => setDetailLead({ id: d.id, name: d.name, segment: seg })}
+                              />
                             </TableCell>
                           </TableRow>
                         )}
