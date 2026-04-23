@@ -330,7 +330,13 @@ export default function BulkLeadImport({ onImported }: Props) {
                           <Input value={lead.phone} onChange={e => updateManualLead(i, "phone", e.target.value)} placeholder="Phone" className="h-8 text-sm" />
                         </TableCell>
                         <TableCell className="p-1">
-                          <Input value={lead.source} onChange={e => updateManualLead(i, "source", e.target.value)} placeholder="Source" className="h-8 text-sm" />
+                          <Select value={lead.source || "__none__"} onValueChange={v => updateManualLead(i, "source", v === "__none__" ? "" : v)}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Source" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">—</SelectItem>
+                              {sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="p-1">
                           <Input value={lead.website} onChange={e => updateManualLead(i, "website", e.target.value)} placeholder="Website" className="h-8 text-sm" />
