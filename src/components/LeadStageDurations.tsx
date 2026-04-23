@@ -192,6 +192,9 @@ export default function LeadStageDurations() {
       .select("id, name, stage, created_at, stage_changed_at")
       .order("created_at", { ascending: false });
     if (search) leadsQuery = leadsQuery.ilike("name", `%${search}%`);
+    if (stageFilter !== "all") leadsQuery = leadsQuery.eq("stage", stageFilter);
+    if (fromDate) leadsQuery = leadsQuery.gte("created_at", fromDate);
+    if (toDate) leadsQuery = leadsQuery.lte("created_at", `${toDate}T23:59:59`);
     const { data: allLeads } = await leadsQuery;
     const leadsArr = (allLeads || []) as Lead[];
     if (leadsArr.length === 0) return;
