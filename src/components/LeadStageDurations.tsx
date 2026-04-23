@@ -104,6 +104,10 @@ export default function LeadStageDurations() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
+  const [detailLead, setDetailLead] = useState<{ id: string; name: string; segment: StageSegment } | null>(null);
 
   // Debounce search
   useEffect(() => {
