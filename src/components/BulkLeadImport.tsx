@@ -103,7 +103,7 @@ export default function BulkLeadImport({ onImported }: Props) {
   };
 
   const parseCSVContent = (text: string) => {
-    const lines = text.trim().split("\n");
+    const lines = text.trim().split("\n").filter((l) => !l.trim().startsWith("#"));
     if (lines.length < 2) { toast.error("CSV must have a header row and at least one data row"); return; }
 
     const headerLine = lines[0].toLowerCase();
