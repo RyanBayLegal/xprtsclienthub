@@ -26,6 +26,7 @@ interface Lead {
   next_steps: string | null;
   stage: string;
   notes: string | null;
+  referrer_name?: string | null;
 }
 
 interface Props {
@@ -38,12 +39,13 @@ interface Props {
 type EditableField =
   | "name" | "contact" | "source" | "website" | "stage"
   | "date_reached" | "follow_up_date" | "next_steps" | "notes"
-  | "booked" | "follow_up_email_sent" | "email_sent_with_info";
+  | "booked" | "follow_up_email_sent" | "email_sent_with_info" | "referrer_name";
 
 const COLUMNS: { key: EditableField; label: string; type: "text" | "date" | "select" | "bool" }[] = [
   { key: "name", label: "Name", type: "text" },
   { key: "contact", label: "Contact", type: "text" },
   { key: "source", label: "Source", type: "select" },
+  { key: "referrer_name", label: "Referrer", type: "text" },
   { key: "stage", label: "Stage", type: "select" },
   { key: "date_reached", label: "Date Reached", type: "date" },
   { key: "follow_up_date", label: "Follow-up", type: "date" },
@@ -176,6 +178,7 @@ export default function LeadsBulkEdit({ leads, stages, onClose, onSaved }: Props
       stage: "Stage", date_reached: "Date Reached", follow_up_date: "Follow-up Date",
       next_steps: "Next Steps", notes: "Notes", booked: "Booked",
       follow_up_email_sent: "Follow-up Sent", email_sent_with_info: "Info Email Sent",
+      referrer_name: "Referrer",
     };
 
     for (const id of dirtyIds) {

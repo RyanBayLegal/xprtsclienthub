@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,17 @@ export default function BulkLeadImport({ onImported }: Props) {
   const [importing, setImporting] = useState(false);
   const [manualLeads, setManualLeads] = useState<ManualLead[]>([emptyManualLead()]);
   const [defaultStage, setDefaultStage] = useState("Prospecting Stage");
+  const [sources, setSources] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    supabase
+      .from("lead_sources")
+      .select("name")
+      .order("name")
+      .then(({ data }) => setSources((data || []).map((s) => s.name)));
+  }, [open]);
 
   const reset = () => {
     setParsed([]);
@@ -72,7 +83,16 @@ export default function BulkLeadImport({ onImported }: Props) {
   };
 
   const downloadTemplate = () => {
-    const csv = CSV_HEADERS.join(",") + "\nJohn Smith,john@example.com,555-1234,Referral,https://example.com,VA support,Great prospect,Prospecting Stage,2026-01-15";
+    const sourceList = sources.length ? sources.join(" | ") : "Referral | Website | LinkedIn";
+    const stageList = STAGES.join(" | ");
+    const sampleSource = sources[0] || "Referral";
+    const lines = [
+      CSV_HEADERS.join(","),
+      `# Allowed sources: ${sourceList}`,
+      `# Allowed stages: ${stageList}`,
+      `John Smith,john@example.com,555-1234,${sampleSource},https://example.com,VA support,Great prospect,Prospecting Stage,2026-01-15`,
+    ];
+    const csv = lines.join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -83,7 +103,7 @@ export default function BulkLeadImport({ onImported }: Props) {
   };
 
   const parseCSVContent = (text: string) => {
-    const lines = text.trim().split("\n");
+    const lines = text.trim().split("\n").filter((l) => !l.trim().startsWith("#"));
     if (lines.length < 2) { toast.error("CSV must have a header row and at least one data row"); return; }
 
     const headerLine = lines[0].toLowerCase();
@@ -310,7 +330,13 @@ export default function BulkLeadImport({ onImported }: Props) {
                           <Input value={lead.phone} onChange={e => updateManualLead(i, "phone", e.target.value)} placeholder="Phone" className="h-8 text-sm" />
                         </TableCell>
                         <TableCell className="p-1">
-                          <Input value={lead.source} onChange={e => updateManualLead(i, "source", e.target.value)} placeholder="Source" className="h-8 text-sm" />
+                          <Select value={lead.source || "__none__"} onValueChange={v => updateManualLead(i, "source", v === "__none__" ? "" : v)}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Source" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none__">—</SelectItem>
+                              {sources.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="p-1">
                           <Input value={lead.website} onChange={e => updateManualLead(i, "website", e.target.value)} placeholder="Website" className="h-8 text-sm" />

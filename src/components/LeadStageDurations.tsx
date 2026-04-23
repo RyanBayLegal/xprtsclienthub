@@ -5,7 +5,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Clock } from "lucide-react";
+import { Search, Clock, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { exportToCSV } from "@/lib/csv-export";
 
 interface Lead {
   id: string;
@@ -46,6 +48,8 @@ export default function LeadStageDurations() {
   const [logs, setLogs] = useState<StageLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   useEffect(() => {
     const fetch = async () => {
@@ -113,6 +117,27 @@ export default function LeadStageDurations() {
     return durations.filter((d) => d.name.toLowerCase().includes(q));
   }, [durations, search]);
 
+  useEffect(() => { setPage(1); }, [search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages);
+  const paginated = useMemo(
+    () => filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE),
+    [filtered, pageSafe]
+  );
+
+  const handleExport = () => {
+    if (filtered.length === 0) return;
+    const headers = ["Lead", "Current Stage", "Total Days", "Stage Journey"];
+    const rows = filtered.map((d) => [
+      d.name,
+      d.currentStage,
+      d.totalDays,
+      d.segments.map((s) => `${s.stage}: ${s.days}d${s.current ? " (current)" : ""}`).join(" → "),
+    ]);
+    exportToCSV("lead-stage-durations", headers, rows);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -121,14 +146,20 @@ export default function LeadStageDurations() {
             <Clock className="h-4 w-4" />
             Per-Lead Stage Durations
           </CardTitle>
-          <div className="relative w-full max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search lead..."
-              className="pl-8 h-8 text-sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search lead..."
+                className="pl-8 h-8 text-sm w-56"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={filtered.length === 0}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Export CSV
+            </Button>
           </div>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
@@ -145,6 +176,7 @@ export default function LeadStageDurations() {
         ) : filtered.length === 0 ? (
           <p className="text-center text-muted-foreground py-8 text-sm">No leads to show.</p>
         ) : (
+          <>
           <div className="rounded-lg border overflow-hidden">
             <Table>
               <TableHeader>
@@ -156,7 +188,7 @@ export default function LeadStageDurations() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((d) => (
+                {paginated.map((d) => (
                   <TableRow key={d.id}>
                     <TableCell className="font-medium">{d.name}</TableCell>
                     <TableCell>
@@ -192,6 +224,23 @@ export default function LeadStageDurations() {
               </TableBody>
             </Table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
+              <span>
+                Showing {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={pageSafe <= 1}>
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                <span>Page {pageSafe} / {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={pageSafe >= totalPages}>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </CardContent>
     </Card>
