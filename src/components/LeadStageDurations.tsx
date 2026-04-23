@@ -118,6 +118,11 @@ export default function LeadStageDurations() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [stageFilter, fromDate, toDate]);
+
   // Server-side fetch: only the current page of leads + their stage logs
   useEffect(() => {
     const fetchPage = async () => {
@@ -132,6 +137,9 @@ export default function LeadStageDurations() {
         .range(from, to);
 
       if (search) query = query.ilike("name", `%${search}%`);
+      if (stageFilter !== "all") query = query.eq("stage", stageFilter);
+      if (fromDate) query = query.gte("created_at", fromDate);
+      if (toDate) query = query.lte("created_at", `${toDate}T23:59:59`);
 
       const { data: leadsData, count } = await query;
       const pageLeads = (leadsData || []) as Lead[];
@@ -154,7 +162,7 @@ export default function LeadStageDurations() {
       setLoading(false);
     };
     fetchPage();
-  }, [page, search]);
+  }, [page, search, stageFilter, fromDate, toDate]);
 
   const durations = useMemo<LeadDuration[]>(() => {
     const now = Date.now();
