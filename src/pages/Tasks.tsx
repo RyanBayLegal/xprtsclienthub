@@ -378,6 +378,13 @@ export default function Tasks() {
 
   useEffect(() => { fetchTasks(); fetchClients(); fetchStaff(); }, [statusFilter, clientFilter, assignedFilter]);
 
+  useEffect(() => {
+    const taskId = searchParams.get("task");
+    if (!taskId || tasks.length === 0) return;
+    const target = tasks.find((task) => task.id === taskId);
+    if (target) openView(target);
+  }, [searchParams, tasks]);
+
   const handleCreate = async () => {
     const selectedClient = clients.find((c) => c.id === form.client_profile_id);
     const selectedStaff = staffMembers.find((s) => s.id === form.assigned_to);
