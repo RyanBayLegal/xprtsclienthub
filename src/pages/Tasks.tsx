@@ -513,6 +513,7 @@ export default function Tasks() {
           type: "task_assigned",
           title: "Task reassigned to you",
           message: `"${editForm.title}" — Client: ${clientName}${editForm.due_date ? ` | Due: ${editForm.due_date}` : ""} | Assigned by: ${creatorName}`,
+          lead_id: editingTask.id,
         });
       }
       if (selectedStaff) {
@@ -538,6 +539,7 @@ export default function Tasks() {
             type: "task_mention",
             title: "You were mentioned in a task",
             message: `"${editForm.title}" — ${editForm.description.slice(0, 100)}`,
+              lead_id: editingTask.id,
           });
         }
       }
