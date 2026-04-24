@@ -15,7 +15,7 @@ import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, ChevronLeft, Chevron
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
 import TaskComments from "@/components/TaskComments";
 import TaskAttachments from "@/components/TaskAttachments";
@@ -297,6 +297,7 @@ const emptyForm = {
 export default function Tasks() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
@@ -408,6 +409,7 @@ export default function Tasks() {
         type: "task_assigned",
         title: "New task assigned to you",
         message: `"${form.title}" — Client: ${clientName}${form.due_date ? ` | Due: ${form.due_date}` : ""} | Created by: ${creatorName}`,
+        lead_id: inserted.id,
       });
     }
 
@@ -435,6 +437,7 @@ export default function Tasks() {
             type: "task_mention",
             title: "You were mentioned in a task",
             message: `"${form.title}" — ${form.description.slice(0, 100)}`,
+              lead_id: inserted.id,
           });
         }
       }
