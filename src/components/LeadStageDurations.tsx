@@ -489,6 +489,7 @@ interface AuditEntry {
 interface AuditCacheEntry {
   logs: AuditEntry[];
   hasMore: boolean;
+  scrollTop?: number;
 }
 
 function SegmentDetailDialog({
