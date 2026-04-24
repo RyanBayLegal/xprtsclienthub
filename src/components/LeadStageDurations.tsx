@@ -518,19 +518,37 @@ function SegmentDetailDialog({
     if (!lead) return;
     const start = lead.segment.startDate;
     const end = lead.segment.current ? new Date().toISOString() : lead.segment.endDate;
-    const { data } = await (supabase.from as any)("audit_logs")
+    let query = (supabase.from as any)("audit_logs")
       .select("id, user_name, field_name, old_value, new_value, description, action, created_at")
       .eq("entity_type", "lead")
       .eq("entity_id", lead.id)
       .gte("created_at", start)
       .lte("created_at", end)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + AUDIT_PAGE_SIZE);
+      .order("created_at", { ascending: false });
+
+    const field = fieldFilter.trim();
+    const text = textFilter.trim();
+    if (field) query = query.ilike("field_name", `%${field}%`);
+    if (text) {
+      const pattern = `%${text}%`;
+      query = query.or(`description.ilike.${pattern},old_value.ilike.${pattern},new_value.ilike.${pattern},user_name.ilike.${pattern},action.ilike.${pattern},field_name.ilike.${pattern}`);
+    }
+
+    const { data } = await query.range(offset, offset + AUDIT_PAGE_SIZE);
 
     const entries = (data || []) as AuditEntry[];
     const visibleEntries = entries.slice(0, AUDIT_PAGE_SIZE);
     setHasMore(entries.length > AUDIT_PAGE_SIZE);
-    setLogs((prev) => (offset === 0 ? visibleEntries : [...prev, ...visibleEntries]));
+    setLogs((prev) => {
+      const nextLogs = offset === 0 ? visibleEntries : [...prev, ...visibleEntries];
+      if (!fieldFilter.trim() && !textFilter.trim() && cacheKey) {
+        setCache((prevCache) => ({
+          ...prevCache,
+          [cacheKey]: { logs: nextLogs, hasMore: entries.length > AUDIT_PAGE_SIZE, scrollTop: prevCache[cacheKey]?.scrollTop || 0 },
+        }));
+      }
+      return nextLogs;
+    });
   };
 
   const loadOlderLogs = async () => {
