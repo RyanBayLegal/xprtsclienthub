@@ -77,7 +77,7 @@ const LEADS_PAGE_SIZE = 15;
 export default function Leads() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [leadSources, setLeadSources] = useState<{ id: string; name: string }[]>([]);
   const [kanbanKey, setKanbanKey] = useState(0);
@@ -219,9 +219,17 @@ export default function Leads() {
 
   useEffect(() => {
     const leadId = searchParams.get("lead");
-    if (!leadId || leads.length === 0 || editingId === leadId) return;
-    const target = leads.find((lead) => lead.id === leadId);
-    if (target) handleEdit(target);
+    if (!leadId || editingId === leadId) return;
+    const openTargetLead = async () => {
+      const target = leads.find((lead) => lead.id === leadId);
+      if (target) {
+        handleEdit(target);
+        return;
+      }
+      const { data } = await supabase.from("leads").select("*").eq("id", leadId).maybeSingle();
+      if (data) handleEdit(data as Lead);
+    };
+    openTargetLead();
   }, [searchParams, leads, editingId]);
 
   const handleDelete = async (id: string) => {
@@ -319,7 +327,7 @@ export default function Leads() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
-          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setForm(emptyLead); setEditingId(null); } }}>
+          <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setForm(emptyLead); setEditingId(null); if (searchParams.has("lead")) setSearchParams({}, { replace: true }); } }}>
             <DialogTrigger asChild>
               <Button size="sm"><Plus className="mr-2 h-4 w-4" />Add Lead</Button>
             </DialogTrigger>
