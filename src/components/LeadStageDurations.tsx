@@ -492,22 +492,45 @@ function SegmentDetailDialog({
 }) {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+
+  const AUDIT_PAGE_SIZE = 10;
+
+  const fetchLogs = async (offset = 0) => {
+    if (!lead) return;
+    const start = lead.segment.startDate;
+    const end = lead.segment.current ? new Date().toISOString() : lead.segment.endDate;
+    const { data } = await (supabase.from as any)("audit_logs")
+      .select("id, user_name, field_name, old_value, new_value, description, action, created_at")
+      .eq("entity_type", "lead")
+      .eq("entity_id", lead.id)
+      .gte("created_at", start)
+      .lte("created_at", end)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + AUDIT_PAGE_SIZE);
+
+    const entries = (data || []) as AuditEntry[];
+    const visibleEntries = entries.slice(0, AUDIT_PAGE_SIZE);
+    setHasMore(entries.length > AUDIT_PAGE_SIZE);
+    setLogs((prev) => (offset === 0 ? visibleEntries : [...prev, ...visibleEntries]));
+  };
+
+  const loadOlderLogs = async () => {
+    setLoadingMore(true);
+    await fetchLogs(logs.length);
+    setLoadingMore(false);
+  };
 
   useEffect(() => {
-    if (!lead) return;
+    if (!lead) {
+      setLogs([]);
+      setHasMore(false);
+      return;
+    }
     const load = async () => {
       setLoading(true);
-      // Fetch audit logs in the segment's date window for this lead
-      const start = lead.segment.startDate;
-      const end = lead.segment.current ? new Date().toISOString() : lead.segment.endDate;
-      const { data } = await (supabase.from as any)("audit_logs")
-        .select("id, user_name, field_name, old_value, new_value, description, action, created_at")
-        .eq("entity_type", "lead")
-        .eq("entity_id", lead.id)
-        .gte("created_at", start)
-        .lte("created_at", end)
-        .order("created_at", { ascending: true });
-      setLogs((data || []) as AuditEntry[]);
+      await fetchLogs(0);
       setLoading(false);
     };
     load();
@@ -583,6 +606,18 @@ function SegmentDetailDialog({
                 )}
               </div>
             ))}
+            {hasMore && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={loadOlderLogs}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading older entries..." : "Load older audit entries"}
+              </Button>
+            )}
           </div>
         )}
       </DialogContent>
