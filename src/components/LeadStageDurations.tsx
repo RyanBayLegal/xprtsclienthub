@@ -483,6 +483,11 @@ interface AuditEntry {
   created_at: string;
 }
 
+interface AuditCacheEntry {
+  logs: AuditEntry[];
+  hasMore: boolean;
+}
+
 function SegmentDetailDialog({
   lead,
   onClose,
