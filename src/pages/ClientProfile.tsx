@@ -100,6 +100,10 @@ export default function ClientProfile() {
   const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
   const [ndaDialogOpen, setNdaDialogOpen] = useState(false);
 
+  const sourceOptions = profile?.discovery_source && !leadSources.includes(profile.discovery_source)
+    ? [profile.discovery_source, ...leadSources]
+    : leadSources;
+
   useEffect(() => {
     const fetchLeadSources = async () => {
       const { data } = await supabase.from("lead_sources").select("name").order("name", { ascending: true });
@@ -402,7 +406,10 @@ export default function ClientProfile() {
                         <SelectValue placeholder="Select source" />
                       </SelectTrigger>
                       <SelectContent>
-                        {leadSources.map((source) => (
+                        {sourceOptions.length === 0 && (
+                          <SelectItem value="__no_sources__" disabled>No sources available</SelectItem>
+                        )}
+                        {sourceOptions.map((source) => (
                           <SelectItem key={source} value={source}>{source}</SelectItem>
                         ))}
                       </SelectContent>
