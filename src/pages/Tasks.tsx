@@ -297,7 +297,7 @@ const emptyForm = {
 export default function Tasks() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
@@ -380,10 +380,29 @@ export default function Tasks() {
 
   useEffect(() => {
     const taskId = searchParams.get("task");
-    if (!taskId || tasks.length === 0) return;
-    const target = tasks.find((task) => task.id === taskId);
-    if (target) openView(target);
-  }, [searchParams, tasks]);
+    if (!taskId || viewTask?.id === taskId) return;
+    const openTargetTask = async () => {
+      const target = tasks.find((task) => task.id === taskId);
+      if (target) {
+        openView(target);
+        return;
+      }
+      const { data } = await supabase.from("tasks").select("*").eq("id", taskId).maybeSingle();
+      if (!data) return;
+      const [clientRes, staffRes] = await Promise.all([
+        data.client_profile_id ? supabase.from("client_profiles").select("id, name").eq("id", data.client_profile_id).maybeSingle() : Promise.resolve({ data: null }),
+        data.assigned_to ? supabase.from("profiles").select("user_id, full_name, avatar_url").eq("user_id", data.assigned_to).maybeSingle() : Promise.resolve({ data: null }),
+      ]);
+      openView({
+        ...(data as any),
+        links: (data.links as any) || [],
+        client_name: clientRes.data?.name ?? null,
+        staff_name: staffRes.data?.full_name ?? null,
+        staff_avatar: staffRes.data?.avatar_url ?? null,
+      } as Task);
+    };
+    openTargetTask();
+  }, [searchParams, tasks, viewTask?.id]);
 
   const handleCreate = async () => {
     const selectedClient = clients.find((c) => c.id === form.client_profile_id);
@@ -862,7 +881,7 @@ export default function Tasks() {
       </Tabs>
 
       {/* View Task Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+      <Dialog open={viewDialogOpen} onOpenChange={(o) => { setViewDialogOpen(o); if (!o) { setViewTask(null); if (searchParams.has("task")) setSearchParams({}, { replace: true }); } }}>
         <DialogContent className="max-h-[85vh] flex flex-col">
           <DialogHeader><DialogTitle>{viewTask?.title}</DialogTitle></DialogHeader>
           {viewTask && (
