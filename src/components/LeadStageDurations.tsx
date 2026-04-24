@@ -493,17 +493,25 @@ interface AuditCacheEntry {
 
 function SegmentDetailDialog({
   lead,
+  cache,
+  setCache,
   onClose,
 }: {
   lead: { id: string; name: string; segment: StageSegment } | null;
+  cache: Record<string, AuditCacheEntry>;
+  setCache: Dispatch<SetStateAction<Record<string, AuditCacheEntry>>>;
   onClose: () => void;
 }) {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [fieldFilter, setFieldFilter] = useState("");
+  const [textFilter, setTextFilter] = useState("");
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const AUDIT_PAGE_SIZE = 10;
+  const cacheKey = lead ? `${lead.id}-${lead.segment.stage}-${lead.segment.startDate}-${lead.segment.endDate}` : "";
 
   const fetchLogs = async (offset = 0) => {
     if (!lead) return;
