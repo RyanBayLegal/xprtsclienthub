@@ -557,6 +557,12 @@ function SegmentDetailDialog({
     setLoadingMore(false);
   };
 
+  const persistScrollPosition = () => {
+    if (!cacheKey || fieldFilter.trim() || textFilter.trim()) return;
+    const scrollTop = scrollRef.current?.scrollTop || 0;
+    setCache((prev) => ({ ...prev, [cacheKey]: { logs, hasMore, scrollTop } }));
+  };
+
   useEffect(() => {
     if (!lead) {
       if (cacheKey && scrollRef.current) {
@@ -585,8 +591,8 @@ function SegmentDetailDialog({
 
   const open = !!lead;
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { persistScrollPosition(); onClose(); } }}>
+      <DialogContent ref={scrollRef} className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="h-4 w-4" />
@@ -604,6 +610,37 @@ function SegmentDetailDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={fieldFilter}
+              onChange={(e) => setFieldFilter(e.target.value)}
+              placeholder="Filter field name..."
+              className="h-8 pl-8 text-xs"
+            />
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={textFilter}
+              onChange={(e) => setTextFilter(e.target.value)}
+              placeholder="Search audit text..."
+              className="h-8 pl-8 pr-8 text-xs"
+            />
+            {(fieldFilter || textFilter) && (
+              <button
+                type="button"
+                onClick={() => { setFieldFilter(""); setTextFilter(""); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear audit filters"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {loading ? (
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => (
@@ -615,7 +652,9 @@ function SegmentDetailDialog({
             <Inbox className="h-10 w-10 text-muted-foreground/60 mb-2" />
             <p className="text-sm font-medium">No audit activity</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Nothing was logged for this lead during this stage window.
+              {fieldFilter || textFilter
+                ? "No audit entries match the current filters."
+                : "Nothing was logged for this lead during this stage window."}
             </p>
           </div>
         ) : (
