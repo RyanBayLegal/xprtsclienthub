@@ -559,8 +559,20 @@ function SegmentDetailDialog({
 
   useEffect(() => {
     if (!lead) {
+      if (cacheKey && scrollRef.current) {
+        const scrollTop = scrollRef.current.scrollTop;
+        setCache((prev) => ({ ...prev, [cacheKey]: { ...(prev[cacheKey] || { logs: [], hasMore: false }), scrollTop } }));
+      }
       setLogs([]);
       setHasMore(false);
+      return;
+    }
+    if (!fieldFilter.trim() && !textFilter.trim() && cache[cacheKey]) {
+      setLogs(cache[cacheKey].logs);
+      setHasMore(cache[cacheKey].hasMore);
+      requestAnimationFrame(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = cache[cacheKey].scrollTop || 0;
+      });
       return;
     }
     const load = async () => {
@@ -569,7 +581,7 @@ function SegmentDetailDialog({
       setLoading(false);
     };
     load();
-  }, [lead]);
+  }, [lead, fieldFilter, textFilter]);
 
   const open = !!lead;
   return (
