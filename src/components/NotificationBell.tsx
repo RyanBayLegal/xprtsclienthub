@@ -19,6 +19,10 @@ interface Notification {
   lead_id: string | null;
 }
 
+const TASK_NOTIFICATION_TYPES = new Set(["task_assigned", "task_mention", "task_comment", "task_overdue"]);
+const LEAD_NOTIFICATION_TYPES = new Set(["new_lead", "follow_up_due", "stage_change", "workflow"]);
+const CLIENT_NOTIFICATION_TYPES = new Set(["agreement_sent", "agreement_signed", "nda_sent", "nda_signed"]);
+
 const NOTIFICATION_SOUND_URL = "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbsGg+I0NxnMnV0LFnQjY3WYWmvb+3oYNkW0o9OVNxkbS5t6qUem5YSEA5RFl0kLO5uKeVfnFdUUI5P1Zwkra7vKmWf3RiWUg8QFl0k7a6u6mZhHdpYVVLRVR0l7u/vq2ei35xZl1VT1Fxl7vBwbGkkoR8c2tkXVdWcpe+xMS2q52Qh39za2ZfWlhxmL/GxriqoJWSi4V+eHNwaGV0mcHIyLuupZqUj4qEf3p2c3BvmsLKyry1q6OdmJORjYmGg4J8ncTMzr64sq2on5qWk5CRjouKhJ7Fzs/Bvbeyraegnp2bmpqYl5aFoMbP0MO/u7azr62sq6qqqqmpppmIocfQ0cTBvbu5t7a2trW1tbW1tbaYi6LI0NHFwr+9vLu7u7u7u7u7u7u8m46jydDRxcPBv767u7u7u7u7u7u7u7yeko2kytHRxcTCwL+/v7+/v7+/v7+/v72gj42ly9LRxcTDwcHAwMDAwMDAwMDAwMC+oZGPps3S0cXFxMLCwcHBwcHBwcHBwcHBv6OSkKfO09HGxsXDw8LCwsLCwsLCwsLCwMCkk5GozNPRxsbFxMPDw8PDw8PDw8PDw8HBpaWTkqnN09HGxsXExMPDw8PDw8PDw8PDwsKmp5WTqs7T0cbGxcXExMTExMTExMTExMTDw6iol5Srz9PRxsbFxcXExMTExMTExMTExMTExKqpmJWs0NPRxsfGxcXFxcXFxcXFxcXFxcXFxauqmpar0dTSx8fGxsbFxcXFxcXFxcXFxcXFxq2smpet0tTSyMfHxsbGxsbGxsbGxsbGxsbGx6+tnJiu09XTyMjHx8bGxsbGxsbGxsbGxsbHyLGvnpqv1NXTycjIx8fHx8fHx8fHx8fHx8fHybKwnpuw1dXUycnIyMfHx8fHx8fHx8fHx8fIyrSwn52x1tXUysnJyMjIyMjIyMjIyMjIyMjJy7axoJ6y19bVy8rJycnIyMjIyMjIyMjIyMnKzLeyoZ+z2NfWy8rKycnJycnJycnJycnJycnJy83EtKOgtNnX1szLysrKycnJycnJycnJycnJysvOxbWkobXa2NfNzMvKysrKysrKysrKysrKysvMz8e2paK23NnY";
 
 export function NotificationBell() {
@@ -114,12 +118,21 @@ export function NotificationBell() {
     await markAsRead(notification.id);
     setOpen(false);
     if (!notification.lead_id) return;
-    if (notification.type.startsWith("task_")) {
+    if (TASK_NOTIFICATION_TYPES.has(notification.type)) {
       navigate(`/tasks?task=${notification.lead_id}`);
       return;
     }
-    if (["new_lead", "follow_up_due", "stage_change", "workflow", "agreement_sent", "agreement_signed", "nda_sent", "nda_signed"].includes(notification.type)) {
+    if (LEAD_NOTIFICATION_TYPES.has(notification.type)) {
       navigate(`/leads?lead=${notification.lead_id}`);
+      return;
+    }
+    if (CLIENT_NOTIFICATION_TYPES.has(notification.type)) {
+      const { data: client } = await supabase
+        .from("client_profiles")
+        .select("id")
+        .eq("lead_id", notification.lead_id)
+        .maybeSingle();
+      navigate(client?.id ? `/clients/${client.id}` : `/leads?lead=${notification.lead_id}`);
     }
   };
 
