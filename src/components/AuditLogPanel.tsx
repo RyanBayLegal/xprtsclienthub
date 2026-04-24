@@ -77,6 +77,12 @@ export default function AuditLogPanel({ clientProfileId, entityType, entityId, t
     return "bg-primary/10 text-primary border-primary/20";
   };
 
+  const actionLabel = (log: AuditLog) => {
+    if (log.action === "create") return `created ${log.field_name || log.entity_type}`;
+    if (log.action === "delete") return `deleted ${log.field_name || log.entity_type}`;
+    return `updated ${log.field_name || log.entity_type}`;
+  };
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -122,21 +128,16 @@ export default function AuditLogPanel({ clientProfileId, entityType, entityId, t
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 text-sm">
                     <span className="font-medium">{log.user_name || "System"}</span>
-                    <span className="text-muted-foreground">
-                      {log.action === "create" ? "created" : log.action === "delete" ? "deleted" : "updated"}
-                    </span>
-                    {log.field_name && (
-                      <span className="font-medium text-primary">{log.field_name}</span>
-                    )}
+                    <span className="text-muted-foreground">{actionLabel(log)}</span>
                     <span className="text-muted-foreground">on</span>
                     <Badge variant="secondary" className="text-[10px]">{log.entity_type}</Badge>
                   </div>
-                  {log.action === "update" && (log.old_value || log.new_value) && (
+                  {(log.old_value || log.new_value) && (
                     <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
-                      {log.old_value && (
+                      {log.old_value && log.action !== "create" && (
                         <span className="line-through bg-destructive/5 px-1 rounded max-w-[200px] truncate inline-block">{log.old_value}</span>
                       )}
-                      {log.old_value && log.new_value && <span>→</span>}
+                      {log.old_value && log.new_value && log.action !== "create" && <span>→</span>}
                       {log.new_value && (
                         <span className="bg-emerald-500/5 px-1 rounded max-w-[200px] truncate inline-block">{log.new_value}</span>
                       )}
