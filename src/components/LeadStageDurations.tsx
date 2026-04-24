@@ -108,6 +108,7 @@ export default function LeadStageDurations() {
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [detailLead, setDetailLead] = useState<{ id: string; name: string; segment: StageSegment } | null>(null);
+  const [auditCache, setAuditCache] = useState<Record<string, AuditCacheEntry>>({});
 
   // Debounce search
   useEffect(() => {
@@ -391,6 +392,8 @@ export default function LeadStageDurations() {
       </CardContent>
       <SegmentDetailDialog
         lead={detailLead}
+        cache={auditCache}
+        setCache={setAuditCache}
         onClose={() => setDetailLead(null)}
       />
     </Card>
