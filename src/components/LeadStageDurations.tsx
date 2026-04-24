@@ -574,7 +574,7 @@ function SegmentDetailDialog({
     if (!lead) {
       if (cacheKey && scrollRef.current) {
         const scrollTop = scrollRef.current.scrollTop;
-        setCache((prev) => ({ ...prev, [cacheKey]: { ...(prev[cacheKey] || { logs: [], hasMore: false }), scrollTop } }));
+        setCache((prev) => ({ ...prev, [cacheKey]: { ...(prev[cacheKey] || { logs: [], hasMore: false, loadedOffset: 0 }), scrollTop } }));
       }
       setLogs([]);
       setHasMore(false);
@@ -670,8 +670,8 @@ function SegmentDetailDialog({
               <div key={log.id} className="border rounded-md p-3 bg-card">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 text-sm">
-          <Badge variant="outline" className="text-[10px]">{log.action}</Badge>
-          <span className="font-medium">{auditActionLabel(log)}</span>
+                    <Badge variant="outline" className="text-[10px]">{log.action}</Badge>
+                    <span className="font-medium">{auditActionLabel(log)}</span>
                     <span className="text-muted-foreground">by {log.user_name || "System"}</span>
                     {log.field_name && (
                       <>
