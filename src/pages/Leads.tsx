@@ -17,7 +17,7 @@ import { exportToCSV } from "@/lib/csv-export";
 import { toast } from "sonner";
 import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 import { formatDistanceToNow } from "date-fns";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import LeadsKanban from "./LeadsKanban";
 import NDABuilder from "@/components/NDABuilder";
 import AgreementBuilder from "@/components/AgreementBuilder";
@@ -77,6 +77,7 @@ const LEADS_PAGE_SIZE = 15;
 export default function Leads() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [leadSources, setLeadSources] = useState<{ id: string; name: string }[]>([]);
   const [kanbanKey, setKanbanKey] = useState(0);
@@ -215,6 +216,13 @@ export default function Leads() {
     setEditingId(lead.id);
     setDialogOpen(true);
   };
+
+  useEffect(() => {
+    const leadId = searchParams.get("lead");
+    if (!leadId || leads.length === 0 || editingId === leadId) return;
+    const target = leads.find((lead) => lead.id === leadId);
+    if (target) handleEdit(target);
+  }, [searchParams, leads, editingId]);
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("leads").delete().eq("id", id);
