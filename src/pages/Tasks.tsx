@@ -15,7 +15,7 @@ import { Plus, CheckCircle2, Circle, Clock, Pencil, Trash2, ChevronLeft, Chevron
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { UserAvatar } from "@/components/UserAvatar";
 import TaskComments from "@/components/TaskComments";
 import TaskAttachments from "@/components/TaskAttachments";
@@ -297,6 +297,7 @@ const emptyForm = {
 export default function Tasks() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
@@ -377,6 +378,13 @@ export default function Tasks() {
 
   useEffect(() => { fetchTasks(); fetchClients(); fetchStaff(); }, [statusFilter, clientFilter, assignedFilter]);
 
+  useEffect(() => {
+    const taskId = searchParams.get("task");
+    if (!taskId || tasks.length === 0) return;
+    const target = tasks.find((task) => task.id === taskId);
+    if (target) openView(target);
+  }, [searchParams, tasks]);
+
   const handleCreate = async () => {
     const selectedClient = clients.find((c) => c.id === form.client_profile_id);
     const selectedStaff = staffMembers.find((s) => s.id === form.assigned_to);
@@ -408,6 +416,7 @@ export default function Tasks() {
         type: "task_assigned",
         title: "New task assigned to you",
         message: `"${form.title}" — Client: ${clientName}${form.due_date ? ` | Due: ${form.due_date}` : ""} | Created by: ${creatorName}`,
+        lead_id: inserted.id,
       });
     }
 
@@ -435,6 +444,7 @@ export default function Tasks() {
             type: "task_mention",
             title: "You were mentioned in a task",
             message: `"${form.title}" — ${form.description.slice(0, 100)}`,
+              lead_id: inserted.id,
           });
         }
       }
@@ -510,6 +520,7 @@ export default function Tasks() {
           type: "task_assigned",
           title: "Task reassigned to you",
           message: `"${editForm.title}" — Client: ${clientName}${editForm.due_date ? ` | Due: ${editForm.due_date}` : ""} | Assigned by: ${creatorName}`,
+          lead_id: editingTask.id,
         });
       }
       if (selectedStaff) {
@@ -535,6 +546,7 @@ export default function Tasks() {
             type: "task_mention",
             title: "You were mentioned in a task",
             message: `"${editForm.title}" — ${editForm.description.slice(0, 100)}`,
+              lead_id: editingTask.id,
           });
         }
       }

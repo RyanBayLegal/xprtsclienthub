@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -108,6 +108,7 @@ export default function LeadStageDurations() {
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [detailLead, setDetailLead] = useState<{ id: string; name: string; segment: StageSegment } | null>(null);
+  const [auditCache, setAuditCache] = useState<Record<string, AuditCacheEntry>>({});
 
   // Debounce search
   useEffect(() => {
@@ -391,6 +392,8 @@ export default function LeadStageDurations() {
       </CardContent>
       <SegmentDetailDialog
         lead={detailLead}
+        cache={auditCache}
+        setCache={setAuditCache}
         onClose={() => setDetailLead(null)}
       />
     </Card>
@@ -483,37 +486,69 @@ interface AuditEntry {
   created_at: string;
 }
 
+interface AuditCacheEntry {
+  logs: AuditEntry[];
+  hasMore: boolean;
+  scrollTop?: number;
+}
+
 function SegmentDetailDialog({
   lead,
+  cache,
+  setCache,
   onClose,
 }: {
   lead: { id: string; name: string; segment: StageSegment } | null;
+  cache: Record<string, AuditCacheEntry>;
+  setCache: Dispatch<SetStateAction<Record<string, AuditCacheEntry>>>;
   onClose: () => void;
 }) {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
+  const [fieldFilter, setFieldFilter] = useState("");
+  const [textFilter, setTextFilter] = useState("");
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const AUDIT_PAGE_SIZE = 10;
+  const cacheKey = lead ? `${lead.id}-${lead.segment.stage}-${lead.segment.startDate}-${lead.segment.endDate}` : "";
 
   const fetchLogs = async (offset = 0) => {
     if (!lead) return;
     const start = lead.segment.startDate;
     const end = lead.segment.current ? new Date().toISOString() : lead.segment.endDate;
-    const { data } = await (supabase.from as any)("audit_logs")
+    let query = (supabase.from as any)("audit_logs")
       .select("id, user_name, field_name, old_value, new_value, description, action, created_at")
       .eq("entity_type", "lead")
       .eq("entity_id", lead.id)
       .gte("created_at", start)
       .lte("created_at", end)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + AUDIT_PAGE_SIZE);
+      .order("created_at", { ascending: false });
+
+    const field = fieldFilter.trim();
+    const text = textFilter.trim();
+    if (field) query = query.ilike("field_name", `%${field}%`);
+    if (text) {
+      const pattern = `%${text}%`;
+      query = query.or(`description.ilike.${pattern},old_value.ilike.${pattern},new_value.ilike.${pattern},user_name.ilike.${pattern},action.ilike.${pattern},field_name.ilike.${pattern}`);
+    }
+
+    const { data } = await query.range(offset, offset + AUDIT_PAGE_SIZE);
 
     const entries = (data || []) as AuditEntry[];
     const visibleEntries = entries.slice(0, AUDIT_PAGE_SIZE);
     setHasMore(entries.length > AUDIT_PAGE_SIZE);
-    setLogs((prev) => (offset === 0 ? visibleEntries : [...prev, ...visibleEntries]));
+    setLogs((prev) => {
+      const nextLogs = offset === 0 ? visibleEntries : [...prev, ...visibleEntries];
+      if (!fieldFilter.trim() && !textFilter.trim() && cacheKey) {
+        setCache((prevCache) => ({
+          ...prevCache,
+          [cacheKey]: { logs: nextLogs, hasMore: entries.length > AUDIT_PAGE_SIZE, scrollTop: prevCache[cacheKey]?.scrollTop || 0 },
+        }));
+      }
+      return nextLogs;
+    });
   };
 
   const loadOlderLogs = async () => {
@@ -522,10 +557,28 @@ function SegmentDetailDialog({
     setLoadingMore(false);
   };
 
+  const persistScrollPosition = () => {
+    if (!cacheKey || fieldFilter.trim() || textFilter.trim()) return;
+    const scrollTop = scrollRef.current?.scrollTop || 0;
+    setCache((prev) => ({ ...prev, [cacheKey]: { logs, hasMore, scrollTop } }));
+  };
+
   useEffect(() => {
     if (!lead) {
+      if (cacheKey && scrollRef.current) {
+        const scrollTop = scrollRef.current.scrollTop;
+        setCache((prev) => ({ ...prev, [cacheKey]: { ...(prev[cacheKey] || { logs: [], hasMore: false }), scrollTop } }));
+      }
       setLogs([]);
       setHasMore(false);
+      return;
+    }
+    if (!fieldFilter.trim() && !textFilter.trim() && cache[cacheKey]) {
+      setLogs(cache[cacheKey].logs);
+      setHasMore(cache[cacheKey].hasMore);
+      requestAnimationFrame(() => {
+        if (scrollRef.current) scrollRef.current.scrollTop = cache[cacheKey].scrollTop || 0;
+      });
       return;
     }
     const load = async () => {
@@ -534,12 +587,12 @@ function SegmentDetailDialog({
       setLoading(false);
     };
     load();
-  }, [lead]);
+  }, [lead, fieldFilter, textFilter]);
 
   const open = !!lead;
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { persistScrollPosition(); onClose(); } }}>
+      <DialogContent ref={scrollRef} className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="h-4 w-4" />
@@ -557,6 +610,37 @@ function SegmentDetailDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={fieldFilter}
+              onChange={(e) => setFieldFilter(e.target.value)}
+              placeholder="Filter field name..."
+              className="h-8 pl-8 text-xs"
+            />
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={textFilter}
+              onChange={(e) => setTextFilter(e.target.value)}
+              placeholder="Search audit text..."
+              className="h-8 pl-8 pr-8 text-xs"
+            />
+            {(fieldFilter || textFilter) && (
+              <button
+                type="button"
+                onClick={() => { setFieldFilter(""); setTextFilter(""); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear audit filters"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {loading ? (
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => (
@@ -568,7 +652,9 @@ function SegmentDetailDialog({
             <Inbox className="h-10 w-10 text-muted-foreground/60 mb-2" />
             <p className="text-sm font-medium">No audit activity</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Nothing was logged for this lead during this stage window.
+              {fieldFilter || textFilter
+                ? "No audit entries match the current filters."
+                : "Nothing was logged for this lead during this stage window."}
             </p>
           </div>
         ) : (

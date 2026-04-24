@@ -148,7 +148,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
 
   const createTask = async () => {
     const selectedStaff = staffMembers.find((s) => s.id === form.assigned_to);
-    const { error } = await supabase.from("tasks").insert({
+    const { data: inserted, error } = await supabase.from("tasks").insert({
       title: form.title,
       description: form.description || null,
       priority: form.priority,
@@ -159,7 +159,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
       client_profile_id: clientProfileId,
       lead_id: leadId || null,
       created_by: user?.id,
-    });
+    }).select("id").single();
     if (error) { toast.error(error.message); return; }
 
     if (user && form.assigned_to) {
@@ -172,7 +172,7 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
         type: "task_assigned",
         title: "New task assigned to you",
         message: `"${form.title}" — Client: ${clientName}${form.due_date ? ` | Due: ${form.due_date}` : ""} | Created by: ${creatorName}`,
-        lead_id: leadId || null,
+        lead_id: inserted?.id || null,
       });
     }
 

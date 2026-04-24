@@ -132,6 +132,7 @@ export default function TaskComments({ taskId }: TaskCommentsProps) {
             type: isMentioned ? "task_mention" : "task_comment",
             title: isMentioned ? "You were mentioned in a task comment" : "New comment on task",
             message: `Comment on "${taskData.title}": ${newComment.trim().slice(0, 100)}`,
+            lead_id: taskId,
           });
         }
       }
