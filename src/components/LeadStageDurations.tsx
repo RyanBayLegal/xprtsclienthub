@@ -489,8 +489,15 @@ interface AuditEntry {
 interface AuditCacheEntry {
   logs: AuditEntry[];
   hasMore: boolean;
+  loadedOffset: number;
   scrollTop?: number;
 }
+
+const auditActionLabel = (log: AuditEntry) => {
+  if (log.action === "create") return `Created ${log.field_name || "record"}`;
+  if (log.action === "delete") return `Deleted ${log.field_name || "record"}`;
+  return `Updated ${log.field_name || "record"}`;
+};
 
 function SegmentDetailDialog({
   lead,
@@ -512,7 +519,7 @@ function SegmentDetailDialog({
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const AUDIT_PAGE_SIZE = 10;
-  const cacheKey = lead ? `${lead.id}-${lead.segment.stage}-${lead.segment.startDate}-${lead.segment.endDate}` : "";
+  const cacheKey = lead ? `${lead.id}-${lead.segment.stage}-${lead.segment.startDate}` : "";
 
   const fetchLogs = async (offset = 0) => {
     if (!lead) return;
@@ -544,7 +551,7 @@ function SegmentDetailDialog({
       if (!fieldFilter.trim() && !textFilter.trim() && cacheKey) {
         setCache((prevCache) => ({
           ...prevCache,
-          [cacheKey]: { logs: nextLogs, hasMore: entries.length > AUDIT_PAGE_SIZE, scrollTop: prevCache[cacheKey]?.scrollTop || 0 },
+          [cacheKey]: { logs: nextLogs, hasMore: entries.length > AUDIT_PAGE_SIZE, loadedOffset: nextLogs.length, scrollTop: prevCache[cacheKey]?.scrollTop || 0 },
         }));
       }
       return nextLogs;
@@ -560,14 +567,14 @@ function SegmentDetailDialog({
   const persistScrollPosition = () => {
     if (!cacheKey || fieldFilter.trim() || textFilter.trim()) return;
     const scrollTop = scrollRef.current?.scrollTop || 0;
-    setCache((prev) => ({ ...prev, [cacheKey]: { logs, hasMore, scrollTop } }));
+    setCache((prev) => ({ ...prev, [cacheKey]: { logs, hasMore, loadedOffset: logs.length, scrollTop } }));
   };
 
   useEffect(() => {
     if (!lead) {
       if (cacheKey && scrollRef.current) {
         const scrollTop = scrollRef.current.scrollTop;
-        setCache((prev) => ({ ...prev, [cacheKey]: { ...(prev[cacheKey] || { logs: [], hasMore: false }), scrollTop } }));
+        setCache((prev) => ({ ...prev, [cacheKey]: { ...(prev[cacheKey] || { logs: [], hasMore: false, loadedOffset: 0 }), scrollTop } }));
       }
       setLogs([]);
       setHasMore(false);
@@ -664,7 +671,8 @@ function SegmentDetailDialog({
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 text-sm">
                     <Badge variant="outline" className="text-[10px]">{log.action}</Badge>
-                    <span className="font-medium">{log.user_name || "System"}</span>
+                    <span className="font-medium">{auditActionLabel(log)}</span>
+                    <span className="text-muted-foreground">by {log.user_name || "System"}</span>
                     {log.field_name && (
                       <>
                         <span className="text-muted-foreground">·</span>
