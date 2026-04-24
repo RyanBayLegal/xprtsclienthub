@@ -94,12 +94,18 @@ export default function ClientProfile() {
   const [originalProfile, setOriginalProfile] = useState<ClientProfileData | null>(null);
   const [roles, setRoles] = useState<RoleOpen[]>([]);
   const [agreements, setAgreements] = useState<Agreement[]>([]);
+  const [leadSources, setLeadSources] = useState<string[]>([]);
   const [isNew, setIsNew] = useState(false);
   const [loading, setLoading] = useState(true);
   const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
   const [ndaDialogOpen, setNdaDialogOpen] = useState(false);
 
   useEffect(() => {
+    const fetchLeadSources = async () => {
+      const { data } = await supabase.from("lead_sources").select("name").order("name", { ascending: true });
+      setLeadSources((data || []).map((source) => source.name));
+    };
+
     const fetchProfile = async () => {
       if (id === "new") {
         setIsNew(true);
@@ -146,6 +152,7 @@ export default function ClientProfile() {
       }
       setLoading(false);
     };
+    fetchLeadSources();
     fetchProfile();
   }, [id, isTeam]);
 
@@ -390,7 +397,16 @@ export default function ClientProfile() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Source</Label>
-                    <Input value={profile.discovery_source || ""} onChange={(e) => updateProfile("discovery_source", e.target.value)} />
+                    <Select value={profile.discovery_source || ""} onValueChange={(value) => updateProfile("discovery_source", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {leadSources.map((source) => (
+                          <SelectItem key={source} value={source}>{source}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>How They Found Us</Label>
