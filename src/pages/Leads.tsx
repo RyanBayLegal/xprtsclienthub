@@ -228,6 +228,10 @@ export default function Leads() {
       }
       const { data } = await supabase.from("leads").select("*").eq("id", leadId).maybeSingle();
       if (data) handleEdit(data as Lead);
+      else {
+        toast.error("Lead not found — it may have been deleted.");
+        setSearchParams({}, { replace: true });
+      }
     };
     openTargetLead();
   }, [searchParams, leads, editingId]);
