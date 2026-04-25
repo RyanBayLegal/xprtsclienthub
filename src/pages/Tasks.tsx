@@ -388,7 +388,11 @@ export default function Tasks() {
         return;
       }
       const { data } = await supabase.from("tasks").select("*").eq("id", taskId).maybeSingle();
-      if (!data) return;
+      if (!data) {
+        toast.error("Task not found — it may have been deleted.");
+        setSearchParams({}, { replace: true });
+        return;
+      }
       const [clientRes, staffRes] = await Promise.all([
         data.client_profile_id ? supabase.from("client_profiles").select("id, name").eq("id", data.client_profile_id).maybeSingle() : Promise.resolve({ data: null }),
         data.assigned_to ? supabase.from("profiles").select("user_id, full_name, avatar_url").eq("user_id", data.assigned_to).maybeSingle() : Promise.resolve({ data: null }),
