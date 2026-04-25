@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface Notification {
   id: string;
@@ -118,21 +119,38 @@ export function NotificationBell() {
     await markAsRead(notification.id);
     setOpen(false);
     if (!notification.lead_id) return;
-    if (TASK_NOTIFICATION_TYPES.has(notification.type)) {
-      navigate(`/tasks?task=${notification.lead_id}`);
-      return;
-    }
-    if (LEAD_NOTIFICATION_TYPES.has(notification.type)) {
-      navigate(`/leads?lead=${notification.lead_id}`);
-      return;
-    }
-    if (CLIENT_NOTIFICATION_TYPES.has(notification.type)) {
-      const { data: client } = await supabase
-        .from("client_profiles")
-        .select("id")
-        .eq("lead_id", notification.lead_id)
-        .maybeSingle();
-      navigate(client?.id ? `/clients/${client.id}` : `/leads?lead=${notification.lead_id}`);
+    const targetId = notification.lead_id;
+
+    try {
+      if (TASK_NOTIFICATION_TYPES.has(notification.type)) {
+        const { data: task } = await supabase.from("tasks").select("id").eq("id", targetId).maybeSingle();
+        if (task?.id) navigate(`/tasks?task=${task.id}`);
+        else { toast.error("Task no longer exists."); navigate("/tasks"); }
+        return;
+      }
+      if (LEAD_NOTIFICATION_TYPES.has(notification.type)) {
+        const { data: lead } = await supabase.from("leads").select("id").eq("id", targetId).maybeSingle();
+        if (lead?.id) navigate(`/leads?lead=${lead.id}`);
+        else { toast.error("Lead no longer exists."); navigate("/leads"); }
+        return;
+      }
+      if (CLIENT_NOTIFICATION_TYPES.has(notification.type)) {
+        const { data: client } = await supabase
+          .from("client_profiles")
+          .select("id")
+          .eq("lead_id", targetId)
+          .maybeSingle();
+        if (client?.id) { navigate(`/clients/${client.id}`); return; }
+        const { data: lead } = await supabase.from("leads").select("id").eq("id", targetId).maybeSingle();
+        if (lead?.id) { navigate(`/leads?lead=${lead.id}`); return; }
+        toast.error("Related record was not found."); navigate("/clients");
+        return;
+      }
+      // Unknown notification type — default to leads list
+      navigate("/leads");
+    } catch (err) {
+      toast.error("Could not open the notification target.");
+      navigate("/leads");
     }
   };
 
