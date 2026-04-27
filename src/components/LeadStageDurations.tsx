@@ -499,6 +499,12 @@ const auditActionLabel = (log: AuditEntry) => {
   return `Updated ${log.field_name || "record"}`;
 };
 
+const actionBadgeClass = (action: string) => {
+  if (action === "create") return "bg-emerald-500/10 text-emerald-700 border-emerald-300";
+  if (action === "delete") return "bg-destructive/10 text-destructive border-destructive/30";
+  return "bg-primary/10 text-primary border-primary/30";
+};
+
 function SegmentDetailDialog({
   lead,
   cache,
@@ -517,12 +523,14 @@ function SegmentDetailDialog({
   const [fieldFilter, setFieldFilter] = useState("");
   const [textFilter, setTextFilter] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fetchTokenRef = useRef(0);
 
   const AUDIT_PAGE_SIZE = 10;
   const cacheKey = lead ? `${lead.id}-${lead.segment.stage}-${lead.segment.startDate}` : "";
 
   const fetchLogs = async (offset = 0) => {
     if (!lead) return;
+    const token = ++fetchTokenRef.current;
     const start = lead.segment.startDate;
     const end = lead.segment.current ? new Date().toISOString() : lead.segment.endDate;
     let query = (supabase.from as any)("audit_logs")
@@ -542,6 +550,7 @@ function SegmentDetailDialog({
     }
 
     const { data } = await query.range(offset, offset + AUDIT_PAGE_SIZE);
+    if (token !== fetchTokenRef.current) return;
 
     const entries = (data || []) as AuditEntry[];
     const visibleEntries = entries.slice(0, AUDIT_PAGE_SIZE);
@@ -568,6 +577,14 @@ function SegmentDetailDialog({
     if (!cacheKey || fieldFilter.trim() || textFilter.trim()) return;
     const scrollTop = scrollRef.current?.scrollTop || 0;
     setCache((prev) => ({ ...prev, [cacheKey]: { logs, hasMore, loadedOffset: logs.length, scrollTop } }));
+  };
+
+  const handleClose = () => {
+    fetchTokenRef.current++;
+    persistScrollPosition();
+    setLoading(false);
+    setLoadingMore(false);
+    onClose();
   };
 
   useEffect(() => {
@@ -597,8 +614,13 @@ function SegmentDetailDialog({
   }, [lead, fieldFilter, textFilter]);
 
   const open = !!lead;
+  const activeFilters = !!(fieldFilter.trim() || textFilter.trim());
+  const matchSummary = activeFilters
+    ? `${logs.length} match${logs.length === 1 ? "" : "es"}${hasMore ? "+" : ""}`
+    : `${logs.length} entr${logs.length === 1 ? "y" : "ies"} loaded${hasMore ? " · more available" : ""}`;
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { persistScrollPosition(); onClose(); } }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent ref={scrollRef} className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -648,6 +670,36 @@ function SegmentDetailDialog({
           </div>
         </div>
 
+        {/* Active filter / match summary */}
+        <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {activeFilters ? (
+              <>
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Filters:</span>
+                {fieldFilter.trim() && (
+                  <Badge variant="secondary" className="text-[10px] gap-1 pr-1">
+                    field: {fieldFilter.trim()}
+                    <button type="button" onClick={() => setFieldFilter("")} aria-label="Clear field filter" className="hover:text-foreground">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+                {textFilter.trim() && (
+                  <Badge variant="secondary" className="text-[10px] gap-1 pr-1">
+                    text: {textFilter.trim()}
+                    <button type="button" onClick={() => setTextFilter("")} aria-label="Clear text filter" className="hover:text-foreground">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">No filters applied</span>
+            )}
+          </div>
+          <span className="text-[10px] font-medium text-muted-foreground">{matchSummary}</span>
+        </div>
+
         {loading ? (
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => (
@@ -669,15 +721,14 @@ function SegmentDetailDialog({
             {logs.map((log) => (
               <div key={log.id} className="border rounded-md p-3 bg-card">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Badge variant="outline" className="text-[10px]">{log.action}</Badge>
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    <Badge variant="outline" className={`text-[10px] ${actionBadgeClass(log.action)}`}>
+                      {log.action === "create" ? "Created" : log.action === "delete" ? "Deleted" : "Updated"}
+                    </Badge>
                     <span className="font-medium">{auditActionLabel(log)}</span>
                     <span className="text-muted-foreground">by {log.user_name || "System"}</span>
                     {log.field_name && (
-                      <>
-                        <span className="text-muted-foreground">·</span>
-                        <span className="text-primary font-medium">{log.field_name}</span>
-                      </>
+                      <Badge variant="secondary" className="text-[10px]">field: {log.field_name}</Badge>
                     )}
                   </div>
                   <span className="text-[10px] text-muted-foreground" title={format(new Date(log.created_at), "PPpp")}>
@@ -685,13 +736,25 @@ function SegmentDetailDialog({
                   </span>
                 </div>
                 {(log.old_value || log.new_value) && (
-                  <div className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1 flex-wrap">
-                    {log.old_value && (
-                      <span className="line-through bg-destructive/5 px-1.5 py-0.5 rounded">{log.old_value}</span>
+                  <div className="text-xs mt-2 flex items-center gap-2 flex-wrap">
+                    {log.old_value && log.action !== "create" && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Old</span>
+                        <span className="line-through bg-destructive/5 text-destructive border border-destructive/20 px-1.5 py-0.5 rounded max-w-[240px] truncate inline-block" title={log.old_value}>
+                          {log.old_value}
+                        </span>
+                      </div>
                     )}
-                    {log.old_value && log.new_value && <span>→</span>}
-                    {log.new_value && (
-                      <span className="bg-emerald-500/10 px-1.5 py-0.5 rounded">{log.new_value}</span>
+                    {log.old_value && log.new_value && log.action !== "create" && (
+                      <span className="text-muted-foreground">→</span>
+                    )}
+                    {log.new_value && log.action !== "delete" && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">New</span>
+                        <span className="bg-emerald-500/10 text-emerald-700 border border-emerald-300/40 px-1.5 py-0.5 rounded max-w-[240px] truncate inline-block" title={log.new_value}>
+                          {log.new_value}
+                        </span>
+                      </div>
                     )}
                   </div>
                 )}

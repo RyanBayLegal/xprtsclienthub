@@ -381,13 +381,16 @@ export default function Tasks() {
   useEffect(() => {
     const taskId = searchParams.get("task");
     if (!taskId || viewTask?.id === taskId) return;
+    let cancelled = false;
     const openTargetTask = async () => {
       const target = tasks.find((task) => task.id === taskId);
       if (target) {
+        if (cancelled) return;
         openView(target);
         return;
       }
       const { data } = await supabase.from("tasks").select("*").eq("id", taskId).maybeSingle();
+      if (cancelled) return;
       if (!data) {
         toast.error("Task not found — it may have been deleted.");
         setSearchParams({}, { replace: true });
@@ -397,6 +400,7 @@ export default function Tasks() {
         data.client_profile_id ? supabase.from("client_profiles").select("id, name").eq("id", data.client_profile_id).maybeSingle() : Promise.resolve({ data: null }),
         data.assigned_to ? supabase.from("profiles").select("user_id, full_name, avatar_url").eq("user_id", data.assigned_to).maybeSingle() : Promise.resolve({ data: null }),
       ]);
+      if (cancelled) return;
       openView({
         ...(data as any),
         links: (data.links as any) || [],
@@ -406,6 +410,7 @@ export default function Tasks() {
       } as Task);
     };
     openTargetTask();
+    return () => { cancelled = true; };
   }, [searchParams, tasks, viewTask?.id]);
 
   const handleCreate = async () => {

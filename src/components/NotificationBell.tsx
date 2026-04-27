@@ -118,20 +118,30 @@ export function NotificationBell() {
   const handleNotificationClick = async (notification: Notification) => {
     await markAsRead(notification.id);
     setOpen(false);
-    if (!notification.lead_id) return;
+
+    // Fallback helper — always strips any deep-link params and lands on best list page
+    const fallbackTo = (listPath: string, message?: string) => {
+      if (message) toast.error(message);
+      navigate(listPath, { replace: true });
+    };
+
+    if (!notification.lead_id) {
+      fallbackTo("/leads");
+      return;
+    }
     const targetId = notification.lead_id;
 
     try {
       if (TASK_NOTIFICATION_TYPES.has(notification.type)) {
         const { data: task } = await supabase.from("tasks").select("id").eq("id", targetId).maybeSingle();
-        if (task?.id) navigate(`/tasks?task=${task.id}`);
-        else { toast.error("Task no longer exists."); navigate("/tasks"); }
+        if (task?.id) navigate(`/tasks?task=${task.id}`, { replace: true });
+        else fallbackTo("/tasks", "Task no longer exists.");
         return;
       }
       if (LEAD_NOTIFICATION_TYPES.has(notification.type)) {
         const { data: lead } = await supabase.from("leads").select("id").eq("id", targetId).maybeSingle();
-        if (lead?.id) navigate(`/leads?lead=${lead.id}`);
-        else { toast.error("Lead no longer exists."); navigate("/leads"); }
+        if (lead?.id) navigate(`/leads?lead=${lead.id}`, { replace: true });
+        else fallbackTo("/leads", "Lead no longer exists.");
         return;
       }
       if (CLIENT_NOTIFICATION_TYPES.has(notification.type)) {
@@ -140,17 +150,17 @@ export function NotificationBell() {
           .select("id")
           .eq("lead_id", targetId)
           .maybeSingle();
-        if (client?.id) { navigate(`/clients/${client.id}`); return; }
+        if (client?.id) { navigate(`/clients/${client.id}`, { replace: true }); return; }
+        // Closest valid fallback: try the originating lead, otherwise clients list
         const { data: lead } = await supabase.from("leads").select("id").eq("id", targetId).maybeSingle();
-        if (lead?.id) { navigate(`/leads?lead=${lead.id}`); return; }
-        toast.error("Related record was not found."); navigate("/clients");
+        if (lead?.id) { navigate(`/leads?lead=${lead.id}`, { replace: true }); return; }
+        fallbackTo("/clients", "Related record was not found.");
         return;
       }
       // Unknown notification type — default to leads list
-      navigate("/leads");
+      fallbackTo("/leads");
     } catch (err) {
-      toast.error("Could not open the notification target.");
-      navigate("/leads");
+      fallbackTo("/leads", "Could not open the notification target.");
     }
   };
 
