@@ -137,11 +137,37 @@ export async function executeWorkflows(
 
           if (!existing) {
             const cfg = auto.action_config;
+            // Carry over every field from the lead so the new client record
+            // is fully populated automatically.
+            const { data: lead } = await supabase
+              .from("leads")
+              .select("*")
+              .eq("id", leadId)
+              .maybeSingle();
+            const l: any = lead || {};
+            const contactStr = (l.contact || "").trim();
+            const looksLikeEmail = contactStr.includes("@");
+            const extraNotes: string[] = [];
+            if (l.next_steps) extraNotes.push(`Next steps: ${l.next_steps}`);
+            if (l.date_reached) extraNotes.push(`First reached: ${l.date_reached}`);
+            if (l.follow_up_date) extraNotes.push(`Follow-up date: ${l.follow_up_date}`);
+            if (l.referrer_name) extraNotes.push(`Referrer: ${l.referrer_name}`);
+            if (l.website) extraNotes.push(`Website: ${l.website}`);
+            const composedNotes = [l.notes, ...extraNotes].filter(Boolean).join("\n");
+
             await supabase.from("client_profiles").insert({
               name: leadName,
               lead_id: leadId,
               stage: cfg.default_stage || "Prospect",
               created_by: userId,
+              email: looksLikeEmail ? contactStr : null,
+              phone: !looksLikeEmail && contactStr ? contactStr : null,
+              pain_points: l.needs || null,
+              discovery_notes: composedNotes || null,
+              discovery_source: l.source || null,
+              how_they_found_us: l.referrer_name
+                ? `${l.source || "Referral"} — ${l.referrer_name}`
+                : l.source || null,
             });
             resultMsg = `Converted "${leadName}" to client`;
           } else {
