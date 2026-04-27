@@ -614,8 +614,13 @@ function SegmentDetailDialog({
   }, [lead, fieldFilter, textFilter]);
 
   const open = !!lead;
+  const activeFilters = !!(fieldFilter.trim() || textFilter.trim());
+  const matchSummary = activeFilters
+    ? `${logs.length} match${logs.length === 1 ? "" : "es"}${hasMore ? "+" : ""}`
+    : `${logs.length} entr${logs.length === 1 ? "y" : "ies"} loaded${hasMore ? " · more available" : ""}`;
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { persistScrollPosition(); onClose(); } }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <DialogContent ref={scrollRef} className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
