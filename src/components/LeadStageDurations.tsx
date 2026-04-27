@@ -499,6 +499,12 @@ const auditActionLabel = (log: AuditEntry) => {
   return `Updated ${log.field_name || "record"}`;
 };
 
+const actionBadgeClass = (action: string) => {
+  if (action === "create") return "bg-emerald-500/10 text-emerald-700 border-emerald-300";
+  if (action === "delete") return "bg-destructive/10 text-destructive border-destructive/30";
+  return "bg-primary/10 text-primary border-primary/30";
+};
+
 function SegmentDetailDialog({
   lead,
   cache,
@@ -517,12 +523,14 @@ function SegmentDetailDialog({
   const [fieldFilter, setFieldFilter] = useState("");
   const [textFilter, setTextFilter] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fetchTokenRef = useRef(0);
 
   const AUDIT_PAGE_SIZE = 10;
   const cacheKey = lead ? `${lead.id}-${lead.segment.stage}-${lead.segment.startDate}` : "";
 
   const fetchLogs = async (offset = 0) => {
     if (!lead) return;
+    const token = ++fetchTokenRef.current;
     const start = lead.segment.startDate;
     const end = lead.segment.current ? new Date().toISOString() : lead.segment.endDate;
     let query = (supabase.from as any)("audit_logs")
@@ -542,6 +550,7 @@ function SegmentDetailDialog({
     }
 
     const { data } = await query.range(offset, offset + AUDIT_PAGE_SIZE);
+    if (token !== fetchTokenRef.current) return;
 
     const entries = (data || []) as AuditEntry[];
     const visibleEntries = entries.slice(0, AUDIT_PAGE_SIZE);
@@ -568,6 +577,14 @@ function SegmentDetailDialog({
     if (!cacheKey || fieldFilter.trim() || textFilter.trim()) return;
     const scrollTop = scrollRef.current?.scrollTop || 0;
     setCache((prev) => ({ ...prev, [cacheKey]: { logs, hasMore, loadedOffset: logs.length, scrollTop } }));
+  };
+
+  const handleClose = () => {
+    fetchTokenRef.current++;
+    persistScrollPosition();
+    setLoading(false);
+    setLoadingMore(false);
+    onClose();
   };
 
   useEffect(() => {
