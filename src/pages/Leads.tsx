@@ -220,13 +220,16 @@ export default function Leads() {
   useEffect(() => {
     const leadId = searchParams.get("lead");
     if (!leadId || editingId === leadId) return;
+    let cancelled = false;
     const openTargetLead = async () => {
       const target = leads.find((lead) => lead.id === leadId);
       if (target) {
+        if (cancelled) return;
         handleEdit(target);
         return;
       }
       const { data } = await supabase.from("leads").select("*").eq("id", leadId).maybeSingle();
+      if (cancelled) return;
       if (data) handleEdit(data as Lead);
       else {
         toast.error("Lead not found — it may have been deleted.");
@@ -234,6 +237,7 @@ export default function Leads() {
       }
     };
     openTargetLead();
+    return () => { cancelled = true; };
   }, [searchParams, leads, editingId]);
 
   const handleDelete = async (id: string) => {
