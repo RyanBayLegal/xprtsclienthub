@@ -670,6 +670,36 @@ function SegmentDetailDialog({
           </div>
         </div>
 
+        {/* Active filter / match summary */}
+        <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {activeFilters ? (
+              <>
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Filters:</span>
+                {fieldFilter.trim() && (
+                  <Badge variant="secondary" className="text-[10px] gap-1 pr-1">
+                    field: {fieldFilter.trim()}
+                    <button type="button" onClick={() => setFieldFilter("")} aria-label="Clear field filter" className="hover:text-foreground">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+                {textFilter.trim() && (
+                  <Badge variant="secondary" className="text-[10px] gap-1 pr-1">
+                    text: {textFilter.trim()}
+                    <button type="button" onClick={() => setTextFilter("")} aria-label="Clear text filter" className="hover:text-foreground">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">No filters applied</span>
+            )}
+          </div>
+          <span className="text-[10px] font-medium text-muted-foreground">{matchSummary}</span>
+        </div>
+
         {loading ? (
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => (
@@ -691,15 +721,14 @@ function SegmentDetailDialog({
             {logs.map((log) => (
               <div key={log.id} className="border rounded-md p-3 bg-card">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Badge variant="outline" className="text-[10px]">{log.action}</Badge>
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    <Badge variant="outline" className={`text-[10px] ${actionBadgeClass(log.action)}`}>
+                      {log.action === "create" ? "Created" : log.action === "delete" ? "Deleted" : "Updated"}
+                    </Badge>
                     <span className="font-medium">{auditActionLabel(log)}</span>
                     <span className="text-muted-foreground">by {log.user_name || "System"}</span>
                     {log.field_name && (
-                      <>
-                        <span className="text-muted-foreground">·</span>
-                        <span className="text-primary font-medium">{log.field_name}</span>
-                      </>
+                      <Badge variant="secondary" className="text-[10px]">field: {log.field_name}</Badge>
                     )}
                   </div>
                   <span className="text-[10px] text-muted-foreground" title={format(new Date(log.created_at), "PPpp")}>
@@ -707,13 +736,25 @@ function SegmentDetailDialog({
                   </span>
                 </div>
                 {(log.old_value || log.new_value) && (
-                  <div className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1 flex-wrap">
-                    {log.old_value && (
-                      <span className="line-through bg-destructive/5 px-1.5 py-0.5 rounded">{log.old_value}</span>
+                  <div className="text-xs mt-2 flex items-center gap-2 flex-wrap">
+                    {log.old_value && log.action !== "create" && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Old</span>
+                        <span className="line-through bg-destructive/5 text-destructive border border-destructive/20 px-1.5 py-0.5 rounded max-w-[240px] truncate inline-block" title={log.old_value}>
+                          {log.old_value}
+                        </span>
+                      </div>
                     )}
-                    {log.old_value && log.new_value && <span>→</span>}
-                    {log.new_value && (
-                      <span className="bg-emerald-500/10 px-1.5 py-0.5 rounded">{log.new_value}</span>
+                    {log.old_value && log.new_value && log.action !== "create" && (
+                      <span className="text-muted-foreground">→</span>
+                    )}
+                    {log.new_value && log.action !== "delete" && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">New</span>
+                        <span className="bg-emerald-500/10 text-emerald-700 border border-emerald-300/40 px-1.5 py-0.5 rounded max-w-[240px] truncate inline-block" title={log.new_value}>
+                          {log.new_value}
+                        </span>
+                      </div>
                     )}
                   </div>
                 )}
