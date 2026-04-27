@@ -281,19 +281,74 @@ export default function Leads() {
       return;
     }
 
+    // Pull the freshest lead record so every field carries over, even if the
+    // in-memory list is stale.
+    const { data: freshLead } = await supabase
+      .from("leads")
+      .select("*")
+      .eq("id", convertLead.id)
+      .maybeSingle();
+    const lead: any = freshLead || convertLead;
+
+    // The lead "contact" field holds either an email or phone (combined column).
+    const contactStr = (lead.contact || "").trim();
+    const looksLikeEmail = contactStr.includes("@");
+    const leadEmail = looksLikeEmail ? contactStr : null;
+    const leadPhone = !looksLikeEmail && contactStr ? contactStr : null;
+
+    // Compose discovery notes — keep the user's edits and append any extra
+    // lead context that wasn't already part of the form.
+    const extraNotes: string[] = [];
+    if (lead.next_steps) extraNotes.push(`Next steps: ${lead.next_steps}`);
+    if (lead.date_reached) extraNotes.push(`First reached: ${lead.date_reached}`);
+    if (lead.follow_up_date) extraNotes.push(`Follow-up date: ${lead.follow_up_date}`);
+    if (lead.referrer_name) extraNotes.push(`Referrer: ${lead.referrer_name}`);
+    if (lead.website) extraNotes.push(`Website: ${lead.website}`);
+    const composedDiscoveryNotes = [convertForm.discovery_notes, ...extraNotes]
+      .filter(Boolean)
+      .join("\n");
+
     const { data, error } = await supabase.from("client_profiles").insert({
+      // Form-driven fields (user can override during conversion)
       name: convertForm.name,
       company: convertForm.company || null,
       role: convertForm.role || null,
       practice_area: convertForm.practice_area || null,
       stage: convertForm.stage || null,
-      pain_points: convertForm.pain_points || null,
-      discovery_notes: convertForm.discovery_notes || null,
-      lead_id: convertLead.id,
+      pain_points: convertForm.pain_points || lead.needs || null,
+      discovery_notes: composedDiscoveryNotes || null,
+      // Auto-synced from lead
+      email: leadEmail,
+      phone: leadPhone,
+      discovery_source: lead.source || null,
+      how_they_found_us: lead.referrer_name
+        ? `${lead.source || "Referral"} — ${lead.referrer_name}`
+        : lead.source || null,
+      lead_id: lead.id,
       created_by: user?.id,
     }).select("id").single();
 
     if (error) { toast.error(error.message); setConverting(false); return; }
+
+    // Audit the conversion so the trail is visible on both records.
+    if (user) {
+      try {
+        const userName = await getUserName(user.id);
+        await logAudit({
+          userId: user.id,
+          userName,
+          entityType: "lead",
+          entityId: lead.id,
+          action: "update",
+          fieldName: "Converted to Client",
+          oldValue: null,
+          newValue: convertForm.name,
+          description: `Converted lead "${lead.name}" to client profile (all lead fields synced)`,
+        });
+      } catch (e) {
+        console.error("Failed to log conversion audit:", e);
+      }
+    }
 
     toast.success(`${convertForm.name} converted to client profile!`);
     setConvertDialogOpen(false);
