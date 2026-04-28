@@ -271,6 +271,14 @@ export default function Leads() {
     return { email, phone };
   };
 
+  // Lightweight validators for the conversion preview.
+  const isValidEmail = (v: string | null) => !!v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+  const isValidPhone = (v: string | null) => {
+    if (!v) return false;
+    const digits = v.replace(/\D/g, "");
+    return digits.length >= 7 && digits.length <= 15;
+  };
+
   // Build the field-by-field preview of what will be copied from lead → client profile.
   // Used both by the preview panel and the audit log.
   type SyncRow = { label: string; field: string; from: string | null; to: string | null };
@@ -280,8 +288,13 @@ export default function Leads() {
     if (lead?.next_steps) extraNotes.push(`Next steps: ${lead.next_steps}`);
     if (lead?.date_reached) extraNotes.push(`First reached: ${lead.date_reached}`);
     if (lead?.follow_up_date) extraNotes.push(`Follow-up date: ${lead.follow_up_date}`);
+    if (lead?.follow_up_email_after) extraNotes.push(`Follow-up email after: ${lead.follow_up_email_after}`);
+    if (lead?.follow_up_email_sent) extraNotes.push(`Follow-up email sent: yes`);
+    if (lead?.email_sent_with_info) extraNotes.push(`Info email sent: yes`);
+    if (lead?.booked) extraNotes.push(`Booked: yes`);
     if (lead?.referrer_name) extraNotes.push(`Referrer: ${lead.referrer_name}`);
     if (lead?.website) extraNotes.push(`Website: ${lead.website}`);
+    if (lead?.stage) extraNotes.push(`Lead stage at conversion: ${lead.stage}`);
     const composedDiscoveryNotes = [form.discovery_notes, ...extraNotes].filter(Boolean).join("\n") || null;
     const howFound = lead?.referrer_name
       ? `${lead?.source || "Referral"} — ${lead.referrer_name}`
