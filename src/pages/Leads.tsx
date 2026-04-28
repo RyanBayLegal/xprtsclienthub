@@ -12,6 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap, Eye, ArrowRight } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import BulkLeadImport from "@/components/BulkLeadImport";
 import { exportToCSV } from "@/lib/csv-export";
 import { toast } from "sonner";
@@ -93,6 +95,8 @@ export default function Leads() {
   const [convertLead, setConvertLead] = useState<Lead | null>(null);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [conversionError, setConversionError] = useState<string | null>(null);
+  const [showOnlyChanged, setShowOnlyChanged] = useState(false);
   const [convertForm, setConvertForm] = useState({
     name: "", company: "", role: "", practice_area: "", stage: "Onboarding/Kickoff Stage",
     pain_points: "", discovery_notes: "",
@@ -267,6 +271,14 @@ export default function Leads() {
     return { email, phone };
   };
 
+  // Lightweight validators for the conversion preview.
+  const isValidEmail = (v: string | null) => !!v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+  const isValidPhone = (v: string | null) => {
+    if (!v) return false;
+    const digits = v.replace(/\D/g, "");
+    return digits.length >= 7 && digits.length <= 15;
+  };
+
   // Build the field-by-field preview of what will be copied from lead → client profile.
   // Used both by the preview panel and the audit log.
   type SyncRow = { label: string; field: string; from: string | null; to: string | null };
@@ -276,8 +288,13 @@ export default function Leads() {
     if (lead?.next_steps) extraNotes.push(`Next steps: ${lead.next_steps}`);
     if (lead?.date_reached) extraNotes.push(`First reached: ${lead.date_reached}`);
     if (lead?.follow_up_date) extraNotes.push(`Follow-up date: ${lead.follow_up_date}`);
+    if (lead?.follow_up_email_after) extraNotes.push(`Follow-up email after: ${lead.follow_up_email_after}`);
+    if (lead?.follow_up_email_sent) extraNotes.push(`Follow-up email sent: yes`);
+    if (lead?.email_sent_with_info) extraNotes.push(`Info email sent: yes`);
+    if (lead?.booked) extraNotes.push(`Booked: yes`);
     if (lead?.referrer_name) extraNotes.push(`Referrer: ${lead.referrer_name}`);
     if (lead?.website) extraNotes.push(`Website: ${lead.website}`);
+    if (lead?.stage) extraNotes.push(`Lead stage at conversion: ${lead.stage}`);
     const composedDiscoveryNotes = [form.discovery_notes, ...extraNotes].filter(Boolean).join("\n") || null;
     const howFound = lead?.referrer_name
       ? `${lead?.source || "Referral"} — ${lead.referrer_name}`
@@ -299,6 +316,8 @@ export default function Leads() {
 
   const openConvert = (lead: Lead) => {
     setConvertLead(lead);
+    setConversionError(null);
+    setShowOnlyChanged(false);
     setConvertForm({
       name: lead.name,
       company: "",
@@ -313,6 +332,8 @@ export default function Leads() {
 
   const handleConvert = async () => {
     if (!convertLead || !convertForm.name) { toast.error("Name is required"); return; }
+    if (converting) return; // double-submit guard
+    setConversionError(null);
     setConverting(true);
 
     try {
@@ -372,7 +393,9 @@ export default function Leads() {
           navigate(`/clients/${raceProfile.id}`);
           return;
         }
-        toast.error(error?.message || "Conversion failed — please retry.");
+        const msg = error?.message || "Conversion failed — please retry.";
+        setConversionError(msg);
+        toast.error(msg);
         return; // Dialog stays open so the user can fix and retry safely.
       }
 
@@ -658,17 +681,46 @@ export default function Leads() {
             {convertLead && (() => {
               const plan = buildSyncPlan(convertLead, convertForm);
               const synced = plan.filter((r) => r.to != null && String(r.to).length > 0);
+              const changedOnly = plan.filter((r) => (r.from || "") !== (r.to || ""));
+              const visiblePlan = showOnlyChanged ? changedOnly : plan;
+              const emailRow = plan.find((r) => r.field === "email");
+              const phoneRow = plan.find((r) => r.field === "phone");
+              const emailInvalid = !!emailRow?.to && !isValidEmail(emailRow.to);
+              const phoneInvalid = !!phoneRow?.to && !isValidPhone(phoneRow.to);
               return (
                 <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Eye className="h-4 w-4 text-primary" />
-                    Sync Preview
-                    <span className="text-xs text-muted-foreground font-normal">
-                      ({synced.length} of {plan.length} field{plan.length === 1 ? "" : "s"} will be copied)
-                    </span>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Eye className="h-4 w-4 text-primary" />
+                      Sync Preview
+                      <span className="text-xs text-muted-foreground font-normal">
+                        ({synced.length} of {plan.length} will copy · {changedOnly.length} changed)
+                      </span>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                      <Switch checked={showOnlyChanged} onCheckedChange={setShowOnlyChanged} />
+                      Show only changed
+                    </label>
                   </div>
+                  {(emailInvalid || phoneInvalid) && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {emailInvalid && (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 gap-1">
+                          <AlertTriangle className="h-3 w-3" /> Email looks invalid: {emailRow!.to}
+                        </Badge>
+                      )}
+                      {phoneInvalid && (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 gap-1">
+                          <AlertTriangle className="h-3 w-3" /> Phone looks invalid: {phoneRow!.to}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                   <div className="max-h-48 overflow-y-auto space-y-1 text-xs">
-                    {plan.map((r) => {
+                    {visiblePlan.length === 0 && (
+                      <p className="text-muted-foreground italic py-2">No changed fields.</p>
+                    )}
+                    {visiblePlan.map((r) => {
                       const willCopy = r.to != null && String(r.to).length > 0;
                       return (
                         <div key={r.field} className="flex items-start gap-2 py-0.5">
@@ -697,9 +749,30 @@ export default function Leads() {
                 </div>
               );
             })()}
+            {conversionError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm space-y-2">
+                <div className="flex items-start gap-2 text-destructive">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium">Conversion failed</p>
+                    <p className="text-xs text-destructive/80 mt-0.5 break-words">{conversionError}</p>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleConvert}
+                  disabled={converting}
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-destructive/40 text-destructive hover:bg-destructive/10"
+                >
+                  <RefreshCw className={`mr-2 h-3.5 w-3.5 ${converting ? "animate-spin" : ""}`} />
+                  {converting ? "Retrying..." : "Retry conversion"}
+                </Button>
+              </div>
+            )}
             <Button onClick={handleConvert} disabled={converting} className="w-full">
               <UserCheck className="mr-2 h-4 w-4" />
-              {converting ? "Converting..." : "Confirm & Create Client Profile"}
+              {converting ? "Converting..." : conversionError ? "Try Again" : "Confirm & Create Client Profile"}
             </Button>
           </div>
         </DialogContent>

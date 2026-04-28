@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Search, History } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, History, ExternalLink } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { Link } from "react-router-dom";
 
 interface AuditLog {
   id: string;
@@ -131,6 +132,30 @@ export default function AuditLogPanel({ clientProfileId, entityType, entityId, t
                     <span className="text-muted-foreground">{actionLabel(log)}</span>
                     <span className="text-muted-foreground">on</span>
                     <Badge variant="secondary" className="text-[10px]">{log.entity_type}</Badge>
+                    {log.entity_type === "lead" && log.entity_id && (
+                      <Link
+                        to={`/leads?leadId=${log.entity_id}`}
+                        className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline"
+                      >
+                        Open lead <ExternalLink className="h-2.5 w-2.5" />
+                      </Link>
+                    )}
+                    {log.entity_type === "client_profile" && log.entity_id && (
+                      <Link
+                        to={`/clients/${log.entity_id}`}
+                        className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline"
+                      >
+                        Open client <ExternalLink className="h-2.5 w-2.5" />
+                      </Link>
+                    )}
+                    {log.entity_type !== "client_profile" && log.client_profile_id && (
+                      <Link
+                        to={`/clients/${log.client_profile_id}`}
+                        className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline"
+                      >
+                        Client profile <ExternalLink className="h-2.5 w-2.5" />
+                      </Link>
+                    )}
                   </div>
                   {(log.old_value || log.new_value) && (
                     <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1 flex-wrap">
