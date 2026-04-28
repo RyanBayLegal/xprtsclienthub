@@ -248,6 +248,55 @@ export default function Leads() {
     setKanbanKey((k) => k + 1);
   };
 
+  // Split a free-text contact field into email + phone.
+  // Handles: "a@b.com", "555-1234", "a@b.com / 555-1234", "555-1234, a@b.com".
+  const splitContact = (raw: string | null | undefined): { email: string | null; phone: string | null } => {
+    const s = (raw || "").trim();
+    if (!s) return { email: null, phone: null };
+    const parts = s.split(/[\s,;|/]+/).map((p) => p.trim()).filter(Boolean);
+    let email: string | null = null;
+    let phone: string | null = null;
+    for (const p of parts) {
+      if (!email && /\S+@\S+\.\S+/.test(p)) email = p;
+      else if (!phone && /[\d()+\-\s]{6,}/.test(p)) phone = p;
+    }
+    if (!email && !phone) {
+      // Fallback: original string as phone if it contains digits, else email if @, else phone.
+      if (s.includes("@")) email = s; else phone = s;
+    }
+    return { email, phone };
+  };
+
+  // Build the field-by-field preview of what will be copied from lead → client profile.
+  // Used both by the preview panel and the audit log.
+  type SyncRow = { label: string; field: string; from: string | null; to: string | null };
+  const buildSyncPlan = (lead: any, form: typeof convertForm): SyncRow[] => {
+    const { email, phone } = splitContact(lead?.contact);
+    const extraNotes: string[] = [];
+    if (lead?.next_steps) extraNotes.push(`Next steps: ${lead.next_steps}`);
+    if (lead?.date_reached) extraNotes.push(`First reached: ${lead.date_reached}`);
+    if (lead?.follow_up_date) extraNotes.push(`Follow-up date: ${lead.follow_up_date}`);
+    if (lead?.referrer_name) extraNotes.push(`Referrer: ${lead.referrer_name}`);
+    if (lead?.website) extraNotes.push(`Website: ${lead.website}`);
+    const composedDiscoveryNotes = [form.discovery_notes, ...extraNotes].filter(Boolean).join("\n") || null;
+    const howFound = lead?.referrer_name
+      ? `${lead?.source || "Referral"} — ${lead.referrer_name}`
+      : lead?.source || null;
+    return [
+      { label: "Name", field: "name", from: lead?.name || null, to: form.name || null },
+      { label: "Email", field: "email", from: lead?.contact || null, to: email },
+      { label: "Phone", field: "phone", from: lead?.contact || null, to: phone },
+      { label: "Company", field: "company", from: null, to: form.company || null },
+      { label: "Role / Title", field: "role", from: null, to: form.role || null },
+      { label: "Practice Area", field: "practice_area", from: null, to: form.practice_area || null },
+      { label: "Stage", field: "stage", from: lead?.stage || null, to: form.stage || null },
+      { label: "Pain Points", field: "pain_points", from: lead?.needs || null, to: form.pain_points || lead?.needs || null },
+      { label: "Discovery Source", field: "discovery_source", from: lead?.source || null, to: lead?.source || null },
+      { label: "How They Found Us", field: "how_they_found_us", from: lead?.referrer_name || lead?.source || null, to: howFound },
+      { label: "Discovery Notes", field: "discovery_notes", from: lead?.notes || null, to: composedDiscoveryNotes },
+    ];
+  };
+
   const openConvert = (lead: Lead) => {
     setConvertLead(lead);
     setConvertForm({
