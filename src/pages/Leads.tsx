@@ -655,9 +655,51 @@ export default function Leads() {
               <Label>Discovery Notes</Label>
               <Textarea rows={2} value={convertForm.discovery_notes} onChange={(e) => setConvertForm((f) => ({ ...f, discovery_notes: e.target.value }))} />
             </div>
+            {convertLead && (() => {
+              const plan = buildSyncPlan(convertLead, convertForm);
+              const synced = plan.filter((r) => r.to != null && String(r.to).length > 0);
+              return (
+                <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Eye className="h-4 w-4 text-primary" />
+                    Sync Preview
+                    <span className="text-xs text-muted-foreground font-normal">
+                      ({synced.length} of {plan.length} field{plan.length === 1 ? "" : "s"} will be copied)
+                    </span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto space-y-1 text-xs">
+                    {plan.map((r) => {
+                      const willCopy = r.to != null && String(r.to).length > 0;
+                      return (
+                        <div key={r.field} className="flex items-start gap-2 py-0.5">
+                          <span className={`shrink-0 w-32 ${willCopy ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                            {r.label}
+                          </span>
+                          {willCopy ? (
+                            <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                              {r.from && r.from !== r.to && (
+                                <>
+                                  <span className="bg-muted px-1.5 py-0.5 rounded truncate max-w-[40%]" title={r.from}>{r.from}</span>
+                                  <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                </>
+                              )}
+                              <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded truncate" title={String(r.to)}>
+                                {String(r.to)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground italic">—</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
             <Button onClick={handleConvert} disabled={converting} className="w-full">
               <UserCheck className="mr-2 h-4 w-4" />
-              {converting ? "Converting..." : "Create Client Profile"}
+              {converting ? "Converting..." : "Confirm & Create Client Profile"}
             </Button>
           </div>
         </DialogContent>
