@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap, Eye, ArrowRight } from "lucide-react";
 import BulkLeadImport from "@/components/BulkLeadImport";
 import { exportToCSV } from "@/lib/csv-export";
 import { toast } from "sonner";
