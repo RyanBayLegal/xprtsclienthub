@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap, Eye, ArrowRight } from "lucide-react";
-import { AlertTriangle, RefreshCw, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import BulkLeadImport from "@/components/BulkLeadImport";
 import { exportToCSV } from "@/lib/csv-export";
