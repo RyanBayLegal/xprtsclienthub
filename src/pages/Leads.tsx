@@ -316,6 +316,8 @@ export default function Leads() {
 
   const openConvert = (lead: Lead) => {
     setConvertLead(lead);
+    setConversionError(null);
+    setShowOnlyChanged(false);
     setConvertForm({
       name: lead.name,
       company: "",
@@ -330,6 +332,8 @@ export default function Leads() {
 
   const handleConvert = async () => {
     if (!convertLead || !convertForm.name) { toast.error("Name is required"); return; }
+    if (converting) return; // double-submit guard
+    setConversionError(null);
     setConverting(true);
 
     try {
@@ -389,7 +393,9 @@ export default function Leads() {
           navigate(`/clients/${raceProfile.id}`);
           return;
         }
-        toast.error(error?.message || "Conversion failed — please retry.");
+        const msg = error?.message || "Conversion failed — please retry.";
+        setConversionError(msg);
+        toast.error(msg);
         return; // Dialog stays open so the user can fix and retry safely.
       }
 
