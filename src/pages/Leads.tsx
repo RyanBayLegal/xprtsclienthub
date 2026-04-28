@@ -315,94 +315,125 @@ export default function Leads() {
     if (!convertLead || !convertForm.name) { toast.error("Name is required"); return; }
     setConverting(true);
 
-    // Check if a client profile already exists for this lead
-    const { data: existing } = await supabase
-      .from("client_profiles")
-      .select("id")
-      .eq("lead_id", convertLead.id)
-      .maybeSingle();
+    try {
+      // Reconciliation: re-check for an existing client profile for this lead
+      // both before AND after insert so retries never create duplicates.
+      const { data: existing } = await supabase
+        .from("client_profiles")
+        .select("id, name")
+        .eq("lead_id", convertLead.id)
+        .maybeSingle();
 
-    if (existing) {
-      toast.info("A client profile already exists for this lead.");
-      navigate(`/clients/${existing.id}`);
-      setConvertDialogOpen(false);
-      setConverting(false);
-      return;
-    }
-
-    // Pull the freshest lead record so every field carries over, even if the
-    // in-memory list is stale.
-    const { data: freshLead } = await supabase
-      .from("leads")
-      .select("*")
-      .eq("id", convertLead.id)
-      .maybeSingle();
-    const lead: any = freshLead || convertLead;
-
-    // The lead "contact" field holds either an email or phone (combined column).
-    const contactStr = (lead.contact || "").trim();
-    const looksLikeEmail = contactStr.includes("@");
-    const leadEmail = looksLikeEmail ? contactStr : null;
-    const leadPhone = !looksLikeEmail && contactStr ? contactStr : null;
-
-    // Compose discovery notes — keep the user's edits and append any extra
-    // lead context that wasn't already part of the form.
-    const extraNotes: string[] = [];
-    if (lead.next_steps) extraNotes.push(`Next steps: ${lead.next_steps}`);
-    if (lead.date_reached) extraNotes.push(`First reached: ${lead.date_reached}`);
-    if (lead.follow_up_date) extraNotes.push(`Follow-up date: ${lead.follow_up_date}`);
-    if (lead.referrer_name) extraNotes.push(`Referrer: ${lead.referrer_name}`);
-    if (lead.website) extraNotes.push(`Website: ${lead.website}`);
-    const composedDiscoveryNotes = [convertForm.discovery_notes, ...extraNotes]
-      .filter(Boolean)
-      .join("\n");
-
-    const { data, error } = await supabase.from("client_profiles").insert({
-      // Form-driven fields (user can override during conversion)
-      name: convertForm.name,
-      company: convertForm.company || null,
-      role: convertForm.role || null,
-      practice_area: convertForm.practice_area || null,
-      stage: convertForm.stage || null,
-      pain_points: convertForm.pain_points || lead.needs || null,
-      discovery_notes: composedDiscoveryNotes || null,
-      // Auto-synced from lead
-      email: leadEmail,
-      phone: leadPhone,
-      discovery_source: lead.source || null,
-      how_they_found_us: lead.referrer_name
-        ? `${lead.source || "Referral"} — ${lead.referrer_name}`
-        : lead.source || null,
-      lead_id: lead.id,
-      created_by: user?.id,
-    }).select("id").single();
-
-    if (error) { toast.error(error.message); setConverting(false); return; }
-
-    // Audit the conversion so the trail is visible on both records.
-    if (user) {
-      try {
-        const userName = await getUserName(user.id);
-        await logAudit({
-          userId: user.id,
-          userName,
-          entityType: "lead",
-          entityId: lead.id,
-          action: "update",
-          fieldName: "Converted to Client",
-          oldValue: null,
-          newValue: convertForm.name,
-          description: `Converted lead "${lead.name}" to client profile (all lead fields synced)`,
-        });
-      } catch (e) {
-        console.error("Failed to log conversion audit:", e);
+      if (existing) {
+        toast.info("A client profile already exists for this lead — opening it.");
+        setConvertDialogOpen(false);
+        navigate(`/clients/${existing.id}`);
+        return;
       }
-    }
 
-    toast.success(`${convertForm.name} converted to client profile!`);
-    setConvertDialogOpen(false);
-    setConverting(false);
-    navigate(`/clients/${data.id}`);
+      // Pull the freshest lead record so every field carries over.
+      const { data: freshLead } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("id", convertLead.id)
+        .maybeSingle();
+      const lead: any = freshLead || convertLead;
+
+      const plan = buildSyncPlan(lead, convertForm);
+      const planMap = Object.fromEntries(plan.map((r) => [r.field, r]));
+
+      const { data, error } = await supabase.from("client_profiles").insert({
+        name: planMap.name.to,
+        company: planMap.company.to,
+        role: planMap.role.to,
+        practice_area: planMap.practice_area.to,
+        stage: planMap.stage.to,
+        pain_points: planMap.pain_points.to,
+        discovery_notes: planMap.discovery_notes.to,
+        email: planMap.email.to,
+        phone: planMap.phone.to,
+        discovery_source: planMap.discovery_source.to,
+        how_they_found_us: planMap.how_they_found_us.to,
+        lead_id: lead.id,
+        created_by: user?.id,
+      }).select("id").single();
+
+      if (error || !data) {
+        // Reconciliation: if insert failed because of a race, recover the
+        // existing profile instead of leaving the dialog stuck.
+        const { data: raceProfile } = await supabase
+          .from("client_profiles")
+          .select("id")
+          .eq("lead_id", convertLead.id)
+          .maybeSingle();
+        if (raceProfile) {
+          toast.info("Client profile already exists — opening it.");
+          setConvertDialogOpen(false);
+          navigate(`/clients/${raceProfile.id}`);
+          return;
+        }
+        toast.error(error?.message || "Conversion failed — please retry.");
+        return; // Dialog stays open so the user can fix and retry safely.
+      }
+
+      const newClientId = data.id;
+
+      // Post-conversion: update the lead so it's visibly marked as converted
+      // and moves out of the active pipeline. Failure here doesn't block.
+      try {
+        await supabase
+          .from("leads")
+          .update({ stage: "Hired Stage", booked: true })
+          .eq("id", lead.id);
+      } catch (e) {
+        console.error("Failed to mark lead as converted:", e);
+      }
+
+      // Detailed per-field audit log on both lead and client.
+      if (user) {
+        try {
+          const userName = await getUserName(user.id);
+          const synced = plan.filter((r) => r.to != null && String(r.to).length > 0);
+          const summary = synced.map((r) => r.label).join(", ");
+          await logAudit({
+            userId: user.id,
+            userName,
+            entityType: "lead",
+            entityId: lead.id,
+            clientProfileId: newClientId,
+            action: "update",
+            fieldName: "Converted to Client",
+            oldValue: null,
+            newValue: planMap.name.to,
+            description: `Converted to client profile. Synced fields: ${summary}`,
+          });
+          await Promise.all(
+            synced.map((r) =>
+              logAudit({
+                userId: user.id,
+                userName,
+                entityType: "client_profile",
+                entityId: newClientId,
+                clientProfileId: newClientId,
+                action: "create",
+                fieldName: r.label,
+                oldValue: r.from,
+                newValue: r.to,
+                description: `Copied from lead "${lead.name}"`,
+              })
+            )
+          );
+        } catch (e) {
+          console.error("Failed to log conversion audit:", e);
+        }
+      }
+
+      toast.success(`${planMap.name.to} converted to client profile!`);
+      setConvertDialogOpen(false);
+      navigate(`/clients/${newClientId}`);
+    } finally {
+      setConverting(false);
+    }
   };
 
   const openDocDialog = async (lead: Lead, tab: "nda" | "agreement") => {
