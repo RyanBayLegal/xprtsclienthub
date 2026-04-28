@@ -12,6 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap, Eye, ArrowRight } from "lucide-react";
+import { AlertTriangle, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import BulkLeadImport from "@/components/BulkLeadImport";
 import { exportToCSV } from "@/lib/csv-export";
 import { toast } from "sonner";
@@ -93,6 +95,8 @@ export default function Leads() {
   const [convertLead, setConvertLead] = useState<Lead | null>(null);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [conversionError, setConversionError] = useState<string | null>(null);
+  const [showOnlyChanged, setShowOnlyChanged] = useState(false);
   const [convertForm, setConvertForm] = useState({
     name: "", company: "", role: "", practice_area: "", stage: "Onboarding/Kickoff Stage",
     pain_points: "", discovery_notes: "",
