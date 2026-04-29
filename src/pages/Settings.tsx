@@ -615,6 +615,10 @@ export default function Settings() {
         <TabsContent value="lead-sources">
           <LeadSourcesManager />
         </TabsContent>
+
+        <TabsContent value="notifications">
+          <LeadNotificationRecipients />
+        </TabsContent>
       </Tabs>
     </div>
   );
