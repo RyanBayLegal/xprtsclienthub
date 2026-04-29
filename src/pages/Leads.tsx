@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap, Eye, ArrowRight } from "lucide-react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, CheckCircle2, ExternalLink } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import BulkLeadImport from "@/components/BulkLeadImport";
 import { exportToCSV } from "@/lib/csv-export";
@@ -96,7 +96,24 @@ export default function Leads() {
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [converting, setConverting] = useState(false);
   const [conversionError, setConversionError] = useState<string | null>(null);
-  const [showOnlyChanged, setShowOnlyChanged] = useState(false);
+  const [showOnlyChanged, setShowOnlyChanged] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("convertDialog.showOnlyChanged") === "1";
+  });
+  // Persist toggle across opens of the conversion dialog.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("convertDialog.showOnlyChanged", showOnlyChanged ? "1" : "0");
+    } catch { /* noop */ }
+  }, [showOnlyChanged]);
+  // Post-success verification panel state — shows new client_profile_id and the
+  // exact list of copied fields so the user can verify what was logged.
+  const [conversionResult, setConversionResult] = useState<{
+    clientProfileId: string;
+    auditLogId: string | null;
+    copiedFields: { label: string; value: string }[];
+    clientName: string;
+  } | null>(null);
   const [convertForm, setConvertForm] = useState({
     name: "", company: "", role: "", practice_area: "", stage: "Onboarding/Kickoff Stage",
     pain_points: "", discovery_notes: "",
@@ -317,7 +334,8 @@ export default function Leads() {
   const openConvert = (lead: Lead) => {
     setConvertLead(lead);
     setConversionError(null);
-    setShowOnlyChanged(false);
+    setConversionResult(null);
+    // Note: do NOT reset showOnlyChanged — it persists across dialog opens (user preference).
     setConvertForm({
       name: lead.name,
       company: "",
