@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap, Eye, ArrowRight } from "lucide-react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, CheckCircle2, ExternalLink } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import BulkLeadImport from "@/components/BulkLeadImport";
 import { exportToCSV } from "@/lib/csv-export";
@@ -96,7 +96,24 @@ export default function Leads() {
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [converting, setConverting] = useState(false);
   const [conversionError, setConversionError] = useState<string | null>(null);
-  const [showOnlyChanged, setShowOnlyChanged] = useState(false);
+  const [showOnlyChanged, setShowOnlyChanged] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("convertDialog.showOnlyChanged") === "1";
+  });
+  // Persist toggle across opens of the conversion dialog.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("convertDialog.showOnlyChanged", showOnlyChanged ? "1" : "0");
+    } catch { /* noop */ }
+  }, [showOnlyChanged]);
+  // Post-success verification panel state — shows new client_profile_id and the
+  // exact list of copied fields so the user can verify what was logged.
+  const [conversionResult, setConversionResult] = useState<{
+    clientProfileId: string;
+    auditLogId: string | null;
+    copiedFields: { label: string; value: string }[];
+    clientName: string;
+  } | null>(null);
   const [convertForm, setConvertForm] = useState({
     name: "", company: "", role: "", practice_area: "", stage: "Onboarding/Kickoff Stage",
     pain_points: "", discovery_notes: "",
@@ -317,7 +334,8 @@ export default function Leads() {
   const openConvert = (lead: Lead) => {
     setConvertLead(lead);
     setConversionError(null);
-    setShowOnlyChanged(false);
+    setConversionResult(null);
+    // Note: do NOT reset showOnlyChanged — it persists across dialog opens (user preference).
     setConvertForm({
       name: lead.name,
       company: "",
@@ -333,6 +351,18 @@ export default function Leads() {
   const handleConvert = async () => {
     if (!convertLead || !convertForm.name) { toast.error("Name is required"); return; }
     if (converting) return; // double-submit guard
+    // Block when the email/phone preview badges flag invalid values.
+    const previewPlan = buildSyncPlan(convertLead, convertForm);
+    const emailTo = previewPlan.find((r) => r.field === "email")?.to;
+    const phoneTo = previewPlan.find((r) => r.field === "phone")?.to;
+    if (emailTo && !isValidEmail(emailTo)) {
+      toast.error("Email looks invalid — please fix before converting.");
+      return;
+    }
+    if (phoneTo && !isValidPhone(phoneTo)) {
+      toast.error("Phone looks invalid — please fix before converting.");
+      return;
+    }
     setConversionError(null);
     setConverting(true);
 
@@ -412,24 +442,31 @@ export default function Leads() {
         console.error("Failed to mark lead as converted:", e);
       }
 
-      // Detailed per-field audit log on both lead and client.
+      // Detailed per-field audit log on both lead and client. We capture the
+      // parent audit row's id so the dialog and the deep-link can highlight it.
+      let parentAuditId: string | null = null;
+      const synced = plan.filter((r) => r.to != null && String(r.to).length > 0);
       if (user) {
         try {
           const userName = await getUserName(user.id);
-          const synced = plan.filter((r) => r.to != null && String(r.to).length > 0);
           const summary = synced.map((r) => r.label).join(", ");
-          await logAudit({
-            userId: user.id,
-            userName,
-            entityType: "lead",
-            entityId: lead.id,
-            clientProfileId: newClientId,
-            action: "update",
-            fieldName: "Converted to Client",
-            oldValue: null,
-            newValue: planMap.name.to,
-            description: `Converted to client profile. Synced fields: ${summary}`,
-          });
+          // Insert parent audit directly so we can capture the id for deep-linking.
+          const { data: parentRow } = await (supabase.from as any)("audit_logs")
+            .insert({
+              user_id: user.id,
+              user_name: userName,
+              entity_type: "lead",
+              entity_id: lead.id,
+              client_profile_id: newClientId,
+              action: "update",
+              field_name: "Converted to Client",
+              old_value: null,
+              new_value: `${planMap.name.to} (client_profile_id: ${newClientId})`,
+              description: `Converted to client profile ${newClientId}. Synced fields (${synced.length}): ${summary}`,
+            })
+            .select("id")
+            .single();
+          parentAuditId = parentRow?.id || null;
           await Promise.all(
             synced.map((r) =>
               logAudit({
@@ -442,7 +479,7 @@ export default function Leads() {
                 fieldName: r.label,
                 oldValue: r.from,
                 newValue: r.to,
-                description: `Copied from lead "${lead.name}"`,
+                description: `Copied from lead "${lead.name}" during conversion`,
               })
             )
           );
@@ -452,8 +489,16 @@ export default function Leads() {
       }
 
       toast.success(`${planMap.name.to} converted to client profile!`);
-      setConvertDialogOpen(false);
-      navigate(`/clients/${newClientId}`);
+      // Show the post-success verification panel inside the dialog instead of
+      // closing immediately. The user clicks through to the client profile.
+      setConversionResult({
+        clientProfileId: newClientId,
+        auditLogId: parentAuditId,
+        copiedFields: synced.map((r) => ({ label: r.label, value: String(r.to) })),
+        clientName: String(planMap.name.to),
+      });
+      // Refresh the leads table in the background so the converted lead reflects new stage.
+      fetchLeads();
     } finally {
       setConverting(false);
     }
@@ -631,7 +676,14 @@ export default function Leads() {
       </div>
 
       {/* Convert to Client Dialog */}
-      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+      <Dialog open={convertDialogOpen} onOpenChange={(open) => {
+        setConvertDialogOpen(open);
+        if (!open) {
+          // Clear post-success state when dialog is dismissed.
+          setConversionResult(null);
+          setConversionError(null);
+        }
+      }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -749,7 +801,69 @@ export default function Leads() {
                 </div>
               );
             })()}
-            {conversionError && (
+            {conversionResult && (
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm space-y-3">
+                <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">Client profile created</p>
+                    <p className="text-xs mt-0.5 text-muted-foreground">
+                      <span className="font-medium">{conversionResult.clientName}</span> ·{" "}
+                      <span className="font-mono">client_profile_id:</span>{" "}
+                      <span className="font-mono break-all">{conversionResult.clientProfileId}</span>
+                    </p>
+                    {conversionResult.auditLogId && (
+                      <p className="text-[11px] mt-1 text-muted-foreground">
+                        Audit log id: <span className="font-mono break-all">{conversionResult.auditLogId}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium mb-1">
+                    Copied fields ({conversionResult.copiedFields.length}) — verified in audit log:
+                  </p>
+                  <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
+                    {conversionResult.copiedFields.map((f) => (
+                      <Badge key={f.label} variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-[10px] gap-1">
+                        {f.label}
+                        <span className="text-muted-foreground truncate max-w-[100px]" title={f.value}>: {f.value}</span>
+                      </Badge>
+                    ))}
+                    {conversionResult.copiedFields.length === 0 && (
+                      <span className="text-xs text-muted-foreground italic">No field values to copy.</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => {
+                      const id = conversionResult.clientProfileId;
+                      const aud = conversionResult.auditLogId;
+                      setConvertDialogOpen(false);
+                      setConversionResult(null);
+                      navigate(aud ? `/clients/${id}?highlightAudit=${aud}` : `/clients/${id}`);
+                    }}
+                  >
+                    <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                    View client profile
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setConvertDialogOpen(false);
+                      setConversionResult(null);
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+            {conversionError && !conversionResult && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm space-y-2">
                 <div className="flex items-start gap-2 text-destructive">
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -770,10 +884,41 @@ export default function Leads() {
                 </Button>
               </div>
             )}
-            <Button onClick={handleConvert} disabled={converting} className="w-full">
-              <UserCheck className="mr-2 h-4 w-4" />
-              {converting ? "Converting..." : conversionError ? "Try Again" : "Confirm & Create Client Profile"}
-            </Button>
+            {!conversionResult && (() => {
+              // Compute validity flags here so the Confirm button can be disabled
+              // when email/phone preview badges flag invalid values.
+              const previewPlan = convertLead ? buildSyncPlan(convertLead, convertForm) : [];
+              const emailTo = previewPlan.find((r) => r.field === "email")?.to;
+              const phoneTo = previewPlan.find((r) => r.field === "phone")?.to;
+              const emailInvalid = !!emailTo && !isValidEmail(emailTo);
+              const phoneInvalid = !!phoneTo && !isValidPhone(phoneTo);
+              const blocked = emailInvalid || phoneInvalid;
+              return (
+                <div className="space-y-1">
+                  <Button
+                    onClick={handleConvert}
+                    disabled={converting || blocked}
+                    className="w-full"
+                  >
+                    {converting ? (
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <UserCheck className="mr-2 h-4 w-4" />
+                    )}
+                    {converting
+                      ? (conversionError ? "Retrying..." : "Converting...")
+                      : conversionError
+                        ? "Try Again"
+                        : "Confirm & Create Client Profile"}
+                  </Button>
+                  {blocked && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center">
+                      Fix the invalid {emailInvalid && phoneInvalid ? "email and phone" : emailInvalid ? "email" : "phone"} value before continuing.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
