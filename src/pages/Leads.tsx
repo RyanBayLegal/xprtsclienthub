@@ -430,24 +430,31 @@ export default function Leads() {
         console.error("Failed to mark lead as converted:", e);
       }
 
-      // Detailed per-field audit log on both lead and client.
+      // Detailed per-field audit log on both lead and client. We capture the
+      // parent audit row's id so the dialog and the deep-link can highlight it.
+      let parentAuditId: string | null = null;
+      const synced = plan.filter((r) => r.to != null && String(r.to).length > 0);
       if (user) {
         try {
           const userName = await getUserName(user.id);
-          const synced = plan.filter((r) => r.to != null && String(r.to).length > 0);
           const summary = synced.map((r) => r.label).join(", ");
-          await logAudit({
-            userId: user.id,
-            userName,
-            entityType: "lead",
-            entityId: lead.id,
-            clientProfileId: newClientId,
-            action: "update",
-            fieldName: "Converted to Client",
-            oldValue: null,
-            newValue: planMap.name.to,
-            description: `Converted to client profile. Synced fields: ${summary}`,
-          });
+          // Insert parent audit directly so we can capture the id for deep-linking.
+          const { data: parentRow } = await (supabase.from as any)("audit_logs")
+            .insert({
+              user_id: user.id,
+              user_name: userName,
+              entity_type: "lead",
+              entity_id: lead.id,
+              client_profile_id: newClientId,
+              action: "update",
+              field_name: "Converted to Client",
+              old_value: null,
+              new_value: `${planMap.name.to} (client_profile_id: ${newClientId})`,
+              description: `Converted to client profile ${newClientId}. Synced fields (${synced.length}): ${summary}`,
+            })
+            .select("id")
+            .single();
+          parentAuditId = parentRow?.id || null;
           await Promise.all(
             synced.map((r) =>
               logAudit({
@@ -460,7 +467,7 @@ export default function Leads() {
                 fieldName: r.label,
                 oldValue: r.from,
                 newValue: r.to,
-                description: `Copied from lead "${lead.name}"`,
+                description: `Copied from lead "${lead.name}" during conversion`,
               })
             )
           );
@@ -470,8 +477,16 @@ export default function Leads() {
       }
 
       toast.success(`${planMap.name.to} converted to client profile!`);
-      setConvertDialogOpen(false);
-      navigate(`/clients/${newClientId}`);
+      // Show the post-success verification panel inside the dialog instead of
+      // closing immediately. The user clicks through to the client profile.
+      setConversionResult({
+        clientProfileId: newClientId,
+        auditLogId: parentAuditId,
+        copiedFields: synced.map((r) => ({ label: r.label, value: String(r.to) })),
+        clientName: String(planMap.name.to),
+      });
+      // Refresh the leads table in the background so the converted lead reflects new stage.
+      fetchLeads();
     } finally {
       setConverting(false);
     }
