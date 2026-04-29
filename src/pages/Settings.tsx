@@ -17,6 +17,7 @@ import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield } from "lucide-react";
 import LeadSourcesManager from "@/components/LeadSourcesManager";
+import LeadNotificationRecipients from "@/components/LeadNotificationRecipients";
 
 interface ManagedUser {
   id: string;
@@ -277,6 +278,7 @@ export default function Settings() {
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="lead-sources">Lead Sources</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
 
         {/* ── BRANDING TAB ── */}
