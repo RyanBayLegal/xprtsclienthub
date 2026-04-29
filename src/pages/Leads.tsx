@@ -801,7 +801,69 @@ export default function Leads() {
                 </div>
               );
             })()}
-            {conversionError && (
+            {conversionResult && (
+              <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-sm space-y-3">
+                <div className="flex items-start gap-2 text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">Client profile created</p>
+                    <p className="text-xs mt-0.5 text-muted-foreground">
+                      <span className="font-medium">{conversionResult.clientName}</span> ·{" "}
+                      <span className="font-mono">client_profile_id:</span>{" "}
+                      <span className="font-mono break-all">{conversionResult.clientProfileId}</span>
+                    </p>
+                    {conversionResult.auditLogId && (
+                      <p className="text-[11px] mt-1 text-muted-foreground">
+                        Audit log id: <span className="font-mono break-all">{conversionResult.auditLogId}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium mb-1">
+                    Copied fields ({conversionResult.copiedFields.length}) — verified in audit log:
+                  </p>
+                  <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
+                    {conversionResult.copiedFields.map((f) => (
+                      <Badge key={f.label} variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-[10px] gap-1">
+                        {f.label}
+                        <span className="text-muted-foreground truncate max-w-[100px]" title={f.value}>: {f.value}</span>
+                      </Badge>
+                    ))}
+                    {conversionResult.copiedFields.length === 0 && (
+                      <span className="text-xs text-muted-foreground italic">No field values to copy.</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => {
+                      const id = conversionResult.clientProfileId;
+                      const aud = conversionResult.auditLogId;
+                      setConvertDialogOpen(false);
+                      setConversionResult(null);
+                      navigate(aud ? `/clients/${id}?highlightAudit=${aud}` : `/clients/${id}`);
+                    }}
+                  >
+                    <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                    View client profile
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setConvertDialogOpen(false);
+                      setConversionResult(null);
+                    }}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+            {conversionError && !conversionResult && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm space-y-2">
                 <div className="flex items-start gap-2 text-destructive">
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -822,10 +884,41 @@ export default function Leads() {
                 </Button>
               </div>
             )}
-            <Button onClick={handleConvert} disabled={converting} className="w-full">
-              <UserCheck className="mr-2 h-4 w-4" />
-              {converting ? "Converting..." : conversionError ? "Try Again" : "Confirm & Create Client Profile"}
-            </Button>
+            {!conversionResult && (() => {
+              // Compute validity flags here so the Confirm button can be disabled
+              // when email/phone preview badges flag invalid values.
+              const previewPlan = convertLead ? buildSyncPlan(convertLead, convertForm) : [];
+              const emailTo = previewPlan.find((r) => r.field === "email")?.to;
+              const phoneTo = previewPlan.find((r) => r.field === "phone")?.to;
+              const emailInvalid = !!emailTo && !isValidEmail(emailTo);
+              const phoneInvalid = !!phoneTo && !isValidPhone(phoneTo);
+              const blocked = emailInvalid || phoneInvalid;
+              return (
+                <div className="space-y-1">
+                  <Button
+                    onClick={handleConvert}
+                    disabled={converting || blocked}
+                    className="w-full"
+                  >
+                    {converting ? (
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <UserCheck className="mr-2 h-4 w-4" />
+                    )}
+                    {converting
+                      ? (conversionError ? "Retrying..." : "Converting...")
+                      : conversionError
+                        ? "Try Again"
+                        : "Confirm & Create Client Profile"}
+                  </Button>
+                  {blocked && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center">
+                      Fix the invalid {emailInvalid && phoneInvalid ? "email and phone" : emailInvalid ? "email" : "phone"} value before continuing.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
