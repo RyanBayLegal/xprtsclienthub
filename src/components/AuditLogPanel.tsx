@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Search, History, ExternalLink } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 interface AuditLog {
   id: string;
@@ -39,6 +39,18 @@ export default function AuditLogPanel({ clientProfileId, entityType, entityId, t
   const [filterAction, setFilterAction] = useState("all");
   const [page, setPage] = useState(0);
   const PAGE_SIZE = compact ? 10 : 20;
+  const [searchParams] = useSearchParams();
+  const highlightAudit = searchParams.get("highlightAudit");
+  const highlightRef = useRef<HTMLDivElement | null>(null);
+
+  // After logs render, scroll the highlighted audit row into view.
+  useEffect(() => {
+    if (!highlightAudit || loading) return;
+    const el = highlightRef.current;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightAudit, loading, logs]);
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -121,8 +133,16 @@ export default function AuditLogPanel({ clientProfileId, entityType, entityId, t
           <p className="text-center text-muted-foreground py-8">No activity logged yet.</p>
         ) : (
           <div className="space-y-2">
-            {filtered.map((log) => (
-              <div key={log.id} className="flex items-start gap-3 p-3 border rounded-lg bg-card hover:bg-muted/30 transition-colors">
+            {filtered.map((log) => {
+              const isHighlight = highlightAudit === log.id;
+              return (
+              <div
+                key={log.id}
+                ref={isHighlight ? highlightRef : undefined}
+                className={`flex items-start gap-3 p-3 border rounded-lg bg-card hover:bg-muted/30 transition-colors ${
+                  isHighlight ? "ring-2 ring-primary ring-offset-2 ring-offset-background bg-primary/5" : ""
+                }`}
+              >
                 <Badge variant="outline" className={`shrink-0 text-[10px] ${actionColor(log.action)}`}>
                   {log.action}
                 </Badge>
@@ -176,7 +196,8 @@ export default function AuditLogPanel({ clientProfileId, entityType, entityId, t
                   {formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}
                 </span>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
         <div className="flex items-center justify-between mt-4">
