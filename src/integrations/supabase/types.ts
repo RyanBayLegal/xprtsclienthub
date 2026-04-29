@@ -554,6 +554,33 @@ export type Database = {
           },
         ]
       }
+      lead_notification_recipients: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          is_active: boolean
+          label: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+        }
+        Relationships: []
+      }
       lead_sources: {
         Row: {
           created_at: string

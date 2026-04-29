@@ -111,6 +111,22 @@ Deno.serve(async (req) => {
       console.error("Notification error (non-fatal):", notifErr);
     }
 
+    // Send email notification to configured recipients (Gmail-ready, no-op if Gmail not connected)
+    try {
+      await supabase.functions.invoke("send-lead-notification", {
+        body: {
+          lead_id: lead.id,
+          lead_name: lead.name,
+          source: "Strategy Review Form",
+          interest: service || null,
+          contact: [email, phone].filter(Boolean).join(" | ") || null,
+          notes: notesParts.join("\n") || null,
+        },
+      });
+    } catch (emailErr) {
+      console.error("Email notification error (non-fatal):", emailErr);
+    }
+
     return new Response(JSON.stringify({ success: true, lead_id: lead.id, name: lead.name }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
