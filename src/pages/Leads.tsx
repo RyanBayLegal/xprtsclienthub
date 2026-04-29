@@ -351,6 +351,18 @@ export default function Leads() {
   const handleConvert = async () => {
     if (!convertLead || !convertForm.name) { toast.error("Name is required"); return; }
     if (converting) return; // double-submit guard
+    // Block when the email/phone preview badges flag invalid values.
+    const previewPlan = buildSyncPlan(convertLead, convertForm);
+    const emailTo = previewPlan.find((r) => r.field === "email")?.to;
+    const phoneTo = previewPlan.find((r) => r.field === "phone")?.to;
+    if (emailTo && !isValidEmail(emailTo)) {
+      toast.error("Email looks invalid — please fix before converting.");
+      return;
+    }
+    if (phoneTo && !isValidPhone(phoneTo)) {
+      toast.error("Phone looks invalid — please fix before converting.");
+      return;
+    }
     setConversionError(null);
     setConverting(true);
 
