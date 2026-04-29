@@ -676,7 +676,14 @@ export default function Leads() {
       </div>
 
       {/* Convert to Client Dialog */}
-      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+      <Dialog open={convertDialogOpen} onOpenChange={(open) => {
+        setConvertDialogOpen(open);
+        if (!open) {
+          // Clear post-success state when dialog is dismissed.
+          setConversionResult(null);
+          setConversionError(null);
+        }
+      }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
