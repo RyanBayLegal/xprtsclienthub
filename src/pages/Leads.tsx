@@ -565,12 +565,17 @@ export default function Leads() {
   const updateField = (field: string, value: string | boolean) => setForm((f) => ({ ...f, [field]: value }));
 
   const exportLeads = () => {
-    const headers = ["Name", "Contact", "Source", "Referrer", "Website", "Stage", "Date Added", "Date Reached", "Follow-up Date", "Booked", "Needs", "Next Steps", "Notes"];
-    const rows = leads.map((l) => [
-      l.name, l.contact, l.source, l.referrer_name || "", l.website, l.stage,
-      l.created_at ? new Date(l.created_at).toLocaleString() : "",
-      l.date_reached, l.follow_up_date, l.booked ? "Yes" : "No", l.needs, l.next_steps, l.notes,
-    ]);
+    const headers = ["Name", "Contact", "Source", "Referrer", "Website", "Stage", "Stage Age (days)", "Date Added", "Date Reached", "Follow-up Date", "Booked", "Needs", "Next Steps", "Notes"];
+    const rows = leads.map((l) => {
+      const stageAge = l.stage_changed_at
+        ? Math.floor((Date.now() - new Date(l.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
+        : "";
+      return [
+        l.name, l.contact, l.source, l.referrer_name || "", l.website, l.stage, stageAge,
+        l.created_at ? new Date(l.created_at).toLocaleString() : "",
+        l.date_reached, l.follow_up_date, l.booked ? "Yes" : "No", l.needs, l.next_steps, l.notes,
+      ];
+    });
     exportToCSV("leads-export", headers, rows);
     toast.success(`Exported ${rows.length} leads`);
   };
