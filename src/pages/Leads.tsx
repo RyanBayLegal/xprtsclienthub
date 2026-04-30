@@ -348,14 +348,26 @@ export default function Leads() {
     setConversionResult(null);
     // Note: do NOT reset showOnlyChanged — it persists across dialog opens (user preference).
     const { email, phone } = splitContact(lead.contact);
+    // Best-effort auto-fill from lead text fields. Strategy form puts "Firm: X"
+    // into website and/or notes, and "Interest:" / "Message:" into notes. We
+    // tease those out so the conversion modal isn't blank.
+    const rawNotes = lead.notes || "";
+    const rawWebsite = lead.website || "";
+    const matchFirm = (rawWebsite.match(/Firm:\s*(.+)/i) || rawNotes.match(/Firm:\s*(.+)/i));
+    const matchInterest = rawNotes.match(/Interest:\s*(.+)/i);
+    const matchMessage = rawNotes.match(/Message:\s*([\s\S]+)/i);
+    const inferredCompany = matchFirm?.[1]?.trim() || "";
+    const inferredPractice = matchInterest?.[1]?.trim() || "";
+    const inferredKeyAttrs = (lead.needs || "").trim();
+    const inferredDiscoveryNotes = (matchMessage?.[1]?.trim()) || rawNotes;
     setConvertForm({
       name: lead.name,
-      company: "",
+      company: inferredCompany,
       role: "",
-      practice_area: "",
+      practice_area: inferredPractice,
       stage: "Onboarding/Kickoff Stage",
       pain_points: lead.needs || "",
-      discovery_notes: lead.notes || "",
+      discovery_notes: inferredDiscoveryNotes || "",
       email: email || "",
       phone: phone || "",
       state: "",
@@ -363,7 +375,7 @@ export default function Leads() {
       birthday: "",
       company_established_date: "",
       meeting_preferences: "",
-      key_attributes: "",
+      key_attributes: inferredKeyAttrs,
       motivators: "",
       influences: "",
       attitude: "",
@@ -376,7 +388,26 @@ export default function Leads() {
   };
 
   const handleConvert = async () => {
-    if (!convertLead || !convertForm.name) { toast.error("Name is required"); return; }
+    if (!convertLead) return;
+    // Required-field validation: name, stage, and at least one valid contact.
+    const trimmedName = convertForm.name.trim();
+    if (!trimmedName) { toast.error("Name is required"); return; }
+    if (trimmedName.length > 100) { toast.error("Name must be 100 characters or less"); return; }
+    if (!convertForm.stage) { toast.error("Stage is required"); return; }
+    const emailVal = convertForm.email.trim();
+    const phoneVal = convertForm.phone.trim();
+    if (!emailVal && !phoneVal) {
+      toast.error("At least one contact method (email or phone) is required");
+      return;
+    }
+    if (emailVal && !isValidEmail(emailVal)) {
+      toast.error("Email looks invalid — please fix before converting.");
+      return;
+    }
+    if (phoneVal && !isValidPhone(phoneVal)) {
+      toast.error("Phone looks invalid — please fix before converting.");
+      return;
+    }
     if (converting) return; // double-submit guard
     // Block when the email/phone preview badges flag invalid values.
     const previewPlan = buildSyncPlan(convertLead, convertForm);
