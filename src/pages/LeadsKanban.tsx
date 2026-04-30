@@ -6,11 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 
-import { UserCheck, Plus, X, Search, Pencil, Check, Trash2 } from "lucide-react";
+import { UserCheck, Plus, X, Search, Pencil, Check, Trash2, FileText } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { executeWorkflows } from "@/lib/workflow-engine";
 import { logAudit, getUserName } from "@/lib/audit-logger";
@@ -46,6 +49,8 @@ interface Lead {
   next_steps: string | null;
   stage: string;
   stage_changed_at: string | null;
+  needs: string | null;
+  notes: string | null;
 }
 
 interface LeadsKanbanProps {
@@ -71,6 +76,7 @@ export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }:
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; oldName: string } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [reasonDialog, setReasonDialog] = useState<{ open: boolean; leadId: string; leadName: string; newStage: string; oldStage: string } | null>(null);
+  const [quickEdit, setQuickEdit] = useState<{ leadId: string; needs: string; notes: string; saving: boolean } | null>(null);
   
   const { user } = useAuth();
 
@@ -78,11 +84,41 @@ export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }:
     localStorage.setItem(KANBAN_STAGES_KEY, JSON.stringify(stages));
   }, [stages]);
 
+  const saveQuickEdit = async () => {
+    if (!quickEdit) return;
+    const lead = leads.find((l) => l.id === quickEdit.leadId);
+    if (!lead) return;
+    setQuickEdit({ ...quickEdit, saving: true });
+    const newNeeds = quickEdit.needs.trim() || null;
+    const newNotes = quickEdit.notes.trim() || null;
+    const { error } = await supabase
+      .from("leads")
+      .update({ needs: newNeeds, notes: newNotes })
+      .eq("id", lead.id);
+    if (error) {
+      toast.error("Failed to save changes");
+      setQuickEdit({ ...quickEdit, saving: false });
+      return;
+    }
+    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, needs: newNeeds, notes: newNotes } : l));
+    if (user) {
+      const userName = await getUserName(user.id);
+      if ((lead.needs || null) !== newNeeds) {
+        await logAudit({ userId: user.id, userName, entityType: "lead", entityId: lead.id, action: "update", fieldName: "Needs", oldValue: lead.needs, newValue: newNeeds, description: `Updated Needs for "${lead.name}"` });
+      }
+      if ((lead.notes || null) !== newNotes) {
+        await logAudit({ userId: user.id, userName, entityType: "lead", entityId: lead.id, action: "update", fieldName: "Notes", oldValue: lead.notes, newValue: newNotes, description: `Updated Notes for "${lead.name}"` });
+      }
+    }
+    toast.success("Saved");
+    setQuickEdit(null);
+  };
+
 
   const fetchLeads = useCallback(async () => {
     const { data } = await supabase
       .from("leads")
-      .select("id, name, contact, source, next_steps, stage, stage_changed_at")
+      .select("id, name, contact, source, next_steps, stage, stage_changed_at, needs, notes")
       .order("created_at", { ascending: false });
     if (data) setLeads(data as Lead[]);
   }, []);
@@ -342,6 +378,53 @@ export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }:
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                         )}
+                        <Popover
+                          open={quickEdit?.leadId === lead.id}
+                          onOpenChange={(o) => {
+                            if (o) setQuickEdit({ leadId: lead.id, needs: lead.needs || "", notes: lead.notes || "", saving: false });
+                            else setQuickEdit(null);
+                          }}
+                        >
+                          <PopoverTrigger asChild>
+                            <button
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-muted-foreground hover:text-foreground p-0.5 shrink-0"
+                              title="Edit Needs / Notes"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 space-y-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Needs</Label>
+                              <Textarea
+                                rows={3}
+                                maxLength={2000}
+                                value={quickEdit?.needs || ""}
+                                onChange={(e) => setQuickEdit((q) => q ? { ...q, needs: e.target.value } : q)}
+                                placeholder="What does this lead need?"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Notes</Label>
+                              <Textarea
+                                rows={4}
+                                maxLength={2000}
+                                value={quickEdit?.notes || ""}
+                                onChange={(e) => setQuickEdit((q) => q ? { ...q, notes: e.target.value } : q)}
+                                placeholder="Internal notes"
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => setQuickEdit(null)} disabled={quickEdit?.saving}>
+                                Cancel
+                              </Button>
+                              <Button size="sm" onClick={saveQuickEdit} disabled={quickEdit?.saving}>
+                                {quickEdit?.saving ? "Saving..." : "Save"}
+                              </Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                         <button
                           onClick={(e) => { e.stopPropagation(); setDeleteTarget(lead); }}
                           className="text-muted-foreground hover:text-destructive p-0.5 shrink-0"

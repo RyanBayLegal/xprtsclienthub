@@ -348,14 +348,26 @@ export default function Leads() {
     setConversionResult(null);
     // Note: do NOT reset showOnlyChanged — it persists across dialog opens (user preference).
     const { email, phone } = splitContact(lead.contact);
+    // Best-effort auto-fill from lead text fields. Strategy form puts "Firm: X"
+    // into website and/or notes, and "Interest:" / "Message:" into notes. We
+    // tease those out so the conversion modal isn't blank.
+    const rawNotes = lead.notes || "";
+    const rawWebsite = lead.website || "";
+    const matchFirm = (rawWebsite.match(/Firm:\s*(.+)/i) || rawNotes.match(/Firm:\s*(.+)/i));
+    const matchInterest = rawNotes.match(/Interest:\s*(.+)/i);
+    const matchMessage = rawNotes.match(/Message:\s*([\s\S]+)/i);
+    const inferredCompany = matchFirm?.[1]?.trim() || "";
+    const inferredPractice = matchInterest?.[1]?.trim() || "";
+    const inferredKeyAttrs = (lead.needs || "").trim();
+    const inferredDiscoveryNotes = (matchMessage?.[1]?.trim()) || rawNotes;
     setConvertForm({
       name: lead.name,
-      company: "",
+      company: inferredCompany,
       role: "",
-      practice_area: "",
+      practice_area: inferredPractice,
       stage: "Onboarding/Kickoff Stage",
       pain_points: lead.needs || "",
-      discovery_notes: lead.notes || "",
+      discovery_notes: inferredDiscoveryNotes || "",
       email: email || "",
       phone: phone || "",
       state: "",
@@ -363,7 +375,7 @@ export default function Leads() {
       birthday: "",
       company_established_date: "",
       meeting_preferences: "",
-      key_attributes: "",
+      key_attributes: inferredKeyAttrs,
       motivators: "",
       influences: "",
       attitude: "",
@@ -376,7 +388,26 @@ export default function Leads() {
   };
 
   const handleConvert = async () => {
-    if (!convertLead || !convertForm.name) { toast.error("Name is required"); return; }
+    if (!convertLead) return;
+    // Required-field validation: name, stage, and at least one valid contact.
+    const trimmedName = convertForm.name.trim();
+    if (!trimmedName) { toast.error("Name is required"); return; }
+    if (trimmedName.length > 100) { toast.error("Name must be 100 characters or less"); return; }
+    if (!convertForm.stage) { toast.error("Stage is required"); return; }
+    const emailVal = convertForm.email.trim();
+    const phoneVal = convertForm.phone.trim();
+    if (!emailVal && !phoneVal) {
+      toast.error("At least one contact method (email or phone) is required");
+      return;
+    }
+    if (emailVal && !isValidEmail(emailVal)) {
+      toast.error("Email looks invalid — please fix before converting.");
+      return;
+    }
+    if (phoneVal && !isValidPhone(phoneVal)) {
+      toast.error("Phone looks invalid — please fix before converting.");
+      return;
+    }
     if (converting) return; // double-submit guard
     // Block when the email/phone preview badges flag invalid values.
     const previewPlan = buildSyncPlan(convertLead, convertForm);
@@ -567,9 +598,11 @@ export default function Leads() {
   const exportLeads = () => {
     const headers = ["Name", "Contact", "Source", "Referrer", "Website", "Stage", "Stage Age (days)", "Date Added", "Date Reached", "Follow-up Date", "Booked", "Needs", "Next Steps", "Notes"];
     const rows = leads.map((l) => {
-      const stageAge = l.stage_changed_at
-        ? Math.floor((Date.now() - new Date(l.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
-        : "";
+      // Always return an integer when we have either a stage-change timestamp or a creation timestamp.
+      const ageRef = l.stage_changed_at || l.created_at || null;
+      const stageAge = ageRef
+        ? Math.max(0, Math.floor((Date.now() - new Date(ageRef).getTime()) / (1000 * 60 * 60 * 24)))
+        : 0;
       return [
         l.name, l.contact, l.source, l.referrer_name || "", l.website, l.stage, stageAge,
         l.created_at ? new Date(l.created_at).toLocaleString() : "",
@@ -1017,7 +1050,16 @@ export default function Leads() {
               const phoneTo = previewPlan.find((r) => r.field === "phone")?.to;
               const emailInvalid = !!emailTo && !isValidEmail(emailTo);
               const phoneInvalid = !!phoneTo && !isValidPhone(phoneTo);
-              const blocked = emailInvalid || phoneInvalid;
+              const nameMissing = !convertForm.name.trim();
+              const stageMissing = !convertForm.stage;
+              const contactMissing = !convertForm.email.trim() && !convertForm.phone.trim();
+              const blocked = emailInvalid || phoneInvalid || nameMissing || stageMissing || contactMissing;
+              const reasons: string[] = [];
+              if (nameMissing) reasons.push("name");
+              if (stageMissing) reasons.push("stage");
+              if (contactMissing) reasons.push("email or phone");
+              if (emailInvalid) reasons.push("valid email");
+              if (phoneInvalid) reasons.push("valid phone");
               return (
                 <div className="space-y-1">
                   <Button
@@ -1036,9 +1078,9 @@ export default function Leads() {
                         ? "Try Again"
                         : "Confirm & Create Client Profile"}
                   </Button>
-                  {blocked && (
+                  {blocked && reasons.length > 0 && (
                     <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center">
-                      Fix the invalid {emailInvalid && phoneInvalid ? "email and phone" : emailInvalid ? "email" : "phone"} value before continuing.
+                      Required: {reasons.join(", ")}.
                     </p>
                   )}
                 </div>
