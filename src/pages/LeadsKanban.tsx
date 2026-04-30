@@ -49,6 +49,8 @@ interface Lead {
   next_steps: string | null;
   stage: string;
   stage_changed_at: string | null;
+  needs: string | null;
+  notes: string | null;
 }
 
 interface LeadsKanbanProps {
