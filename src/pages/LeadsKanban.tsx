@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 
-import { UserCheck, Plus, X, Search, Pencil, Check } from "lucide-react";
+import { UserCheck, Plus, X, Search, Pencil, Check, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { executeWorkflows } from "@/lib/workflow-engine";
 import { logAudit, getUserName } from "@/lib/audit-logger";
 import { StageReasonDialog } from "@/components/StageReasonDialog";
@@ -50,13 +51,15 @@ interface Lead {
 interface LeadsKanbanProps {
   onConvert?: (lead: Lead) => void;
   onEdit?: (lead: Lead) => void;
+  onDelete?: (id: string) => void | Promise<void>;
   refreshKey?: number;
 }
 
-export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanbanProps) {
+export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }: LeadsKanbanProps) {
   const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [stages, setStages] = useState<string[]>(() => {
     const stored = localStorage.getItem(KANBAN_STAGES_KEY);
@@ -339,6 +342,13 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                         )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(lead); }}
+                          className="text-muted-foreground hover:text-destructive p-0.5 shrink-0"
+                          title="Delete lead"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                       {lead.contact && <p className="text-xs text-muted-foreground">{lead.contact}</p>}
                       {lead.source && <p className="text-xs text-muted-foreground">Source: {lead.source}</p>}
@@ -399,6 +409,37 @@ export default function LeadsKanban({ onConvert, onEdit, refreshKey }: LeadsKanb
           }}
         />
       )}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Lead</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deleteTarget) return;
+                const target = deleteTarget;
+                setDeleteTarget(null);
+                if (onDelete) {
+                  await onDelete(target.id);
+                } else {
+                  const { error } = await supabase.from("leads").delete().eq("id", target.id);
+                  if (error) { toast.error(error.message); return; }
+                  toast.success("Lead deleted");
+                  setLeads((prev) => prev.filter((l) => l.id !== target.id));
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
