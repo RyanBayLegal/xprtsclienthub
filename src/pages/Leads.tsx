@@ -117,6 +117,13 @@ export default function Leads() {
   const [convertForm, setConvertForm] = useState({
     name: "", company: "", role: "", practice_area: "", stage: "Onboarding/Kickoff Stage",
     pain_points: "", discovery_notes: "",
+    email: "", phone: "",
+    state: "", timezone: "",
+    birthday: "", company_established_date: "",
+    meeting_preferences: "", key_attributes: "", motivators: "", influences: "",
+    attitude: "", future_plans: "", repeat_customer_probability: "",
+    is_economic_buyer: false,
+    client_health_score: "" as string | "",
   });
 
   // NDA / Agreement dialog for leads
