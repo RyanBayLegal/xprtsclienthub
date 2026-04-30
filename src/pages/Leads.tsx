@@ -307,7 +307,11 @@ export default function Leads() {
   // Used both by the preview panel and the audit log.
   type SyncRow = { label: string; field: string; from: string | null; to: string | null };
   const buildSyncPlan = (lead: any, form: typeof convertForm): SyncRow[] => {
-    const { email, phone } = splitContact(lead?.contact);
+    const split = splitContact(lead?.contact);
+    // Prefer values explicitly entered/edited in the conversion form; fall back
+    // to the auto-split values from the lead's contact field.
+    const email = (form.email && form.email.trim()) || split.email;
+    const phone = (form.phone && form.phone.trim()) || split.phone;
     const extraNotes: string[] = [];
     if (lead?.next_steps) extraNotes.push(`Next steps: ${lead.next_steps}`);
     if (lead?.date_reached) extraNotes.push(`First reached: ${lead.date_reached}`);
