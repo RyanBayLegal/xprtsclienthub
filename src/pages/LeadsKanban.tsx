@@ -87,7 +87,7 @@ export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }:
   const fetchLeads = useCallback(async () => {
     const { data } = await supabase
       .from("leads")
-      .select("id, name, contact, source, next_steps, stage, stage_changed_at")
+      .select("id, name, contact, source, next_steps, stage, stage_changed_at, needs, notes")
       .order("created_at", { ascending: false });
     if (data) setLeads(data as Lead[]);
   }, []);
