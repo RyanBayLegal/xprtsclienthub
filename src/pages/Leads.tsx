@@ -343,6 +343,7 @@ export default function Leads() {
     setConversionError(null);
     setConversionResult(null);
     // Note: do NOT reset showOnlyChanged — it persists across dialog opens (user preference).
+    const { email, phone } = splitContact(lead.contact);
     setConvertForm({
       name: lead.name,
       company: "",
@@ -351,6 +352,21 @@ export default function Leads() {
       stage: "Onboarding/Kickoff Stage",
       pain_points: lead.needs || "",
       discovery_notes: lead.notes || "",
+      email: email || "",
+      phone: phone || "",
+      state: "",
+      timezone: "",
+      birthday: "",
+      company_established_date: "",
+      meeting_preferences: "",
+      key_attributes: "",
+      motivators: "",
+      influences: "",
+      attitude: "",
+      future_plans: "",
+      repeat_customer_probability: "",
+      is_economic_buyer: false,
+      client_health_score: "",
     });
     setConvertDialogOpen(true);
   };
