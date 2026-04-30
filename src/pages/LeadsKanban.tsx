@@ -378,6 +378,53 @@ export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }:
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                         )}
+                        <Popover
+                          open={quickEdit?.leadId === lead.id}
+                          onOpenChange={(o) => {
+                            if (o) setQuickEdit({ leadId: lead.id, needs: lead.needs || "", notes: lead.notes || "", saving: false });
+                            else setQuickEdit(null);
+                          }}
+                        >
+                          <PopoverTrigger asChild>
+                            <button
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-muted-foreground hover:text-foreground p-0.5 shrink-0"
+                              title="Edit Needs / Notes"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 space-y-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Needs</Label>
+                              <Textarea
+                                rows={3}
+                                maxLength={2000}
+                                value={quickEdit?.needs || ""}
+                                onChange={(e) => setQuickEdit((q) => q ? { ...q, needs: e.target.value } : q)}
+                                placeholder="What does this lead need?"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Notes</Label>
+                              <Textarea
+                                rows={4}
+                                maxLength={2000}
+                                value={quickEdit?.notes || ""}
+                                onChange={(e) => setQuickEdit((q) => q ? { ...q, notes: e.target.value } : q)}
+                                placeholder="Internal notes"
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => setQuickEdit(null)} disabled={quickEdit?.saving}>
+                                Cancel
+                              </Button>
+                              <Button size="sm" onClick={saveQuickEdit} disabled={quickEdit?.saving}>
+                                {quickEdit?.saving ? "Saving..." : "Save"}
+                              </Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                         <button
                           onClick={(e) => { e.stopPropagation(); setDeleteTarget(lead); }}
                           className="text-muted-foreground hover:text-destructive p-0.5 shrink-0"
