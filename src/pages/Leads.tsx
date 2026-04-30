@@ -567,9 +567,11 @@ export default function Leads() {
   const exportLeads = () => {
     const headers = ["Name", "Contact", "Source", "Referrer", "Website", "Stage", "Stage Age (days)", "Date Added", "Date Reached", "Follow-up Date", "Booked", "Needs", "Next Steps", "Notes"];
     const rows = leads.map((l) => {
-      const stageAge = l.stage_changed_at
-        ? Math.floor((Date.now() - new Date(l.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
-        : "";
+      // Always return an integer when we have either a stage-change timestamp or a creation timestamp.
+      const ageRef = l.stage_changed_at || l.created_at || null;
+      const stageAge = ageRef
+        ? Math.max(0, Math.floor((Date.now() - new Date(ageRef).getTime()) / (1000 * 60 * 60 * 24)))
+        : 0;
       return [
         l.name, l.contact, l.source, l.referrer_name || "", l.website, l.stage, stageAge,
         l.created_at ? new Date(l.created_at).toLocaleString() : "",
