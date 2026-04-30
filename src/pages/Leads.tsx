@@ -1050,7 +1050,16 @@ export default function Leads() {
               const phoneTo = previewPlan.find((r) => r.field === "phone")?.to;
               const emailInvalid = !!emailTo && !isValidEmail(emailTo);
               const phoneInvalid = !!phoneTo && !isValidPhone(phoneTo);
-              const blocked = emailInvalid || phoneInvalid;
+              const nameMissing = !convertForm.name.trim();
+              const stageMissing = !convertForm.stage;
+              const contactMissing = !convertForm.email.trim() && !convertForm.phone.trim();
+              const blocked = emailInvalid || phoneInvalid || nameMissing || stageMissing || contactMissing;
+              const reasons: string[] = [];
+              if (nameMissing) reasons.push("name");
+              if (stageMissing) reasons.push("stage");
+              if (contactMissing) reasons.push("email or phone");
+              if (emailInvalid) reasons.push("valid email");
+              if (phoneInvalid) reasons.push("valid phone");
               return (
                 <div className="space-y-1">
                   <Button
@@ -1069,9 +1078,9 @@ export default function Leads() {
                         ? "Try Again"
                         : "Confirm & Create Client Profile"}
                   </Button>
-                  {blocked && (
+                  {blocked && reasons.length > 0 && (
                     <p className="text-[11px] text-amber-600 dark:text-amber-400 text-center">
-                      Fix the invalid {emailInvalid && phoneInvalid ? "email and phone" : emailInvalid ? "email" : "phone"} value before continuing.
+                      Required: {reasons.join(", ")}.
                     </p>
                   )}
                 </div>
