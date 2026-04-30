@@ -76,12 +76,43 @@ export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }:
   const [renameDialog, setRenameDialog] = useState<{ open: boolean; oldName: string } | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [reasonDialog, setReasonDialog] = useState<{ open: boolean; leadId: string; leadName: string; newStage: string; oldStage: string } | null>(null);
+  const [quickEdit, setQuickEdit] = useState<{ leadId: string; needs: string; notes: string; saving: boolean } | null>(null);
   
   const { user } = useAuth();
 
   useEffect(() => {
     localStorage.setItem(KANBAN_STAGES_KEY, JSON.stringify(stages));
   }, [stages]);
+
+  const saveQuickEdit = async () => {
+    if (!quickEdit) return;
+    const lead = leads.find((l) => l.id === quickEdit.leadId);
+    if (!lead) return;
+    setQuickEdit({ ...quickEdit, saving: true });
+    const newNeeds = quickEdit.needs.trim() || null;
+    const newNotes = quickEdit.notes.trim() || null;
+    const { error } = await supabase
+      .from("leads")
+      .update({ needs: newNeeds, notes: newNotes })
+      .eq("id", lead.id);
+    if (error) {
+      toast.error("Failed to save changes");
+      setQuickEdit({ ...quickEdit, saving: false });
+      return;
+    }
+    setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, needs: newNeeds, notes: newNotes } : l));
+    if (user) {
+      const userName = await getUserName(user.id);
+      if ((lead.needs || null) !== newNeeds) {
+        await logAudit({ userId: user.id, userName, entityType: "lead", entityId: lead.id, action: "update", fieldName: "Needs", oldValue: lead.needs, newValue: newNeeds, description: `Updated Needs for "${lead.name}"` });
+      }
+      if ((lead.notes || null) !== newNotes) {
+        await logAudit({ userId: user.id, userName, entityType: "lead", entityId: lead.id, action: "update", fieldName: "Notes", oldValue: lead.notes, newValue: newNotes, description: `Updated Notes for "${lead.name}"` });
+      }
+    }
+    toast.success("Saved");
+    setQuickEdit(null);
+  };
 
 
   const fetchLeads = useCallback(async () => {
