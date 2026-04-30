@@ -726,7 +726,7 @@ export default function Leads() {
           setConversionError(null);
         }
       }}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCheck className="h-5 w-5 text-primary" />
@@ -737,40 +737,118 @@ export default function Leads() {
             Pre-filled from <span className="font-medium">{convertLead?.name}</span>. Fill in additional details and confirm.
           </p>
           <div className="grid gap-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2 col-span-2">
-                <Label>Full Name *</Label>
-                <Input value={convertForm.name} onChange={(e) => setConvertForm((f) => ({ ...f, name: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Company</Label>
-                <Input value={convertForm.company} onChange={(e) => setConvertForm((f) => ({ ...f, company: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Role / Title</Label>
-                <Input value={convertForm.role} onChange={(e) => setConvertForm((f) => ({ ...f, role: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Practice Area</Label>
-                <Input value={convertForm.practice_area} onChange={(e) => setConvertForm((f) => ({ ...f, practice_area: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Client Stage</Label>
-                <Select value={convertForm.stage} onValueChange={(v) => setConvertForm((f) => ({ ...f, stage: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CLIENT_STAGES.map((s) => <SelectItem key={s} value={s}>{s.replace(" Stage", "")}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            {/* Core identity */}
+            <div className="rounded-md border p-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Core Details</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2">
+                  <Label>Full Name *</Label>
+                  <Input value={convertForm.name} onChange={(e) => setConvertForm((f) => ({ ...f, name: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" placeholder="email@example.com" value={convertForm.email} onChange={(e) => setConvertForm((f) => ({ ...f, email: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input type="tel" placeholder="+1 (555) 000-0000" value={convertForm.phone} onChange={(e) => setConvertForm((f) => ({ ...f, phone: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Company</Label>
+                  <Input value={convertForm.company} onChange={(e) => setConvertForm((f) => ({ ...f, company: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Role / Title</Label>
+                  <Input value={convertForm.role} onChange={(e) => setConvertForm((f) => ({ ...f, role: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Practice Area</Label>
+                  <Input value={convertForm.practice_area} onChange={(e) => setConvertForm((f) => ({ ...f, practice_area: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Client Stage</Label>
+                  <Select value={convertForm.stage} onValueChange={(v) => setConvertForm((f) => ({ ...f, stage: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CLIENT_STAGES.map((s) => <SelectItem key={s} value={s}>{s.replace(" Stage", "")}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>State</Label>
+                  <Input value={convertForm.state} onChange={(e) => setConvertForm((f) => ({ ...f, state: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Timezone</Label>
+                  <Input placeholder="America/New_York" value={convertForm.timezone} onChange={(e) => setConvertForm((f) => ({ ...f, timezone: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Birthday</Label>
+                  <Input type="date" value={convertForm.birthday} onChange={(e) => setConvertForm((f) => ({ ...f, birthday: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Company Established</Label>
+                  <Input type="date" value={convertForm.company_established_date} onChange={(e) => setConvertForm((f) => ({ ...f, company_established_date: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Health Score (0–10)</Label>
+                  <Input type="number" min={0} max={10} value={convertForm.client_health_score} onChange={(e) => setConvertForm((f) => ({ ...f, client_health_score: e.target.value }))} />
+                </div>
+                <label className="flex items-center gap-2 text-sm col-span-2">
+                  <Checkbox checked={convertForm.is_economic_buyer} onCheckedChange={(v) => setConvertForm((f) => ({ ...f, is_economic_buyer: !!v }))} />
+                  Economic Buyer
+                </label>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Pain Points / Needs</Label>
-              <Textarea rows={2} value={convertForm.pain_points} onChange={(e) => setConvertForm((f) => ({ ...f, pain_points: e.target.value }))} />
+
+            {/* Discovery */}
+            <div className="rounded-md border p-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Discovery & Needs</p>
+              <div className="space-y-2">
+                <Label>Pain Points / Needs</Label>
+                <Textarea rows={2} value={convertForm.pain_points} onChange={(e) => setConvertForm((f) => ({ ...f, pain_points: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Discovery Notes</Label>
+                <Textarea rows={3} value={convertForm.discovery_notes} onChange={(e) => setConvertForm((f) => ({ ...f, discovery_notes: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Meeting Preferences</Label>
+                  <Input value={convertForm.meeting_preferences} onChange={(e) => setConvertForm((f) => ({ ...f, meeting_preferences: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Future Plans</Label>
+                  <Input value={convertForm.future_plans} onChange={(e) => setConvertForm((f) => ({ ...f, future_plans: e.target.value }))} />
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Discovery Notes</Label>
-              <Textarea rows={2} value={convertForm.discovery_notes} onChange={(e) => setConvertForm((f) => ({ ...f, discovery_notes: e.target.value }))} />
+
+            {/* Persona */}
+            <div className="rounded-md border p-3 space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Persona (Optional)</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Key Attributes</Label>
+                  <Textarea rows={2} value={convertForm.key_attributes} onChange={(e) => setConvertForm((f) => ({ ...f, key_attributes: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Motivators</Label>
+                  <Textarea rows={2} value={convertForm.motivators} onChange={(e) => setConvertForm((f) => ({ ...f, motivators: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Influences</Label>
+                  <Textarea rows={2} value={convertForm.influences} onChange={(e) => setConvertForm((f) => ({ ...f, influences: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Attitude</Label>
+                  <Textarea rows={2} value={convertForm.attitude} onChange={(e) => setConvertForm((f) => ({ ...f, attitude: e.target.value }))} />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label>Repeat Customer Probability</Label>
+                  <Input value={convertForm.repeat_customer_probability} onChange={(e) => setConvertForm((f) => ({ ...f, repeat_customer_probability: e.target.value }))} />
+                </div>
+              </div>
             </div>
             {convertLead && (() => {
               const plan = buildSyncPlan(convertLead, convertForm);
