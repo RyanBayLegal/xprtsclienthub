@@ -432,6 +432,21 @@ export default function Leads() {
         phone: planMap.phone.to,
         discovery_source: planMap.discovery_source.to,
         how_they_found_us: planMap.how_they_found_us.to,
+        state: convertForm.state || null,
+        timezone: convertForm.timezone || null,
+        birthday: convertForm.birthday || null,
+        company_established_date: convertForm.company_established_date || null,
+        meeting_preferences: convertForm.meeting_preferences || null,
+        key_attributes: convertForm.key_attributes || null,
+        motivators: convertForm.motivators || null,
+        influences: convertForm.influences || null,
+        attitude: convertForm.attitude || null,
+        future_plans: convertForm.future_plans || null,
+        repeat_customer_probability: convertForm.repeat_customer_probability || null,
+        is_economic_buyer: convertForm.is_economic_buyer,
+        client_health_score: convertForm.client_health_score
+          ? Number(convertForm.client_health_score)
+          : null,
         lead_id: lead.id,
         created_by: user?.id,
       }).select("id").single();
