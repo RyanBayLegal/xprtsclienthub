@@ -1153,7 +1153,9 @@ export default function Leads() {
                   <TableHead>Date Added</TableHead>
                   <TableHead>Date Reached</TableHead>
                   <TableHead>Booked</TableHead>
+                  <TableHead>Needs</TableHead>
                   <TableHead>Next Steps</TableHead>
+                  <TableHead>Notes</TableHead>
                   <TableHead className="w-44">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1163,7 +1165,7 @@ export default function Leads() {
                   const paginatedLeads = leads.slice(leadsPage * LEADS_PAGE_SIZE, (leadsPage + 1) * LEADS_PAGE_SIZE);
                   return paginatedLeads.length === 0 ? (
                       <TableRow>
-                       <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                       <TableCell colSpan={13} className="text-center text-muted-foreground py-8">
                          No leads yet. Click &quot;Add Lead&quot; to get started.
                        </TableCell>
                      </TableRow>
@@ -1212,7 +1214,9 @@ export default function Leads() {
                         </TableCell>
                         <TableCell>{lead.date_reached}</TableCell>
                         <TableCell>{lead.booked ? "✓" : "—"}</TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={lead.needs || ""}>{lead.needs}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{lead.next_steps}</TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={lead.notes || ""}>{lead.notes}</TableCell>
                         <TableCell>
                           <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                             <Button variant="ghost" size="icon" title="Convert to Client" onClick={() => openConvert(lead)}>

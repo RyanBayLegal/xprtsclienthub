@@ -38,7 +38,7 @@ interface Props {
 
 type EditableField =
   | "name" | "contact" | "source" | "website" | "stage"
-  | "date_reached" | "follow_up_date" | "next_steps" | "notes"
+  | "date_reached" | "follow_up_date" | "needs" | "next_steps" | "notes"
   | "booked" | "follow_up_email_sent" | "email_sent_with_info" | "referrer_name";
 
 const COLUMNS: { key: EditableField; label: string; type: "text" | "date" | "select" | "bool" }[] = [
@@ -51,6 +51,7 @@ const COLUMNS: { key: EditableField; label: string; type: "text" | "date" | "sel
   { key: "follow_up_date", label: "Follow-up", type: "date" },
   { key: "booked", label: "Booked", type: "bool" },
   { key: "follow_up_email_sent", label: "FU Sent", type: "bool" },
+  { key: "needs", label: "Needs", type: "text" },
   { key: "next_steps", label: "Next Steps", type: "text" },
   { key: "notes", label: "Notes", type: "text" },
 ];
