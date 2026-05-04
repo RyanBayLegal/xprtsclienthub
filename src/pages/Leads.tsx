@@ -399,6 +399,7 @@ export default function Leads() {
       repeat_customer_probability: "",
       is_economic_buyer: false,
       client_health_score: "",
+      discovery_source: lead.source || "",
     });
     setConvertDialogOpen(true);
   };
