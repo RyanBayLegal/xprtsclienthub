@@ -335,9 +335,10 @@ export default function Leads() {
     if (originalLeadNotes && !includesOriginal) sections.push(`--- Original Lead Notes ---\n${originalLeadNotes}`);
     if (metaLines.length) sections.push(`--- Lead Metadata ---\n${metaLines.join("\n")}`);
     const composedDiscoveryNotes = sections.join("\n\n") || null;
+    const effectiveSource = (form.discovery_source && form.discovery_source.trim()) || lead?.source || null;
     const howFound = lead?.referrer_name
-      ? `${lead?.source || "Referral"} — ${lead.referrer_name}`
-      : lead?.source || null;
+      ? `${effectiveSource || "Referral"} — ${lead.referrer_name}`
+      : effectiveSource;
     return [
       { label: "Name", field: "name", from: lead?.name || null, to: form.name || null },
       { label: "Email", field: "email", from: lead?.contact || null, to: email },
@@ -347,7 +348,7 @@ export default function Leads() {
       { label: "Practice Area", field: "practice_area", from: null, to: form.practice_area || null },
       { label: "Stage", field: "stage", from: lead?.stage || null, to: form.stage || null },
       { label: "Pain Points", field: "pain_points", from: lead?.needs || null, to: form.pain_points || lead?.needs || null },
-      { label: "Discovery Source", field: "discovery_source", from: lead?.source || null, to: lead?.source || null },
+      { label: "Discovery Source", field: "discovery_source", from: lead?.source || null, to: effectiveSource },
       { label: "How They Found Us", field: "how_they_found_us", from: lead?.referrer_name || lead?.source || null, to: howFound },
       { label: "Discovery Notes", field: "discovery_notes", from: lead?.notes || null, to: composedDiscoveryNotes },
     ];
