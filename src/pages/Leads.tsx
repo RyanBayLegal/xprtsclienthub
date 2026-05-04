@@ -124,6 +124,7 @@ export default function Leads() {
     attitude: "", future_plans: "", repeat_customer_probability: "",
     is_economic_buyer: false,
     client_health_score: "" as string | "",
+    discovery_source: "",
   });
 
   // NDA / Agreement dialog for leads
@@ -334,9 +335,10 @@ export default function Leads() {
     if (originalLeadNotes && !includesOriginal) sections.push(`--- Original Lead Notes ---\n${originalLeadNotes}`);
     if (metaLines.length) sections.push(`--- Lead Metadata ---\n${metaLines.join("\n")}`);
     const composedDiscoveryNotes = sections.join("\n\n") || null;
+    const effectiveSource = (form.discovery_source && form.discovery_source.trim()) || lead?.source || null;
     const howFound = lead?.referrer_name
-      ? `${lead?.source || "Referral"} — ${lead.referrer_name}`
-      : lead?.source || null;
+      ? `${effectiveSource || "Referral"} — ${lead.referrer_name}`
+      : effectiveSource;
     return [
       { label: "Name", field: "name", from: lead?.name || null, to: form.name || null },
       { label: "Email", field: "email", from: lead?.contact || null, to: email },
@@ -346,7 +348,7 @@ export default function Leads() {
       { label: "Practice Area", field: "practice_area", from: null, to: form.practice_area || null },
       { label: "Stage", field: "stage", from: lead?.stage || null, to: form.stage || null },
       { label: "Pain Points", field: "pain_points", from: lead?.needs || null, to: form.pain_points || lead?.needs || null },
-      { label: "Discovery Source", field: "discovery_source", from: lead?.source || null, to: lead?.source || null },
+      { label: "Discovery Source", field: "discovery_source", from: lead?.source || null, to: effectiveSource },
       { label: "How They Found Us", field: "how_they_found_us", from: lead?.referrer_name || lead?.source || null, to: howFound },
       { label: "Discovery Notes", field: "discovery_notes", from: lead?.notes || null, to: composedDiscoveryNotes },
     ];
@@ -398,6 +400,7 @@ export default function Leads() {
       repeat_customer_probability: "",
       is_economic_buyer: false,
       client_health_score: "",
+      discovery_source: lead.source || "",
     });
     setConvertDialogOpen(true);
   };
@@ -857,6 +860,26 @@ export default function Leads() {
             {/* Discovery */}
             <div className="rounded-md border p-3 space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Discovery & Needs</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Discovery Source</Label>
+                  <Select
+                    value={convertForm.discovery_source || "__none__"}
+                    onValueChange={(v) => setConvertForm((f) => ({ ...f, discovery_source: v === "__none__" ? "" : v }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select a source" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">—</SelectItem>
+                      {leadSources.map((s) => (
+                        <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                      ))}
+                      {convertForm.discovery_source && !leadSources.some((s) => s.name === convertForm.discovery_source) && (
+                        <SelectItem value={convertForm.discovery_source}>{convertForm.discovery_source} (legacy)</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label>Pain Points / Needs</Label>
                 <Textarea rows={2} value={convertForm.pain_points} onChange={(e) => setConvertForm((f) => ({ ...f, pain_points: e.target.value }))} />
