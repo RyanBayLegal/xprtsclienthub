@@ -124,6 +124,7 @@ export default function Leads() {
     attitude: "", future_plans: "", repeat_customer_probability: "",
     is_economic_buyer: false,
     client_health_score: "" as string | "",
+    discovery_source: "",
   });
 
   // NDA / Agreement dialog for leads
