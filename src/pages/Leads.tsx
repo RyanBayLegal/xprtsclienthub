@@ -125,6 +125,7 @@ export default function Leads() {
     is_economic_buyer: false,
     client_health_score: "" as string | "",
     discovery_source: "",
+    date_reached: "",
   });
 
   // NDA / Agreement dialog for leads
