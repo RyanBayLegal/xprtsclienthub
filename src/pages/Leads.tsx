@@ -369,7 +369,12 @@ export default function Leads() {
     const inferredCompany = matchFirm?.[1]?.trim() || "";
     const inferredPractice = matchInterest?.[1]?.trim() || "";
     const inferredKeyAttrs = (lead.needs || "").trim();
-    const inferredDiscoveryNotes = (matchMessage?.[1]?.trim()) || rawNotes;
+    // Prefer the Message: body if present, but always append the rest of the
+    // notes so date_reached/source context survives even when the user edits.
+    const messageBody = matchMessage?.[1]?.trim() || "";
+    const inferredDiscoveryNotes = messageBody && messageBody !== rawNotes.trim()
+      ? `${messageBody}\n\n${rawNotes}`.trim()
+      : rawNotes;
     setConvertForm({
       name: lead.name,
       company: inferredCompany,
