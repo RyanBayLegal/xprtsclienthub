@@ -860,6 +860,26 @@ export default function Leads() {
             {/* Discovery */}
             <div className="rounded-md border p-3 space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Discovery & Needs</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Discovery Source</Label>
+                  <Select
+                    value={convertForm.discovery_source || "__none__"}
+                    onValueChange={(v) => setConvertForm((f) => ({ ...f, discovery_source: v === "__none__" ? "" : v }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select a source" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">—</SelectItem>
+                      {leadSources.map((s) => (
+                        <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                      ))}
+                      {convertForm.discovery_source && !leadSources.some((s) => s.name === convertForm.discovery_source) && (
+                        <SelectItem value={convertForm.discovery_source}>{convertForm.discovery_source} (legacy)</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label>Pain Points / Needs</Label>
                 <Textarea rows={2} value={convertForm.pain_points} onChange={(e) => setConvertForm((f) => ({ ...f, pain_points: e.target.value }))} />
