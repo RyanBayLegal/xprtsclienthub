@@ -297,6 +297,7 @@ export type Database = {
           company_established_date: string | null
           created_at: string
           created_by: string | null
+          date_reached: string | null
           discovery_notes: string | null
           discovery_source: string | null
           email: string | null
@@ -334,6 +335,7 @@ export type Database = {
           company_established_date?: string | null
           created_at?: string
           created_by?: string | null
+          date_reached?: string | null
           discovery_notes?: string | null
           discovery_source?: string | null
           email?: string | null
@@ -371,6 +373,7 @@ export type Database = {
           company_established_date?: string | null
           created_at?: string
           created_by?: string | null
+          date_reached?: string | null
           discovery_notes?: string | null
           discovery_source?: string | null
           email?: string | null
