@@ -402,6 +402,7 @@ export default function Leads() {
       is_economic_buyer: false,
       client_health_score: "",
       discovery_source: lead.source || "",
+      date_reached: lead.date_reached || "",
     });
     setConvertDialogOpen(true);
   };
@@ -497,6 +498,7 @@ export default function Leads() {
         client_health_score: convertForm.client_health_score
           ? Number(convertForm.client_health_score)
           : null,
+        date_reached: convertForm.date_reached || null,
         lead_id: lead.id,
         created_by: user?.id,
       }).select("id").single();
@@ -879,6 +881,10 @@ export default function Leads() {
                       )}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Date Reached</Label>
+                  <Input type="date" value={convertForm.date_reached} onChange={(e) => setConvertForm((f) => ({ ...f, date_reached: e.target.value }))} />
                 </div>
               </div>
               <div className="space-y-2">
