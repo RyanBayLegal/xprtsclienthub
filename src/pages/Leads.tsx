@@ -312,18 +312,28 @@ export default function Leads() {
     // to the auto-split values from the lead's contact field.
     const email = (form.email && form.email.trim()) || split.email;
     const phone = (form.phone && form.phone.trim()) || split.phone;
-    const extraNotes: string[] = [];
-    if (lead?.next_steps) extraNotes.push(`Next steps: ${lead.next_steps}`);
-    if (lead?.date_reached) extraNotes.push(`First reached: ${lead.date_reached}`);
-    if (lead?.follow_up_date) extraNotes.push(`Follow-up date: ${lead.follow_up_date}`);
-    if (lead?.follow_up_email_after) extraNotes.push(`Follow-up email after: ${lead.follow_up_email_after}`);
-    if (lead?.follow_up_email_sent) extraNotes.push(`Follow-up email sent: yes`);
-    if (lead?.email_sent_with_info) extraNotes.push(`Info email sent: yes`);
-    if (lead?.booked) extraNotes.push(`Booked: yes`);
-    if (lead?.referrer_name) extraNotes.push(`Referrer: ${lead.referrer_name}`);
-    if (lead?.website) extraNotes.push(`Website: ${lead.website}`);
-    if (lead?.stage) extraNotes.push(`Lead stage at conversion: ${lead.stage}`);
-    const composedDiscoveryNotes = [form.discovery_notes, ...extraNotes].filter(Boolean).join("\n") || null;
+    const metaLines: string[] = [];
+    if (lead?.source) metaLines.push(`Source: ${lead.source}`);
+    if (lead?.date_reached) metaLines.push(`Date Reached: ${lead.date_reached}`);
+    if (lead?.referrer_name) metaLines.push(`Referrer: ${lead.referrer_name}`);
+    if (lead?.next_steps) metaLines.push(`Next steps: ${lead.next_steps}`);
+    if (lead?.follow_up_date) metaLines.push(`Follow-up date: ${lead.follow_up_date}`);
+    if (lead?.follow_up_email_after) metaLines.push(`Follow-up email after: ${lead.follow_up_email_after}`);
+    if (lead?.follow_up_email_sent) metaLines.push(`Follow-up email sent: yes`);
+    if (lead?.email_sent_with_info) metaLines.push(`Info email sent: yes`);
+    if (lead?.booked) metaLines.push(`Booked: yes`);
+    if (lead?.website) metaLines.push(`Website: ${lead.website}`);
+    if (lead?.stage) metaLines.push(`Lead stage at conversion: ${lead.stage}`);
+    // Always preserve the original lead.notes verbatim so nothing is lost,
+    // even if the user edited form.discovery_notes or the auto-fill stripped to a Message: snippet.
+    const originalLeadNotes = (lead?.notes || "").trim();
+    const formNotes = (form.discovery_notes || "").trim();
+    const includesOriginal = originalLeadNotes && formNotes.includes(originalLeadNotes);
+    const sections: string[] = [];
+    if (formNotes) sections.push(formNotes);
+    if (originalLeadNotes && !includesOriginal) sections.push(`--- Original Lead Notes ---\n${originalLeadNotes}`);
+    if (metaLines.length) sections.push(`--- Lead Metadata ---\n${metaLines.join("\n")}`);
+    const composedDiscoveryNotes = sections.join("\n\n") || null;
     const howFound = lead?.referrer_name
       ? `${lead?.source || "Referral"} — ${lead.referrer_name}`
       : lead?.source || null;
@@ -359,7 +369,12 @@ export default function Leads() {
     const inferredCompany = matchFirm?.[1]?.trim() || "";
     const inferredPractice = matchInterest?.[1]?.trim() || "";
     const inferredKeyAttrs = (lead.needs || "").trim();
-    const inferredDiscoveryNotes = (matchMessage?.[1]?.trim()) || rawNotes;
+    // Prefer the Message: body if present, but always append the rest of the
+    // notes so date_reached/source context survives even when the user edits.
+    const messageBody = matchMessage?.[1]?.trim() || "";
+    const inferredDiscoveryNotes = messageBody && messageBody !== rawNotes.trim()
+      ? `${messageBody}\n\n${rawNotes}`.trim()
+      : rawNotes;
     setConvertForm({
       name: lead.name,
       company: inferredCompany,
