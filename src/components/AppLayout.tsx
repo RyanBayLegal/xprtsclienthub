@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SessionWarningDialog } from "@/components/SessionWarningDialog";
 import { UserAvatar } from "@/components/UserAvatar";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { Button } from "@/components/ui/button";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "@/lib/theme";
@@ -33,7 +34,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className="relative flex-1 flex flex-col">
           {/* Floating sidebar trigger at the edge, vertically centered */}
           <SidebarTrigger className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-30 h-8 w-8 rounded-full border bg-card shadow-md hover:bg-muted" />
-          <header className="h-14 flex items-center justify-end border-b bg-card px-4">
+          <header className="h-14 flex items-center justify-between border-b bg-card px-4 gap-2">
+            <div className="flex-1 flex items-center pl-6">
+              <GlobalSearch />
+            </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={toggleTheme} title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}>
                 {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
