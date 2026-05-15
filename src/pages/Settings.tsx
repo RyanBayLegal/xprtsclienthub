@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield } from "lucide-react";
 import LeadSourcesManager from "@/components/LeadSourcesManager";
 import LeadNotificationRecipients from "@/components/LeadNotificationRecipients";
+import GmailSmtpSettings from "@/components/GmailSmtpSettings";
 
 interface ManagedUser {
   id: string;
@@ -617,7 +618,10 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="notifications">
-          <LeadNotificationRecipients />
+          <div className="space-y-6">
+            <GmailSmtpSettings />
+            <LeadNotificationRecipients />
+          </div>
         </TabsContent>
       </Tabs>
     </div>
