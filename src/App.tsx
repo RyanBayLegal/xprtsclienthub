@@ -27,6 +27,7 @@ import TalentPool from "./pages/TalentPool";
 import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import AuditLogs from "./pages/AuditLogs";
+import NotificationLogs from "./pages/NotificationLogs";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +82,7 @@ const App = () => (
                 <Route path="/time-planner" element={<ProtectedRoute><TimePlanner /></ProtectedRoute>} />
                 <Route path="/activities" element={<ProtectedRoute><TeamRoute><Activities /></TeamRoute></ProtectedRoute>} />
                 <Route path="/audit-logs" element={<ProtectedRoute><TeamRoute><AuditLogs /></TeamRoute></ProtectedRoute>} />
+                <Route path="/notification-logs" element={<ProtectedRoute><TeamRoute><NotificationLogs /></TeamRoute></ProtectedRoute>} />
                 <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
