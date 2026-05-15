@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Mail, Plus, Trash2 } from "lucide-react";
+import { Mail, Plus, Trash2, Send } from "lucide-react";
 import { toast } from "sonner";
 
 interface Recipient {
@@ -24,6 +24,8 @@ export default function LeadNotificationRecipients() {
   const [label, setLabel] = useState("");
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [testingLead, setTestingLead] = useState(false);
+  const [testingTask, setTestingTask] = useState(false);
 
   const fetchRecipients = async () => {
     setLoading(true);
@@ -87,16 +89,85 @@ export default function LeadNotificationRecipients() {
     }
   };
 
+  const activeRecipients = recipients.filter((r) => r.is_active);
+
+  const sendTestLead = async () => {
+    if (activeRecipients.length === 0) { toast.error("Add at least one active recipient first"); return; }
+    setTestingLead(true);
+    try {
+      const stamp = new Date().toLocaleString();
+      const { data: lead, error } = await supabase.from("leads").insert({
+        name: `[TEST] Sample Lead ${stamp}`,
+        contact: "test@example.com",
+        source: "Email Test",
+        needs: "This is a sample lead created from Settings to verify email delivery.",
+        notes: "You can safely delete this test lead.",
+        stage: "New",
+        created_by: user?.id,
+      }).select("id, name").single();
+      if (error) throw error;
+      const { data, error: invokeErr } = await supabase.functions.invoke("send-lead-notification", {
+        body: {
+          lead_id: lead.id,
+          lead_name: lead.name,
+          source: "Email Test",
+          interest: "Sample lead notification",
+          contact: "test@example.com",
+          notes: "Test send from Settings.",
+        },
+      });
+      if (invokeErr) throw invokeErr;
+      const sent = (data as any)?.sent ?? 0;
+      toast.success(`Test lead created. Email attempts: ${sent}/${activeRecipients.length}. See Notification Logs.`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to send test lead email");
+    } finally {
+      setTestingLead(false);
+    }
+  };
+
+  const sendTestTask = async () => {
+    if (activeRecipients.length === 0) { toast.error("Add at least one active recipient first"); return; }
+    setTestingTask(true);
+    try {
+      const stamp = new Date().toLocaleString();
+      const { data: task, error } = await supabase.from("tasks").insert({
+        title: `[TEST] Sample Task ${stamp}`,
+        description: "This is a sample task created from Settings to verify task email delivery.",
+        priority: "medium",
+        status: "todo",
+        created_by: user?.id,
+      }).select("id, title").single();
+      if (error) throw error;
+      const { data, error: invokeErr } = await supabase.functions.invoke("send-task-notification", {
+        body: {
+          task_id: task.id,
+          task_title: task.title,
+          task_description: "Test send from Settings.",
+          priority: "medium",
+          created_by_name: "Test runner",
+        },
+      });
+      if (invokeErr) throw invokeErr;
+      const sent = (data as any)?.sent ?? 0;
+      toast.success(`Test task created. Email attempts: ${sent}/${activeRecipients.length}. See Notification Logs.`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to send test task email");
+    } finally {
+      setTestingTask(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Mail className="h-5 w-5" />
-          New Lead Email Recipients
+          Email Notification Recipients
         </CardTitle>
         <CardDescription>
-          When a lead is submitted via the Strategy Review Form, an email is sent to every active address below.
-          Sending uses the connected Gmail account — if Gmail is not connected yet, the list is saved and emails will start once you connect it.
+          When a new lead or task is created, an email is sent to every active address below via the connected Gmail account.
+          If Gmail is not connected yet, the list is saved and emails will start once you connect it.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -151,6 +222,18 @@ export default function LeadNotificationRecipients() {
               ))}
             </TableBody>
           </Table>
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-2 border-t">
+          <Button variant="outline" size="sm" onClick={sendTestLead} disabled={testingLead}>
+            <Send className="mr-2 h-4 w-4" /> {testingLead ? "Sending…" : "Send test lead email"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={sendTestTask} disabled={testingTask}>
+            <Send className="mr-2 h-4 w-4" /> {testingTask ? "Sending…" : "Send test task email"}
+          </Button>
+          <span className="text-xs text-muted-foreground self-center">
+            Creates a sample lead/task tagged [TEST] and triggers the Gmail send. Check the Notification Logs page for results.
+          </span>
         </div>
       </CardContent>
     </Card>
