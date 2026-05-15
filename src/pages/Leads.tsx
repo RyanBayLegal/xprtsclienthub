@@ -218,6 +218,17 @@ export default function Leads() {
       if (user && inserted) {
         const userName = await getUserName(user.id);
         await logAudit({ userId: user.id, userName, entityType: "lead", entityId: inserted.id, action: "create", description: `Created lead: ${form.name}` });
+        // Email notify admins via Gmail connector
+        supabase.functions.invoke("send-lead-notification", {
+          body: {
+            lead_id: inserted.id,
+            lead_name: form.name,
+            source: form.source || "Manual entry",
+            interest: form.needs || null,
+            contact: payload.contact || null,
+            notes: form.notes || null,
+          },
+        }).catch((e) => console.error("Lead email notify failed:", e));
       }
       toast.success("Lead created");
     }

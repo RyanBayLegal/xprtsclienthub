@@ -432,6 +432,21 @@ export default function Tasks() {
     if (user && inserted) {
       const userName = await getUserName(user.id);
       await logAudit({ userId: user.id, userName, entityType: "task", entityId: inserted.id, clientProfileId: form.client_profile_id || null, action: "create", description: `Created task: ${form.title}` });
+      // Email notify admins via Gmail connector
+      const creatorName = userName || "Someone";
+      const assigneeName = staffMembers.find((s) => s.id === form.assigned_to)?.full_name || null;
+      supabase.functions.invoke("send-task-notification", {
+        body: {
+          task_id: inserted.id,
+          task_title: form.title,
+          task_description: form.description || null,
+          priority: form.priority,
+          due_date: form.due_date || null,
+          assignee_name: assigneeName,
+          client_name: selectedClient?.name || null,
+          created_by_name: creatorName,
+        },
+      }).catch((e) => console.error("Task email notify failed:", e));
     }
 
     // Notify the assigned staff member (not the creator)
