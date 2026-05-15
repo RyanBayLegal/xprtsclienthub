@@ -89,11 +89,24 @@ Deno.serve(async (req) => {
         if (!resp.ok) {
           const t = await resp.text();
           errors.push(`${r.email}: ${resp.status} ${t}`);
+          await supabase.from("notification_logs").insert({
+            channel: "lead", recipient_email: r.email, lead_id: lead_id || null,
+            subject, status: "failed", error_message: `${resp.status} ${t}`.slice(0, 1000),
+          });
         } else {
           sent++;
+          const body = await resp.json().catch(() => ({}));
+          await supabase.from("notification_logs").insert({
+            channel: "lead", recipient_email: r.email, lead_id: lead_id || null,
+            subject, status: "sent", message_id: body?.id || null,
+          });
         }
       } catch (e) {
         errors.push(`${r.email}: ${(e as Error).message}`);
+        await supabase.from("notification_logs").insert({
+          channel: "lead", recipient_email: r.email, lead_id: lead_id || null,
+          subject, status: "failed", error_message: (e as Error).message.slice(0, 1000),
+        });
       }
     }
 

@@ -680,6 +680,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_logs: {
+        Row: {
+          channel: string
+          created_at: string
+          error_message: string | null
+          id: string
+          lead_id: string | null
+          message_id: string | null
+          recipient_email: string | null
+          status: string
+          subject: string | null
+          task_id: string | null
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          message_id?: string | null
+          recipient_email?: string | null
+          status?: string
+          subject?: string | null
+          task_id?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          lead_id?: string | null
+          message_id?: string | null
+          recipient_email?: string | null
+          status?: string
+          subject?: string | null
+          task_id?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
