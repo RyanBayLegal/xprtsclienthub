@@ -70,9 +70,20 @@ export default function VendorTasks({ vendorId }: { vendorId: string }) {
       if (error) { toast.error(error.message); return; }
       toast.success("Task updated");
     } else {
-      const { error } = await supabase.from("tasks").insert(payload);
+      const { data: inserted, error } = await supabase.from("tasks").insert(payload).select("id").single();
       if (error) { toast.error(error.message); return; }
       toast.success("Task added");
+      supabase.functions.invoke("send-task-notification", {
+        body: {
+          task_id: inserted?.id,
+          task_title: form.title,
+          task_description: form.description || null,
+          priority: form.priority,
+          due_date: form.due_date || null,
+          assignee_name: form.assigned_to_name || null,
+          vendor_name: vendorId,
+        },
+      }).catch((e) => console.error("Task email notify failed:", e));
     }
     setOpen(false); setForm(emptyForm); setEditingId(null); fetch();
   };
