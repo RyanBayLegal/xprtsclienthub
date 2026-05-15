@@ -174,6 +174,18 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
         message: `"${form.title}" — Client: ${clientName}${form.due_date ? ` | Due: ${form.due_date}` : ""} | Created by: ${creatorName}`,
         lead_id: inserted?.id || null,
       });
+      supabase.functions.invoke("send-task-notification", {
+        body: {
+          task_id: inserted?.id,
+          task_title: form.title,
+          task_description: form.description || null,
+          priority: form.priority,
+          due_date: form.due_date || null,
+          assignee_name: selectedStaff?.full_name || null,
+          client_name: clientName,
+          created_by_name: creatorName,
+        },
+      }).catch((e) => console.error("Task email notify failed:", e));
     }
 
     toast.success("Task created");
@@ -248,6 +260,19 @@ export default function ClientTasks({ clientProfileId, leadId }: ClientTasksProp
     const { error } = await supabase.from("tasks").insert(newTasks);
     if (error) { toast.error(error.message); return; }
     toast.success(`Applied "${template.name}" template (${newTasks.length} tasks)`);
+    // Email notify admins for each templated task
+    const { data: clientProfile } = await supabase.from("client_profiles").select("name").eq("id", clientProfileId).maybeSingle();
+    const clientName = clientProfile?.name || "Unknown client";
+    newTasks.forEach((t) => {
+      supabase.functions.invoke("send-task-notification", {
+        body: {
+          task_title: t.title,
+          priority: t.priority,
+          assignee_name: t.assigned_to_name || null,
+          client_name: clientName,
+        },
+      }).catch((e) => console.error("Task email notify failed:", e));
+    });
     fetchTasks();
   };
 

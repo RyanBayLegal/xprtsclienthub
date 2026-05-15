@@ -241,6 +241,21 @@ export default function BulkLeadImport({ onImported }: Props) {
         action: "create",
         description: `Bulk imported ${data.length} leads`,
       });
+      // Email notify admins via Gmail connector for each imported lead
+      validLeads.forEach((l, idx) => {
+        const id = data[idx]?.id;
+        if (!id) return;
+        supabase.functions.invoke("send-lead-notification", {
+          body: {
+            lead_id: id,
+            lead_name: l.name,
+            source: l.source || "Bulk import",
+            interest: l.needs || null,
+            contact: l.contact || null,
+            notes: l.notes || null,
+          },
+        }).catch((e) => console.error("Lead email notify failed:", e));
+      });
     }
 
     toast.success(`Successfully imported ${data?.length || 0} leads`);
