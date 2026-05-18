@@ -38,6 +38,33 @@ Deno.serve(async (req) => {
   const errors: Record<string, string> = {};
   const PAGE = 1000;
 
+  // Dump auth.users
+  try {
+    const authUsers: Array<{ id: string; email: string | undefined; raw_user_meta_data: unknown }> = [];
+    let page = 1;
+    const perPage = 1000;
+    while (true) {
+      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+      if (error) {
+        errors["auth_users"] = error.message;
+        break;
+      }
+      const users = data?.users ?? [];
+      for (const u of users) {
+        authUsers.push({
+          id: u.id,
+          email: u.email,
+          raw_user_meta_data: (u as unknown as { user_metadata: unknown }).user_metadata,
+        });
+      }
+      if (users.length < perPage) break;
+      page += 1;
+    }
+    result["auth_users"] = authUsers;
+  } catch (e) {
+    errors["auth_users"] = (e as Error).message;
+  }
+
   for (const table of TABLES) {
     const rows: unknown[] = [];
     let from = 0;
