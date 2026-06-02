@@ -27,6 +27,7 @@ const DEFAULT_STAGES = [
   "Onboarding/Kickoff Stage",
   "Hired Stage",
   "Lost Stage",
+  "For Nurture",
 ];
 
 const KANBAN_STAGES_KEY = "kanban_custom_stages";
@@ -39,6 +40,7 @@ const STAGE_COLORS: Record<string, string> = {
   "Onboarding/Kickoff Stage": "bg-rose-500/10 border-rose-500/30",
   "Hired Stage": "bg-teal-500/10 border-teal-500/30",
   "Lost Stage": "bg-gray-500/10 border-gray-500/30",
+  "For Nurture": "bg-indigo-500/10 border-indigo-500/30",
 };
 
 interface Lead {
