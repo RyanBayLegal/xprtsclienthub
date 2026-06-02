@@ -27,6 +27,7 @@ const DEFAULT_STAGES = [
   "Onboarding/Kickoff Stage",
   "Hired Stage",
   "Lost Stage",
+  "For Nurture",
 ];
 
 const KANBAN_STAGES_KEY = "kanban_custom_stages";
@@ -39,6 +40,7 @@ const STAGE_COLORS: Record<string, string> = {
   "Onboarding/Kickoff Stage": "bg-rose-500/10 border-rose-500/30",
   "Hired Stage": "bg-teal-500/10 border-teal-500/30",
   "Lost Stage": "bg-gray-500/10 border-gray-500/30",
+  "For Nurture": "bg-indigo-500/10 border-indigo-500/30",
 };
 
 interface Lead {
@@ -68,7 +70,12 @@ export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }:
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [stages, setStages] = useState<string[]>(() => {
     const stored = localStorage.getItem(KANBAN_STAGES_KEY);
-    return stored ? JSON.parse(stored) : DEFAULT_STAGES;
+    if (!stored) return DEFAULT_STAGES;
+    const parsed: string[] = JSON.parse(stored);
+    // Merge in any new default stages missing from cached list
+    const merged = [...parsed];
+    for (const s of DEFAULT_STAGES) if (!merged.includes(s)) merged.push(s);
+    return merged;
   });
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
