@@ -70,7 +70,12 @@ export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }:
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [stages, setStages] = useState<string[]>(() => {
     const stored = localStorage.getItem(KANBAN_STAGES_KEY);
-    return stored ? JSON.parse(stored) : DEFAULT_STAGES;
+    if (!stored) return DEFAULT_STAGES;
+    const parsed: string[] = JSON.parse(stored);
+    // Merge in any new default stages missing from cached list
+    const merged = [...parsed];
+    for (const s of DEFAULT_STAGES) if (!merged.includes(s)) merged.push(s);
+    return merged;
   });
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
