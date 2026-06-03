@@ -30,7 +30,23 @@ import AuditLogPanel from "@/components/AuditLogPanel";
 import StageHistoryTimeline from "@/components/StageHistoryTimeline";
 import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 
-const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
+const DEFAULT_STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
+const CLIENTS_KANBAN_STAGES_KEY = "clients_kanban_custom_stages";
+
+const getClientStages = (currentStage?: string | null): string[] => {
+  let stages = DEFAULT_STAGES;
+  try {
+    const raw = localStorage.getItem(CLIENTS_KANBAN_STAGES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) stages = parsed;
+    }
+  } catch {}
+  if (currentStage && !stages.includes(currentStage)) {
+    stages = [...stages, currentStage];
+  }
+  return stages;
+};
 
 interface ClientProfileData {
   id: string;
