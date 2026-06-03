@@ -29,7 +29,8 @@ interface ClientRow {
   how_they_found_us: string | null;
 }
 
-const STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
+const DEFAULT_STAGES = ["Prospect", "Qualified", "Active", "Signed", "Inactive"];
+const CLIENTS_KANBAN_STAGES_KEY = "clients_kanban_custom_stages";
 const PAGE_SIZE = 15;
 
 type SortField = "name" | "client_health_score" | "stage";
@@ -68,6 +69,17 @@ export default function Clients() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [deleteTarget, setDeleteTarget] = useState<ClientRow | null>(null);
   const [practiceAreas, setPracticeAreas] = useState<string[]>([]);
+  const [stages, setStages] = useState<string[]>(() => {
+    let s = DEFAULT_STAGES;
+    try {
+      const raw = localStorage.getItem(CLIENTS_KANBAN_STAGES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) s = parsed;
+      }
+    } catch {}
+    return s;
+  });
   const [page, setPage] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -79,8 +91,13 @@ export default function Clients() {
     const { data } = await q;
     if (data) {
       const areas = new Set<string>();
-      data.forEach((c: ClientRow) => { if (c.practice_area) areas.add(c.practice_area); });
+      const stageSet = new Set<string>(stages);
+      data.forEach((c: ClientRow) => {
+        if (c.practice_area) areas.add(c.practice_area);
+        if (c.stage) stageSet.add(c.stage);
+      });
       setPracticeAreas(Array.from(areas).sort());
+      setStages(Array.from(stageSet));
       setClients(data);
     }
   };
@@ -196,7 +213,7 @@ export default function Clients() {
               <SelectTrigger className="w-36 h-9 text-xs"><SelectValue placeholder="Stage" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Stages</SelectItem>
-                {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {stages.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={practiceFilter} onValueChange={setPracticeFilter}>
