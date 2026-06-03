@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Database, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { exportToCSV } from "@/lib/csv-export";
+import JSZip from "jszip";
 
 const TABLES = [
   "profiles","user_roles","branding_settings","lead_sources","lead_notification_recipients",
@@ -41,6 +42,28 @@ function downloadBlob(filename: string, blob: Blob) {
   URL.revokeObjectURL(url);
 }
 
+function rowsToCSVString(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return "";
+  const headers = Array.from(
+    rows.reduce((set, r) => {
+      Object.keys(r).forEach((k) => set.add(k));
+      return set;
+    }, new Set<string>())
+  );
+  const escape = (val: unknown) => {
+    if (val == null) return "";
+    const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+  return [
+    headers.map(escape).join(","),
+    ...rows.map((r) => headers.map((h) => escape(r[h])).join(",")),
+  ].join("\n");
+}
+
 function rowsToCSVDownload(table: string, rows: Record<string, unknown>[]) {
   if (rows.length === 0) {
     toast.info(`${table} has no rows`);
@@ -66,6 +89,7 @@ function rowsToCSVDownload(table: string, rows: Record<string, unknown>[]) {
 export default function DataExport() {
   const [busy, setBusy] = useState<string | null>(null);
   const [fullBusy, setFullBusy] = useState(false);
+  const [fullCsvBusy, setFullCsvBusy] = useState(false);
 
   const exportTableCSV = async (table: string) => {
     setBusy(table);
@@ -114,6 +138,29 @@ export default function DataExport() {
     setFullBusy(false);
   };
 
+  const exportFullBackupCSV = async () => {
+    setFullCsvBusy(true);
+    const zip = new JSZip();
+    const errors: Record<string, string> = {};
+    for (const table of TABLES) {
+      try {
+        const rows = await fetchAll(table);
+        zip.file(`${table}.csv`, rowsToCSVString(rows));
+      } catch (e: any) {
+        errors[table] = e.message ?? "failed";
+      }
+    }
+    if (Object.keys(errors).length) {
+      zip.file("_errors.json", JSON.stringify(errors, null, 2));
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    downloadBlob(`full-backup-${new Date().toISOString().slice(0, 10)}.zip`, blob);
+    const errCount = Object.keys(errors).length;
+    if (errCount > 0) toast.warning(`CSV backup downloaded with ${errCount} table error(s)`);
+    else toast.success("Full CSV backup downloaded");
+    setFullCsvBusy(false);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -127,10 +174,16 @@ export default function DataExport() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={exportFullBackup} disabled={fullBusy}>
-            {fullBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            {fullBusy ? "Preparing backup..." : "Download Full Backup (JSON)"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={exportFullBackup} disabled={fullBusy || fullCsvBusy}>
+              {fullBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              {fullBusy ? "Preparing backup..." : "Download Full Backup (JSON)"}
+            </Button>
+            <Button onClick={exportFullBackupCSV} disabled={fullBusy || fullCsvBusy} variant="outline">
+              {fullCsvBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              {fullCsvBusy ? "Preparing CSV..." : "Download Full Backup (CSV .zip)"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
