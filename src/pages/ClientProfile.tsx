@@ -452,7 +452,7 @@ export default function ClientProfile() {
                     <Select value={profile.stage || "Prospect"} onValueChange={(v) => updateProfile("stage", v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        {getClientStages(profile.stage).map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
