@@ -25,7 +25,7 @@ async function fetchAll(table: string): Promise<Record<string, unknown>[]> {
     const { data, error } = await supabase.from(table as any).select("*").range(from, from + PAGE - 1);
     if (error) throw error;
     if (!data || data.length === 0) break;
-    rows.push(...(data as Record<string, unknown>[]));
+    rows.push(...((data as unknown) as Record<string, unknown>[]));
     if (data.length < PAGE) break;
     from += PAGE;
   }
