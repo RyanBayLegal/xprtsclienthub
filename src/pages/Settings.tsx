@@ -19,6 +19,7 @@ import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield } from "lucid
 import LeadSourcesManager from "@/components/LeadSourcesManager";
 import LeadNotificationRecipients from "@/components/LeadNotificationRecipients";
 import GmailSmtpSettings from "@/components/GmailSmtpSettings";
+import DataExport from "@/components/DataExport";
 
 interface ManagedUser {
   id: string;
@@ -30,7 +31,8 @@ interface ManagedUser {
 }
 
 export default function Settings() {
-  const { user, sessionTimeoutMinutes, setSessionTimeoutMinutes } = useAuth();
+  const { user, role, sessionTimeoutMinutes, setSessionTimeoutMinutes } = useAuth();
+  const isAdmin = role === "team_admin";
   const { branding, refetch } = useBranding();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -280,6 +282,7 @@ export default function Settings() {
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="lead-sources">Lead Sources</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          {isAdmin && <TabsTrigger value="data-export">Data Export</TabsTrigger>}
         </TabsList>
 
         {/* ── BRANDING TAB ── */}
@@ -623,6 +626,12 @@ export default function Settings() {
             <LeadNotificationRecipients />
           </div>
         </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="data-export">
+            <DataExport />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
