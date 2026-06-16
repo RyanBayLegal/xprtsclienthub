@@ -85,25 +85,15 @@ export function NotificationBell() {
 
     if (!user) return;
 
-    // Subscribe to realtime notifications
-    const channel = supabase
-      .channel("notifications-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => {
-          fetchNotifications();
-        }
-      )
-      .subscribe();
+    // Notifications are not in the realtime publication for security reasons
+    // (broad channel subscriptions could leak other users' notifications).
+    // Poll every 30 seconds instead.
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [user]);
 

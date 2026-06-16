@@ -77,21 +77,10 @@ export function AppSidebar() {
 
     fetchLeadNotifs();
 
-    const channel = supabase
-      .channel("lead-notif-badge")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => fetchLeadNotifs()
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    // Notifications are polled (not in the realtime publication) to avoid
+    // broad channel subscriptions leaking other users' notifications.
+    const interval = setInterval(fetchLeadNotifs, 30000);
+    return () => { clearInterval(interval); };
   }, [user, role]);
 
   const profilePath = "/my-profile";
