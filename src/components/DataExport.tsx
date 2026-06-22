@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Database, Loader2 } from "lucide-react";
+import { Download, Database, Loader2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { exportToCSV } from "@/lib/csv-export";
 import JSZip from "jszip";
@@ -90,6 +90,8 @@ export default function DataExport() {
   const [busy, setBusy] = useState<string | null>(null);
   const [fullBusy, setFullBusy] = useState(false);
   const [fullCsvBusy, setFullCsvBusy] = useState(false);
+  const [attachBusy, setAttachBusy] = useState(false);
+  const [attachProgress, setAttachProgress] = useState<string>("");
 
   const exportTableCSV = async (table: string) => {
     setBusy(table);
@@ -161,6 +163,87 @@ export default function DataExport() {
     setFullCsvBusy(false);
   };
 
+  const sanitize = (s: string) => (s || "untitled").replace(/[\/\\:*?"<>|]/g, "_").slice(0, 80);
+
+  const extractPath = (bucket: string, fileUrl: string): string => {
+    const marker = `/${bucket}/`;
+    const idx = fileUrl.indexOf(marker);
+    if (idx >= 0) return fileUrl.substring(idx + marker.length);
+    return fileUrl;
+  };
+
+  const downloadAllAttachments = async () => {
+    setAttachBusy(true);
+    setAttachProgress("Loading attachment lists...");
+    const zip = new JSZip();
+    const errors: string[] = [];
+    try {
+      const [clientsRes, vendorsRes, tasksRes, talentRes,
+             clientAtt, vendorAtt, taskAtt, talentAtt] = await Promise.all([
+        supabase.from("client_profiles").select("id,name"),
+        supabase.from("vendors").select("id,name"),
+        supabase.from("tasks").select("id,title"),
+        supabase.from("talent_pool").select("id,full_name"),
+        fetchAll("client_attachments"),
+        fetchAll("vendor_attachments"),
+        fetchAll("task_attachments"),
+        fetchAll("talent_attachments"),
+      ]);
+      const clientMap = new Map((clientsRes.data ?? []).map((r: any) => [r.id, r.name]));
+      const vendorMap = new Map((vendorsRes.data ?? []).map((r: any) => [r.id, r.name]));
+      const taskMap = new Map((tasksRes.data ?? []).map((r: any) => [r.id, r.title]));
+      const talentMap = new Map((talentRes.data ?? []).map((r: any) => [r.id, r.full_name]));
+
+      const sources: Array<{
+        bucket: string;
+        folder: string;
+        rows: any[];
+        parentKey: string;
+        nameMap: Map<string, string>;
+      }> = [
+        { bucket: "client-attachments", folder: "clients", rows: clientAtt, parentKey: "client_profile_id", nameMap: clientMap as Map<string,string> },
+        { bucket: "vendor-attachments", folder: "vendors", rows: vendorAtt, parentKey: "vendor_id", nameMap: vendorMap as Map<string,string> },
+        { bucket: "task-attachments", folder: "tasks", rows: taskAtt, parentKey: "task_id", nameMap: taskMap as Map<string,string> },
+        { bucket: "talent-attachments", folder: "talent", rows: talentAtt, parentKey: "talent_id", nameMap: talentMap as Map<string,string> },
+      ];
+
+      const total = sources.reduce((n, s) => n + s.rows.length, 0);
+      let done = 0;
+
+      for (const src of sources) {
+        for (const row of src.rows as any[]) {
+          const path = extractPath(src.bucket, row.file_url);
+          const parentName = sanitize(src.nameMap.get(row[src.parentKey]) || row[src.parentKey] || "unknown");
+          const fileName = sanitize(row.file_name || "file");
+          const zipPath = `${src.folder}/${parentName}/${fileName}`;
+          try {
+            const { data, error } = await supabase.storage.from(src.bucket).download(path);
+            if (error || !data) throw error ?? new Error("no data");
+            zip.file(zipPath, data);
+          } catch (e: any) {
+            errors.push(`${zipPath}: ${e?.message ?? "failed"}`);
+          }
+          done++;
+          if (done % 5 === 0 || done === total) {
+            setAttachProgress(`Downloaded ${done} of ${total}...`);
+          }
+        }
+      }
+
+      if (errors.length) zip.file("_errors.txt", errors.join("\n"));
+      setAttachProgress("Building zip...");
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(`all-attachments-${new Date().toISOString().slice(0, 10)}.zip`, blob);
+      if (errors.length) toast.warning(`Downloaded with ${errors.length} file error(s)`);
+      else toast.success(`Downloaded ${total} attachments`);
+    } catch (e: any) {
+      toast.error(`Failed: ${e.message ?? "unknown error"}`);
+    } finally {
+      setAttachBusy(false);
+      setAttachProgress("");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -183,6 +266,28 @@ export default function DataExport() {
               {fullCsvBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               {fullCsvBusy ? "Preparing CSV..." : "Download Full Backup (CSV .zip)"}
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Paperclip className="h-5 w-5" />
+            All Attachments
+          </CardTitle>
+          <CardDescription>
+            Download every uploaded file across clients, vendors, tasks, and talent pool as a single .zip,
+            organized by source and parent record name.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={downloadAllAttachments} disabled={attachBusy}>
+              {attachBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              {attachBusy ? "Preparing..." : "Download All Attachments (.zip)"}
+            </Button>
+            {attachProgress && <span className="text-sm text-muted-foreground">{attachProgress}</span>}
           </div>
         </CardContent>
       </Card>
