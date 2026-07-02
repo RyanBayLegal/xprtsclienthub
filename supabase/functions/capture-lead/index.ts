@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
     // Send email notification to configured recipients (Gmail-ready, no-op if Gmail not connected)
     try {
       await supabase.functions.invoke("send-lead-notification", {
+        headers: { "x-notify-secret": Deno.env.get("NOTIFY_SECRET") ?? "" },
         body: {
           lead_id: lead.id,
           lead_name: lead.name,
