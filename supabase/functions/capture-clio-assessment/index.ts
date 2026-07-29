@@ -93,6 +93,8 @@ Deno.serve(async (req) => {
 
     // Everything else goes into needs
     const extraParts: string[] = [];
+    const originUrl = req.headers.get("referer") || req.headers.get("origin") || "";
+    if (originUrl) extraParts.push(`Submitted From: ${originUrl}`);
     for (const [key, rawValue] of Object.entries(data)) {
       if (KNOWN_FIELDS.has(key)) continue;
       const value = String(rawValue ?? "").trim();
