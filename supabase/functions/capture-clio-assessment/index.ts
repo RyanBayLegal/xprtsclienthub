@@ -20,6 +20,7 @@ function getCorsHeaders(req: Request) {
 const KNOWN_FIELDS = new Set([
   "fname", "lname", "first_name", "last_name", "firstname", "lastname",
   "email", "phone", "botcheck",
+  "page", "page_url", "source_url", "form", "form_name", "form_id",
 ]);
 
 const LABELS: Record<string, string> = {
@@ -50,16 +51,52 @@ const SITE_LABELS: Record<string, string> = {
   "xprtsstaging.wpenginepowered.com": "xprtsstaging (WPEngine)",
 };
 
-function getSiteInfo(req: Request) {
-  const url = req.headers.get("referer") || req.headers.get("origin") || "";
+function resolveSite(req: Request, data: Record<string, string>) {
+  const url =
+    (data.page_url || data.page || data.source_url || "").trim() ||
+    req.headers.get("referer") ||
+    req.headers.get("origin") ||
+    "";
   let host = "";
+  let path = "";
   try {
-    host = url ? new URL(url).hostname : "";
+    if (url) {
+      const u = new URL(url);
+      host = u.hostname;
+      path = u.pathname;
+    }
   } catch (_e) {
     host = "";
   }
   const label = SITE_LABELS[host] || host || "Unknown Site";
-  return { url, host, label };
+  return { url, host, path, label };
+}
+
+function titleize(slug: string) {
+  return slug
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Derive which assessment/form was submitted, so the 5+ resource tools don't
+// all collapse into a single "Clio Assessment Form" source.
+function resolveFormName(data: Record<string, string>, path: string) {
+  const explicit = (data.form_name || data.form || data.form_id || "").trim();
+  if (explicit) return titleize(explicit);
+
+  const slug = path
+    .split("/")
+    .filter(Boolean)
+    .pop();
+  if (slug && slug !== "resources") return titleize(slug);
+
+  // Fallback: read the "=== XXX RESULTS ===" banner in the assessment payload
+  const blob = Object.values(data).join("\n");
+  const m = blob.match(/===\s*([A-Z0-9][A-Z0-9 &/'-]+?)\s*(?:RESULTS)?\s*===/i);
+  if (m) return titleize(m[1].toLowerCase());
+
+  return "Clio Assessment";
 }
 
 Deno.serve(async (req) => {
@@ -111,11 +148,13 @@ Deno.serve(async (req) => {
     }
 
     // Everything else goes into needs
-    const site = getSiteInfo(req);
+    const site = resolveSite(req, data);
+    const formName = resolveFormName(data, site.path);
     const submittedAt = new Date().toISOString();
-    const sourceLabel = `Clio Assessment Form - ${site.label}`;
+    const sourceLabel = `${formName} Form - ${site.label}`;
 
     const extraParts: string[] = [];
+    extraParts.push(`Form: ${formName}`);
     extraParts.push(`Website: ${site.label}`);
     if (site.url) extraParts.push(`Submitted From: ${site.url}`);
     extraParts.push(`Submitted At: ${submittedAt}`);

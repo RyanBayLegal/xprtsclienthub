@@ -24,16 +24,41 @@ const SITE_LABELS: Record<string, string> = {
   "xprtsstaging.wpenginepowered.com": "xprtsstaging (WPEngine)",
 };
 
-function getSiteInfo(req: Request) {
-  const url = req.headers.get("referer") || req.headers.get("origin") || "";
+function titleize(slug: string) {
+  return slug
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getSiteInfo(req: Request, data: Record<string, string> = {}) {
+  const url =
+    (data.page_url || data.page || data.source_url || "").trim() ||
+    req.headers.get("referer") ||
+    req.headers.get("origin") ||
+    "";
   let host = "";
+  let path = "";
   try {
-    host = url ? new URL(url).hostname : "";
+    if (url) {
+      const u = new URL(url);
+      host = u.hostname;
+      path = u.pathname;
+    }
   } catch (_e) {
     host = "";
   }
   const label = SITE_LABELS[host] || host || "Unknown Site";
-  return { url, host, label };
+  return { url, host, path, label };
+}
+
+// Distinguish which page the strategy-review form lived on (home, contact, /strategy-review/, ...)
+function resolveFormName(data: Record<string, string>, path: string) {
+  const explicit = (data.form_name || data.form || data.form_id || "").trim();
+  if (explicit) return titleize(explicit);
+  const slug = path.split("/").filter(Boolean).pop();
+  if (!slug) return "Strategy Review";
+  return titleize(slug);
 }
 
 Deno.serve(async (req) => {
@@ -87,11 +112,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    const site = getSiteInfo(req);
+    const site = getSiteInfo(req, data);
+    const formName = resolveFormName(data, site.path);
     const submittedAt = new Date().toISOString();
-    const sourceLabel = `Strategy Review Form - ${site.label}`;
+    const sourceLabel = `${formName} Form - ${site.label}`;
 
     const notesParts: string[] = [];
+    notesParts.push(`Form: ${formName}`);
     notesParts.push(`Website: ${site.label}`);
     if (site.url) notesParts.push(`Submitted From: ${site.url}`);
     notesParts.push(`Submitted At: ${submittedAt}`);

@@ -1,0 +1,1 @@
+delete from public.leads where id = '7ff593e2-6e5d-4162-a3f1-d751c4fde195';
