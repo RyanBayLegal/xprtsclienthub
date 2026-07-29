@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const allowedOrigins = [
   "https://xprts.com",
   "https://www.xprts.com",
+  "https://xprts1.wpenginepowered.com",
+  "https://xprtsstaging.wpenginepowered.com",
 ];
 
 function getCorsHeaders(req: Request) {

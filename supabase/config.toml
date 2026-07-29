@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.capture-clio-assessment]
 verify_jwt = false
+
+[functions.capture-lead]
+verify_jwt = false
