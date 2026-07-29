@@ -43,6 +43,25 @@ function prettyLabel(key: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const SITE_LABELS: Record<string, string> = {
+  "xprts.com": "xprts.com",
+  "www.xprts.com": "xprts.com",
+  "xprts1.wpenginepowered.com": "xprts1 (WPEngine)",
+  "xprtsstaging.wpenginepowered.com": "xprtsstaging (WPEngine)",
+};
+
+function getSiteInfo(req: Request) {
+  const url = req.headers.get("referer") || req.headers.get("origin") || "";
+  let host = "";
+  try {
+    host = url ? new URL(url).hostname : "";
+  } catch (_e) {
+    host = "";
+  }
+  const label = SITE_LABELS[host] || host || "Unknown Site";
+  return { url, host, label };
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -92,9 +111,14 @@ Deno.serve(async (req) => {
     }
 
     // Everything else goes into needs
+    const site = getSiteInfo(req);
+    const submittedAt = new Date().toISOString();
+    const sourceLabel = `Clio Assessment Form - ${site.label}`;
+
     const extraParts: string[] = [];
-    const originUrl = req.headers.get("referer") || req.headers.get("origin") || "";
-    if (originUrl) extraParts.push(`Submitted From: ${originUrl}`);
+    extraParts.push(`Website: ${site.label}`);
+    if (site.url) extraParts.push(`Submitted From: ${site.url}`);
+    extraParts.push(`Submitted At: ${submittedAt}`);
     for (const [key, rawValue] of Object.entries(data)) {
       if (KNOWN_FIELDS.has(key)) continue;
       const value = String(rawValue ?? "").trim();
@@ -106,7 +130,7 @@ Deno.serve(async (req) => {
     const { data: lead, error } = await supabase.from("leads").insert({
       name,
       contact: [email, phone].filter(Boolean).join(" | "),
-      source: "Clio Assessment Form",
+      source: sourceLabel,
       needs,
       stage: "Prospecting Stage",
     }).select("id, name").single();
@@ -131,7 +155,7 @@ Deno.serve(async (req) => {
           user_id: admin.user_id,
           type: "new_lead",
           title: `New Lead: ${lead.name}`,
-          message: `A new lead from Clio Assessment Form has been added.`,
+          message: `A new lead from ${sourceLabel} has been added.`,
           lead_id: lead.id,
         }));
 
@@ -148,7 +172,7 @@ Deno.serve(async (req) => {
         body: {
           lead_id: lead.id,
           lead_name: lead.name,
-          source: "Clio Assessment Form",
+          source: sourceLabel,
           contact: [email, phone].filter(Boolean).join(" | ") || null,
           notes: needs,
         },

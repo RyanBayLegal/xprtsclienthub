@@ -17,6 +17,25 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+const SITE_LABELS: Record<string, string> = {
+  "xprts.com": "xprts.com",
+  "www.xprts.com": "xprts.com",
+  "xprts1.wpenginepowered.com": "xprts1 (WPEngine)",
+  "xprtsstaging.wpenginepowered.com": "xprtsstaging (WPEngine)",
+};
+
+function getSiteInfo(req: Request) {
+  const url = req.headers.get("referer") || req.headers.get("origin") || "";
+  let host = "";
+  try {
+    host = url ? new URL(url).hostname : "";
+  } catch (_e) {
+    host = "";
+  }
+  const label = SITE_LABELS[host] || host || "Unknown Site";
+  return { url, host, label };
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -68,9 +87,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    const site = getSiteInfo(req);
+    const submittedAt = new Date().toISOString();
+    const sourceLabel = `Strategy Review Form - ${site.label}`;
+
     const notesParts: string[] = [];
-    const originUrl = req.headers.get("referer") || req.headers.get("origin") || "";
-    if (originUrl) notesParts.push(`Submitted From: ${originUrl}`);
+    notesParts.push(`Website: ${site.label}`);
+    if (site.url) notesParts.push(`Submitted From: ${site.url}`);
+    notesParts.push(`Submitted At: ${submittedAt}`);
     if (firm) notesParts.push(`Firm: ${firm}`);
     if (service) notesParts.push(`Interest: ${service}`);
     if (message) notesParts.push(`Message: ${message}`);
@@ -78,7 +102,7 @@ Deno.serve(async (req) => {
     const { data: lead, error } = await supabase.from("leads").insert({
       name,
       contact: [email, phone].filter(Boolean).join(" | "),
-      source: "Strategy Review Form",
+      source: sourceLabel,
       needs: service || null,
       notes: notesParts.join("\n") || null,
       website: firm ? `Firm: ${firm}` : null,
@@ -105,7 +129,7 @@ Deno.serve(async (req) => {
           user_id: admin.user_id,
           type: "new_lead",
           title: `New Lead: ${lead.name}`,
-          message: `A new lead from Strategy Review Form has been added.${service ? ` Interest: ${service}` : ""}`,
+          message: `A new lead from ${sourceLabel} has been added.${service ? ` Interest: ${service}` : ""}`,
           lead_id: lead.id,
         }));
 
@@ -122,7 +146,7 @@ Deno.serve(async (req) => {
         body: {
           lead_id: lead.id,
           lead_name: lead.name,
-          source: "Strategy Review Form",
+          source: sourceLabel,
           interest: service || null,
           contact: [email, phone].filter(Boolean).join(" | ") || null,
           notes: notesParts.join("\n") || null,
