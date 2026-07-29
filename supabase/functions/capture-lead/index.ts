@@ -69,6 +69,8 @@ Deno.serve(async (req) => {
     }
 
     const notesParts: string[] = [];
+    const originUrl = req.headers.get("referer") || req.headers.get("origin") || "";
+    if (originUrl) notesParts.push(`Submitted From: ${originUrl}`);
     if (firm) notesParts.push(`Firm: ${firm}`);
     if (service) notesParts.push(`Interest: ${service}`);
     if (message) notesParts.push(`Message: ${message}`);
