@@ -51,10 +51,6 @@ const SITE_LABELS: Record<string, string> = {
   "xprtsstaging.wpenginepowered.com": "xprtsstaging (WPEngine)",
 };
 
-function getSiteInfo(req: Request) {
-  return { url: "", host: "", label: "Unknown Site" };
-}
-
 function resolveSite(req: Request, data: Record<string, string>) {
   const url =
     (data.page_url || data.page || data.source_url || "").trim() ||
