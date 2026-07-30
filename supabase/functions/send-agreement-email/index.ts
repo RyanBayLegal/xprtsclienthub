@@ -143,6 +143,7 @@ Deno.serve(async (req) => {
     // For now, log the email and return success - in production, integrate with Resend/SendGrid
     console.log(`Email would be sent to: ${client_email}`);
     console.log(`Subject: Your XPRTS ${docTitle}`);
+    console.log(`Prepared email body length: ${emailHtml.length}`);
 
     return new Response(
       JSON.stringify({
