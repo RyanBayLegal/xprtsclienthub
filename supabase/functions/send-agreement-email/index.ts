@@ -21,6 +21,22 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Validate the caller's JWT for real
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser(token);
+    const callerId = userData?.user?.id;
+    if (userError || !callerId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { agreement_id, client_email, client_name, agreement_type } = await req.json();
 
     if (!agreement_id || !client_email) {
@@ -41,6 +57,29 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Agreement not found" }), {
         status: 404,
         headers: corsHeaders,
+      });
+    }
+
+    // Authorize: team_admin/staff_member, or the client who owns this agreement
+    const { data: roleRows } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", callerId);
+    const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
+    let allowed = roles.includes("team_admin") || roles.includes("staff_member");
+    if (!allowed && agreement.client_profile_id) {
+      const { data: ownProfile } = await supabaseAdmin
+        .from("client_profiles")
+        .select("id")
+        .eq("id", agreement.client_profile_id)
+        .eq("user_id", callerId)
+        .maybeSingle();
+      allowed = !!ownProfile;
+    }
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
