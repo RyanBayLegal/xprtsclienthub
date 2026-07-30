@@ -20,26 +20,64 @@ const TABLES = [
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const expected = Deno.env.get("EXPORT_TOKEN");
-  const provided = req.headers.get("x-export-token");
-  if (!expected || !provided || provided !== expected) {
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
+  // Require an authenticated team_admin session. The static export token alone
+  // is no longer sufficient — it may only be used in ADDITION to a valid session.
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const supabase = createClient(
+  const authClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } }
   );
+  const { data: userData, error: userError } = await authClient.auth.getUser(
+    authHeader.replace("Bearer ", "")
+  );
+  const callerId = userData?.user?.id;
+  if (userError || !callerId) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const { data: isAdmin } = await supabase.rpc("has_role", {
+    _user_id: callerId,
+    _role: "team_admin",
+  });
+  if (!isAdmin) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const includeAuthUsers = req.headers.get("x-include-auth-users") === "true";
+  console.log(`export-all-data invoked by ${callerId} at ${new Date().toISOString()}`);
+  await supabase.from("audit_logs").insert({
+    action: "export_all_data",
+    entity_type: "system",
+    user_id: callerId,
+  }).then(({ error }) => {
+    if (error) console.error("audit log insert failed:", error.message);
+  });
 
   const result: Record<string, unknown> = {};
   const errors: Record<string, string> = {};
   const PAGE = 1000;
 
-  // Dump auth.users
-  try {
+  // Dump auth.users only when explicitly requested
+  if (includeAuthUsers) try {
     const authUsers: Array<{ id: string; email: string | undefined; raw_user_meta_data: unknown }> = [];
     let page = 1;
     const perPage = 1000;
