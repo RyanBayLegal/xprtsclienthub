@@ -36,8 +36,12 @@ export default function ResetPassword() {
       toast.error("Passwords do not match.");
       return;
     }
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    if (password.length < 10) {
+      toast.error("Password must be at least 10 characters.");
+      return;
+    }
+    if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+      toast.error("Password must include at least one letter and one number.");
       return;
     }
     setLoading(true);
@@ -88,8 +92,11 @@ export default function ResetPassword() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={10}
               />
+              <p className="text-xs text-muted-foreground">
+                At least 10 characters, including a letter and a number.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm Password</Label>
@@ -99,7 +106,7 @@ export default function ResetPassword() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required
-                minLength={6}
+                minLength={10}
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
