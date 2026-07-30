@@ -148,7 +148,6 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         message: `Agreement email prepared for ${client_email}`,
-        email_html: emailHtml,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
