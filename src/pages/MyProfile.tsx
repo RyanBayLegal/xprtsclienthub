@@ -123,7 +123,7 @@ export default function MyProfile() {
       meeting_preferences: clientProfile.meeting_preferences,
       needs: clientProfile.needs,
       future_plans: clientProfile.future_plans,
-    }).eq("id", clientProfile.id);
+    } as never).eq("id", clientProfile.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Client profile updated");
   };

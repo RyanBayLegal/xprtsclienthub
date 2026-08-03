@@ -15,7 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Switch } from "@/components/ui/switch";
+import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield, Trash2, ShieldCheck } from "lucide-react";
 import LeadSourcesManager from "@/components/LeadSourcesManager";
 import LeadNotificationRecipients from "@/components/LeadNotificationRecipients";
 import GmailSmtpSettings from "@/components/GmailSmtpSettings";
@@ -28,6 +33,7 @@ interface ManagedUser {
   avatar_url: string | null;
   role: string;
   created_at: string;
+  is_active: boolean;
 }
 
 export default function Settings() {
@@ -55,6 +61,11 @@ export default function Settings() {
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [uploadingAvatarId, setUploadingAvatarId] = useState<string | null>(null);
   const [changingRoleId, setChangingRoleId] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [accessBusyId, setAccessBusyId] = useState<string | null>(null);
+  const [accessDialog, setAccessDialog] = useState<
+    { userId: string; name: string; action: "disable" | "enable" | "delete" } | null
+  >(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const avatarTargetUser = useRef<string | null>(null);
 
@@ -63,6 +74,7 @@ export default function Settings() {
 
   useEffect(() => {
     fetchUsers();
+    (supabase.rpc as any)("is_super_admin", {}).then(({ data }: any) => setIsSuperAdmin(data === true));
   }, []);
 
   const fetchUsers = async () => {
@@ -70,7 +82,10 @@ export default function Settings() {
     if (!roles) return;
 
     const userIds = roles.map((r) => r.user_id);
-    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, avatar_url").in("user_id", userIds);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, avatar_url, is_active")
+      .in("user_id", userIds);
 
     const mapped: ManagedUser[] = roles.map((r) => {
       const profile = profiles?.find((p) => p.user_id === r.user_id);
@@ -81,9 +96,39 @@ export default function Settings() {
         avatar_url: profile?.avatar_url || null,
         role: r.role,
         created_at: r.created_at,
+        is_active: profile?.is_active ?? true,
       };
     });
     setUsers(mapped);
+  };
+
+  const handleAccessAction = async (
+    userId: string,
+    action: "disable" | "enable" | "delete"
+  ) => {
+    setAccessBusyId(userId);
+    setAccessDialog(null);
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+
+    const res = await supabase.functions.invoke("manage-user", {
+      body: { action, userId },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.error || res.data?.error) {
+      toast.error(res.data?.error || res.error?.message || "Action failed");
+    } else {
+      if (action === "delete") {
+        setUsers((prev) => prev.filter((u) => u.id !== userId));
+        toast.success("User removed");
+      } else {
+        const active = action === "enable";
+        setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_active: active } : u)));
+        toast.success(active ? "Access restored" : "Access disabled");
+      }
+    }
+    setAccessBusyId(null);
   };
 
   const handleAddUser = async () => {
@@ -444,6 +489,11 @@ export default function Settings() {
                     User Management
                   </CardTitle>
                   <CardDescription>Create and manage user accounts</CardDescription>
+                  {isSuperAdmin && (
+                    <Badge variant="secondary" className="mt-2 gap-1">
+                      <ShieldCheck className="h-3 w-3" /> Super Admin
+                    </Badge>
+                  )}
                 </div>
                 <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
                   <DialogTrigger asChild>
@@ -490,6 +540,7 @@ export default function Settings() {
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -497,13 +548,13 @@ export default function Settings() {
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                         No users found. Click "Add User" to create one.
                       </TableCell>
                     </TableRow>
                   ) : (
                     users.map((u) => (
-                      <TableRow key={u.id}>
+                      <TableRow key={u.id} className={u.is_active ? "" : "opacity-60"}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <button
@@ -541,6 +592,26 @@ export default function Settings() {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={u.is_active ? "secondary" : "destructive"} className="text-xs">
+                              {u.is_active ? "Active" : "Disabled"}
+                            </Badge>
+                            {isSuperAdmin && u.id !== user?.id && (
+                              <Switch
+                                checked={u.is_active}
+                                disabled={accessBusyId === u.id}
+                                onCheckedChange={(checked) =>
+                                  setAccessDialog({
+                                    userId: u.id,
+                                    name: u.full_name || "this user",
+                                    action: checked ? "enable" : "disable",
+                                  })
+                                }
+                              />
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(u.created_at).toLocaleDateString()}
                         </TableCell>
@@ -555,6 +626,24 @@ export default function Settings() {
                             <RotateCcw className="h-4 w-4 mr-1" />
                             {resendingId === u.id ? "Sending..." : "Resend Invite"}
                           </Button>
+                          {isSuperAdmin && u.id !== user?.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              disabled={accessBusyId === u.id}
+                              onClick={() =>
+                                setAccessDialog({
+                                  userId: u.id,
+                                  name: u.full_name || "this user",
+                                  action: "delete",
+                                })
+                              }
+                              title="Remove user"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -565,6 +654,37 @@ export default function Settings() {
               <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedAvatarUpload} />
             </CardContent>
           </Card>
+
+          <AlertDialog open={!!accessDialog} onOpenChange={(o) => !o && setAccessDialog(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {accessDialog?.action === "delete"
+                    ? "Remove user"
+                    : accessDialog?.action === "disable"
+                    ? "Disable access"
+                    : "Restore access"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {accessDialog?.action === "delete"
+                    ? `This permanently deletes ${accessDialog?.name}'s account and sign-in access. This cannot be undone.`
+                    : accessDialog?.action === "disable"
+                    ? `${accessDialog?.name} will be signed out and blocked from logging in until access is restored.`
+                    : `${accessDialog?.name} will be able to log in again.`}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    accessDialog && handleAccessAction(accessDialog.userId, accessDialog.action)
+                  }
+                >
+                  Confirm
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </TabsContent>
 
         {/* ── SECURITY TAB ── */}

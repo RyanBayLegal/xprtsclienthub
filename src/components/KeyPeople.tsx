@@ -50,7 +50,7 @@ export default function KeyPeople({ clientProfileId, editable = true }: { client
 
   const updatePerson = async (id: string, field: string, value: string) => {
     setPeople((p) => p.map((person) => person.id === id ? { ...person, [field]: value } : person));
-    await supabase.from("key_people").update({ [field]: value }).eq("id", id);
+    await supabase.from("key_people").update({ [field]: value } as never).eq("id", id);
   };
 
   const deletePerson = async (id: string) => {
