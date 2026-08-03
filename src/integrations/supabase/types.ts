@@ -1397,6 +1397,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_admin_audit_logs: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_name: string | null
+          actor_user_id: string | null
+          created_at: string
+          details: string | null
+          id: string
+          new_value: string | null
+          old_value: string | null
+          target_email: string | null
+          target_name: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          target_email?: string | null
+          target_name?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_name?: string | null
+          actor_user_id?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          target_email?: string | null
+          target_name?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

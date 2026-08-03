@@ -25,6 +25,7 @@ import LeadSourcesManager from "@/components/LeadSourcesManager";
 import LeadNotificationRecipients from "@/components/LeadNotificationRecipients";
 import GmailSmtpSettings from "@/components/GmailSmtpSettings";
 import DataExport from "@/components/DataExport";
+import UserAdminAuditLog from "@/components/UserAdminAuditLog";
 
 interface ManagedUser {
   id: string;
@@ -34,6 +35,7 @@ interface ManagedUser {
   role: string;
   created_at: string;
   is_active: boolean;
+  last_sign_in_at?: string | null;
 }
 
 export default function Settings() {
@@ -66,6 +68,7 @@ export default function Settings() {
   const [accessDialog, setAccessDialog] = useState<
     { userId: string; name: string; action: "disable" | "enable" | "delete" } | null
   >(null);
+  const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const avatarTargetUser = useRef<string | null>(null);
 
@@ -97,9 +100,28 @@ export default function Settings() {
         role: r.role,
         created_at: r.created_at,
         is_active: profile?.is_active ?? true,
+        last_sign_in_at: null,
       };
     });
     setUsers(mapped);
+
+    // Enrich with email + last login from auth (server-side authorized)
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("manage-user", {
+        body: { action: "list" },
+        headers: { Authorization: `Bearer ${session.session?.access_token}` },
+      });
+      const authUsers: any[] = res.data?.users || [];
+      if (authUsers.length) {
+        setUsers((prev) =>
+          prev.map((u) => {
+            const au = authUsers.find((a) => a.id === u.id);
+            return au ? { ...u, email: au.email || "", last_sign_in_at: au.last_sign_in_at } : u;
+          })
+        );
+      }
+    } catch (_e) { /* non-fatal */ }
   };
 
   const handleAccessAction = async (
@@ -127,6 +149,7 @@ export default function Settings() {
         setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_active: active } : u)));
         toast.success(active ? "Access restored" : "Access disabled");
       }
+      setAuditRefreshKey((k) => k + 1);
     }
     setAccessBusyId(null);
   };
@@ -228,15 +251,17 @@ export default function Settings() {
       return;
     }
     setChangingRoleId(userId);
-    const { error } = await supabase
-      .from("user_roles")
-      .update({ role: newRole })
-      .eq("user_id", userId);
-    if (error) {
-      toast.error("Failed to update role: " + error.message);
+    const { data: session } = await supabase.auth.getSession();
+    const res = await supabase.functions.invoke("manage-user", {
+      body: { action: "set_role", userId, role: newRole },
+      headers: { Authorization: `Bearer ${session.session?.access_token}` },
+    });
+    if (res.error || res.data?.error) {
+      toast.error(res.data?.error || res.error?.message || "Failed to update role");
     } else {
       setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role: newRole } : u));
       toast.success("Role updated successfully");
+      setAuditRefreshKey((k) => k + 1);
     }
     setChangingRoleId(null);
   };
@@ -541,6 +566,7 @@ export default function Settings() {
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Last Login</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -548,7 +574,7 @@ export default function Settings() {
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         No users found. Click "Add User" to create one.
                       </TableCell>
                     </TableRow>
@@ -573,14 +599,19 @@ export default function Settings() {
                                 </div>
                               )}
                             </button>
-                            <span className="font-medium">{u.full_name || "—"}</span>
+                            <div className="min-w-0">
+                              <div className="font-medium">{u.full_name || "—"}</div>
+                              {u.email && (
+                                <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Select
                             value={u.role}
                             onValueChange={(v) => handleRoleChange(u.id, v as "team_admin" | "client" | "staff_member")}
-                            disabled={changingRoleId === u.id || u.id === user?.id}
+                            disabled={changingRoleId === u.id || u.id === user?.id || !isSuperAdmin}
                           >
                             <SelectTrigger className="w-[140px] h-8 text-xs">
                               <SelectValue />
@@ -611,6 +642,9 @@ export default function Settings() {
                               />
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "Never"}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(u.created_at).toLocaleDateString()}
@@ -654,6 +688,8 @@ export default function Settings() {
               <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedAvatarUpload} />
             </CardContent>
           </Card>
+
+          {isSuperAdmin && <UserAdminAuditLog refreshKey={auditRefreshKey} />}
 
           <AlertDialog open={!!accessDialog} onOpenChange={(o) => !o && setAccessDialog(null)}>
             <AlertDialogContent>

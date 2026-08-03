@@ -31,12 +31,76 @@ Deno.serve(async (req) => {
     );
     if (!caller) return json({ error: "Unauthorized" }, 401);
 
-    if ((caller.email || "").toLowerCase() !== SUPER_ADMIN_EMAIL) {
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+    const { action, userId, role: newRole } = await req.json();
+
+    const isSuperAdmin = (caller.email || "").toLowerCase() === SUPER_ADMIN_EMAIL;
+
+    if (action !== "list" && !isSuperAdmin) {
       return json({ error: "Forbidden: super admin only" }, 403);
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
-    const { action, userId } = await req.json();
+    if (action === "list") {
+      const { data: callerRole } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", caller.id)
+        .maybeSingle();
+      if (!isSuperAdmin && callerRole?.role !== "team_admin") {
+        return json({ error: "Forbidden" }, 403);
+      }
+    }
+
+    // Resolve actor display name
+    const { data: actorProfile } = await admin
+      .from("profiles")
+      .select("full_name")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+
+    const logAction = async (
+      targetUserId: string,
+      actionName: string,
+      oldValue: string | null,
+      newValue: string | null,
+      details: string,
+    ) => {
+      let targetEmail: string | null = null;
+      try {
+        const { data: t } = await admin.auth.admin.getUserById(targetUserId);
+        targetEmail = t?.user?.email ?? null;
+      } catch (_e) { /* ignore */ }
+      const { data: tp } = await admin
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+      await admin.from("user_admin_audit_logs").insert({
+        actor_user_id: caller.id,
+        actor_email: caller.email ?? null,
+        actor_name: actorProfile?.full_name ?? null,
+        target_user_id: targetUserId,
+        target_email: targetEmail,
+        target_name: tp?.full_name ?? null,
+        action: actionName,
+        old_value: oldValue,
+        new_value: newValue,
+        details,
+      });
+    };
+
+    if (action === "list") {
+      const { data: list, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (listErr) return json({ error: listErr.message }, 400);
+      return json({
+        users: (list?.users ?? []).map((u) => ({
+          id: u.id,
+          email: u.email ?? "",
+          last_sign_in_at: u.last_sign_in_at ?? null,
+          created_at: u.created_at,
+        })),
+      });
+    }
 
     if (!userId) return json({ error: "userId is required" }, 400);
     if (userId === caller.id) return json({ error: "You cannot modify your own access" }, 400);
@@ -51,10 +115,37 @@ Deno.serve(async (req) => {
       if (!isActive) {
         try { await admin.auth.admin.signOut(userId, "global"); } catch (_e) { /* ignore */ }
       }
+      await logAction(
+        userId,
+        isActive ? "restore" : "disable",
+        isActive ? "Disabled" : "Active",
+        isActive ? "Active" : "Disabled",
+        isActive ? "Restored account access" : "Disabled account access",
+      );
       return json({ success: true, is_active: isActive });
     }
 
+    if (action === "set_role") {
+      const allowed = ["team_admin", "staff_member", "client"];
+      if (!allowed.includes(newRole)) return json({ error: "Invalid role" }, 400);
+      const { data: existing } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (existing) {
+        const { error } = await admin.from("user_roles").update({ role: newRole }).eq("user_id", userId);
+        if (error) return json({ error: error.message }, 400);
+      } else {
+        const { error } = await admin.from("user_roles").insert({ user_id: userId, role: newRole });
+        if (error) return json({ error: error.message }, 400);
+      }
+      await logAction(userId, "role_change", existing?.role ?? null, newRole, "Changed user role");
+      return json({ success: true, role: newRole });
+    }
+
     if (action === "delete") {
+      await logAction(userId, "remove", null, null, "Removed user account");
       await admin.from("user_roles").delete().eq("user_id", userId);
       await admin.from("profiles").delete().eq("user_id", userId);
       const { error } = await admin.auth.admin.deleteUser(userId);
