@@ -1660,6 +1660,7 @@ export type Database = {
         Returns: boolean
       }
       is_active_user: { Args: never; Returns: boolean }
+      is_super_admin: { Args: { _user_id?: string }; Returns: boolean }
     }
     Enums: {
       app_role: "team_admin" | "client" | "staff_member"
