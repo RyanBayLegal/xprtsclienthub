@@ -31,12 +31,25 @@ Deno.serve(async (req) => {
     );
     if (!caller) return json({ error: "Unauthorized" }, 401);
 
-    if ((caller.email || "").toLowerCase() !== SUPER_ADMIN_EMAIL) {
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+    const { action, userId, role: newRole } = await req.json();
+
+    const isSuperAdmin = (caller.email || "").toLowerCase() === SUPER_ADMIN_EMAIL;
+
+    if (action !== "list" && !isSuperAdmin) {
       return json({ error: "Forbidden: super admin only" }, 403);
     }
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
-    const { action, userId, role: newRole } = await req.json();
+    if (action === "list") {
+      const { data: callerRole } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", caller.id)
+        .maybeSingle();
+      if (!isSuperAdmin && callerRole?.role !== "team_admin") {
+        return json({ error: "Forbidden" }, 403);
+      }
+    }
 
     // Resolve actor display name
     const { data: actorProfile } = await admin
