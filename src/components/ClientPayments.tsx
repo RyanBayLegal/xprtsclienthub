@@ -122,7 +122,7 @@ export default function ClientPayments({ clientProfileId }: { clientProfileId: s
     if (newStatus === "paid") updates.paid_at = new Date().toISOString();
     if (newStatus !== "paid") updates.paid_at = null;
 
-    const { error } = await supabase.from("client_invoices").update(updates).eq("id", invoiceId);
+    const { error } = await supabase.from("client_invoices").update(updates as never).eq("id", invoiceId);
     if (error) { toast.error(error.message); return; }
     setInvoices((prev) => prev.map((inv) =>
       inv.id === invoiceId ? { ...inv, status: newStatus, paid_at: newStatus === "paid" ? new Date().toISOString() : null } : inv
