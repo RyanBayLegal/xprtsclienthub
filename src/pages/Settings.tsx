@@ -489,6 +489,11 @@ export default function Settings() {
                     User Management
                   </CardTitle>
                   <CardDescription>Create and manage user accounts</CardDescription>
+                  {isSuperAdmin && (
+                    <Badge variant="secondary" className="mt-2 gap-1">
+                      <ShieldCheck className="h-3 w-3" /> Super Admin
+                    </Badge>
+                  )}
                 </div>
                 <Dialog open={addUserOpen} onOpenChange={setAddUserOpen}>
                   <DialogTrigger asChild>
@@ -535,6 +540,7 @@ export default function Settings() {
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -542,13 +548,13 @@ export default function Settings() {
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                         No users found. Click "Add User" to create one.
                       </TableCell>
                     </TableRow>
                   ) : (
                     users.map((u) => (
-                      <TableRow key={u.id}>
+                      <TableRow key={u.id} className={u.is_active ? "" : "opacity-60"}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <button
@@ -586,6 +592,26 @@ export default function Settings() {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={u.is_active ? "secondary" : "destructive"} className="text-xs">
+                              {u.is_active ? "Active" : "Disabled"}
+                            </Badge>
+                            {isSuperAdmin && u.id !== user?.id && (
+                              <Switch
+                                checked={u.is_active}
+                                disabled={accessBusyId === u.id}
+                                onCheckedChange={(checked) =>
+                                  setAccessDialog({
+                                    userId: u.id,
+                                    name: u.full_name || "this user",
+                                    action: checked ? "enable" : "disable",
+                                  })
+                                }
+                              />
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(u.created_at).toLocaleDateString()}
                         </TableCell>
@@ -600,6 +626,24 @@ export default function Settings() {
                             <RotateCcw className="h-4 w-4 mr-1" />
                             {resendingId === u.id ? "Sending..." : "Resend Invite"}
                           </Button>
+                          {isSuperAdmin && u.id !== user?.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              disabled={accessBusyId === u.id}
+                              onClick={() =>
+                                setAccessDialog({
+                                  userId: u.id,
+                                  name: u.full_name || "this user",
+                                  action: "delete",
+                                })
+                              }
+                              title="Remove user"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
