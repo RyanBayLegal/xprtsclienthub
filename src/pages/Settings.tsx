@@ -654,6 +654,37 @@ export default function Settings() {
               <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedAvatarUpload} />
             </CardContent>
           </Card>
+
+          <AlertDialog open={!!accessDialog} onOpenChange={(o) => !o && setAccessDialog(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {accessDialog?.action === "delete"
+                    ? "Remove user"
+                    : accessDialog?.action === "disable"
+                    ? "Disable access"
+                    : "Restore access"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {accessDialog?.action === "delete"
+                    ? `This permanently deletes ${accessDialog?.name}'s account and sign-in access. This cannot be undone.`
+                    : accessDialog?.action === "disable"
+                    ? `${accessDialog?.name} will be signed out and blocked from logging in until access is restored.`
+                    : `${accessDialog?.name} will be able to log in again.`}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    accessDialog && handleAccessAction(accessDialog.userId, accessDialog.action)
+                  }
+                >
+                  Confirm
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </TabsContent>
 
         {/* ── SECURITY TAB ── */}
