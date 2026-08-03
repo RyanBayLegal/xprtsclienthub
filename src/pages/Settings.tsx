@@ -566,6 +566,7 @@ export default function Settings() {
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Last Login</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -573,7 +574,7 @@ export default function Settings() {
                 <TableBody>
                   {users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         No users found. Click "Add User" to create one.
                       </TableCell>
                     </TableRow>
@@ -598,14 +599,19 @@ export default function Settings() {
                                 </div>
                               )}
                             </button>
-                            <span className="font-medium">{u.full_name || "—"}</span>
+                            <div className="min-w-0">
+                              <div className="font-medium">{u.full_name || "—"}</div>
+                              {u.email && (
+                                <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Select
                             value={u.role}
                             onValueChange={(v) => handleRoleChange(u.id, v as "team_admin" | "client" | "staff_member")}
-                            disabled={changingRoleId === u.id || u.id === user?.id}
+                            disabled={changingRoleId === u.id || u.id === user?.id || !isSuperAdmin}
                           >
                             <SelectTrigger className="w-[140px] h-8 text-xs">
                               <SelectValue />
@@ -636,6 +642,9 @@ export default function Settings() {
                               />
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString() : "Never"}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(u.created_at).toLocaleDateString()}
@@ -679,6 +688,8 @@ export default function Settings() {
               <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedAvatarUpload} />
             </CardContent>
           </Card>
+
+          {isSuperAdmin && <UserAdminAuditLog refreshKey={auditRefreshKey} />}
 
           <AlertDialog open={!!accessDialog} onOpenChange={(o) => !o && setAccessDialog(null)}>
             <AlertDialogContent>
