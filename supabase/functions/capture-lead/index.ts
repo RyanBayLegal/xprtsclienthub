@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { runAutomations } from "../_shared/automation-runner.ts";
 
 const allowedOrigins = [
   "https://xprts.com",
@@ -181,6 +182,22 @@ Deno.serve(async (req) => {
       });
     } catch (emailErr) {
       console.error("Email notification error (non-fatal):", emailErr);
+    }
+
+    // Fire "new lead from web form" automations
+    try {
+      await runAutomations("lead_created", {
+        lead_id: lead.id,
+        name: lead.name,
+        email: email || null,
+        phone: phone || null,
+        source: sourceLabel,
+        needs: service || null,
+        notes: notesParts.join("\n") || null,
+        stage: "Prospecting Stage",
+      });
+    } catch (autoErr) {
+      console.error("Automation error (non-fatal):", autoErr);
     }
 
     return new Response(JSON.stringify({ success: true, lead_id: lead.id, name: lead.name }), {

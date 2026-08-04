@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { triggerAutomation } from "@/lib/automations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -447,6 +448,17 @@ export default function Tasks() {
           created_by_name: creatorName,
         },
       }).catch((e) => console.error("Task email notify failed:", e));
+      triggerAutomation("task_event", {
+        event: form.assigned_to ? "assigned" : "created",
+        task_id: inserted.id,
+        title: form.title,
+        description: form.description || null,
+        priority: form.priority,
+        due_date: form.due_date || null,
+        assignee_name: assigneeName,
+        client_name: selectedClient?.name || null,
+        assigned_to: form.assigned_to || null,
+      });
     }
 
     // Notify the assigned staff member (not the creator)

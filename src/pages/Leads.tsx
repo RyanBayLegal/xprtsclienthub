@@ -20,10 +20,10 @@ import { toast } from "sonner";
 import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { triggerAutomation } from "@/lib/automations";
 import LeadsKanban from "./LeadsKanban";
 import NDABuilder from "@/components/NDABuilder";
 import AgreementBuilder from "@/components/AgreementBuilder";
-import WorkflowAutomations from "@/components/WorkflowAutomations";
 import StageHistoryTimeline from "@/components/StageHistoryTimeline";
 import LeadsBulkEdit from "@/components/LeadsBulkEdit";
 
@@ -229,6 +229,15 @@ export default function Leads() {
             notes: form.notes || null,
           },
         }).catch((e) => console.error("Lead email notify failed:", e));
+        triggerAutomation("lead_created", {
+          lead_id: inserted.id,
+          name: form.name,
+          email: payload.contact || null,
+          source: form.source || "Manual entry",
+          needs: form.needs || null,
+          notes: form.notes || null,
+          stage: payload.stage,
+        });
       }
       toast.success("Lead created");
     }
@@ -1196,7 +1205,7 @@ export default function Leads() {
         <TabsList className="mb-4">
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="table">Table</TabsTrigger>
-          <TabsTrigger value="automations"><Zap className="h-3.5 w-3.5 mr-1" />Automations</TabsTrigger>
+          <TabsTrigger value="automations" onClick={() => navigate("/automations")}><Zap className="h-3.5 w-3.5 mr-1" />Automations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="kanban" className="mt-0">
@@ -1363,7 +1372,12 @@ export default function Leads() {
         </TabsContent>
 
         <TabsContent value="automations" className="mt-0">
-          <WorkflowAutomations />
+          <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
+            Automations have moved to their own page with a visual builder.{" "}
+            <button className="text-primary underline" onClick={() => navigate("/automations")}>
+              Open Automations
+            </button>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

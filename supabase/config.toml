@@ -26,3 +26,9 @@ verify_jwt = false
 
 [functions.manage-user]
 verify_jwt = false
+
+[functions.inbound-email]
+verify_jwt = false
+
+[functions.run-automation]
+verify_jwt = false

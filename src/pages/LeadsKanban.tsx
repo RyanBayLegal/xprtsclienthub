@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/auth";
 
 import { UserCheck, Plus, X, Search, Pencil, Check, Trash2, FileText } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { executeWorkflows } from "@/lib/workflow-engine";
+import { triggerAutomation } from "@/lib/automations";
 import { logAudit, getUserName } from "@/lib/audit-logger";
 import { StageReasonDialog } from "@/components/StageReasonDialog";
 
@@ -226,11 +226,15 @@ export default function LeadsKanban({ onConvert, onEdit, onDelete, refreshKey }:
         lead_id: lead.id,
       });
 
-      // Execute workflow automations
-      const results = await executeWorkflows(lead.id, lead.name, newStage, user.id);
-      if (results && results.length > 0) {
-        results.forEach((r) => toast.info(r));
-      }
+      // Fire matching automations
+      const results = (await triggerAutomation("lead_stage_change", {
+        lead_id: lead.id,
+        name: lead.name,
+        email: lead.contact,
+        stage: newStage,
+        previous_stage: oldStage,
+      })) as string[];
+      results?.forEach((r) => toast.info(String(r)));
     }
     toast.success(`Moved to ${newStage}`);
   };
