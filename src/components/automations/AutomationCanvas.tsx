@@ -47,6 +47,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
   const meta = NODE_CATALOG[kind] ?? NODE_CATALOG.condition;
   const Icon = meta.icon;
   const config = ((data as { config?: Record<string, unknown> }).config) || {};
+  const onDelete = (data as { onDelete?: (id: string) => void }).onDelete;
   const subtitle =
     kind === "trigger"
       ? TRIGGER_TYPES.find((t) => t.value === config.trigger_type)?.label ?? "Choose a trigger"
@@ -60,7 +61,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`min-w-[210px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
+      className={`group relative min-w-[210px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
         selected ? "border-primary ring-1 ring-primary" : "border-border"
       }`}
     >
@@ -68,9 +69,45 @@ function FlowNode({ id, data, selected }: NodeProps) {
       <div className="flex items-center gap-2">
         <Icon className={`h-4 w-4 shrink-0 ${meta.accent}`} />
         <span className="text-sm font-medium text-foreground">{meta.label}</span>
+        <button
+          type="button"
+          aria-label="Delete step"
+          className="ml-auto rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); onDelete?.(id); }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
       <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{subtitle}</p>
-      <Handle type="source" position={Position.Right} className="!h-2 !w-2 !bg-primary" id={`${id}-out`} />
+      {(Number(config.delay_seconds) > 0 || Number(config.retry_attempts) > 1 || Number(config.cooldown_minutes) > 0) && (
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          {Number(config.delay_seconds) > 0 && `wait ${config.delay_seconds}s · `}
+          {Number(config.retry_attempts) > 1 && `${config.retry_attempts} tries · `}
+          {Number(config.cooldown_minutes) > 0 && `cooldown ${config.cooldown_minutes}m`}
+        </p>
+      )}
+      {kind === "condition" ? (
+        <>
+          <span className="absolute -right-1 top-[38%] translate-x-full text-[9px] font-medium text-emerald-500">Yes</span>
+          <Handle
+            type="source"
+            position={Position.Right}
+            id={`${id}-true`}
+            style={{ top: "40%" }}
+            className="!h-2 !w-2 !bg-emerald-500"
+          />
+          <span className="absolute -right-1 top-[68%] translate-x-full text-[9px] font-medium text-destructive">No</span>
+          <Handle
+            type="source"
+            position={Position.Right}
+            id={`${id}-false`}
+            style={{ top: "70%" }}
+            className="!h-2 !w-2 !bg-destructive"
+          />
+        </>
+      ) : (
+        <Handle type="source" position={Position.Right} className="!h-2 !w-2 !bg-primary" id={`${id}-out`} />
+      )}
     </div>
   );
 }
@@ -100,11 +137,17 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
   );
 
   const addNode = (kind: NodeKind) => {
+    if (kind === "trigger" && nodes.some((n) => (n.data as { kind?: NodeKind })?.kind === "trigger")) return;
     const id = `${kind}-${Date.now()}`;
     const y = 80 + nodes.length * 110;
     setNodes((ns) => [
       ...ns,
-      { id, type: "automationNode", position: { x: 420, y }, data: { kind, config: {} } } as Node,
+      {
+        id,
+        type: "automationNode",
+        position: { x: kind === "trigger" ? 60 : 420, y },
+        data: { kind, config: kind === "trigger" ? { trigger_type: triggerType } : {} },
+      } as Node,
     ]);
     setSelectedId(id);
   };
@@ -119,38 +162,54 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
     );
   };
 
-  const removeSelected = () => {
-    if (!selectedId || selectedId === "trigger") return;
-    setNodes((ns) => ns.filter((n) => n.id !== selectedId));
-    setEdges((es) => es.filter((e) => e.source !== selectedId && e.target !== selectedId));
-    setSelectedId(null);
-  };
+  const removeNode = useCallback(
+    (id: string) => {
+      setNodes((ns) => ns.filter((n) => n.id !== id));
+      setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
+      setSelectedId((cur) => (cur === id ? null : cur));
+    },
+    [setNodes, setEdges],
+  );
+
+  const removeSelected = () => { if (selectedId) removeNode(selectedId); };
+
+  const displayNodes = useMemo(
+    () => nodes.map((n) => ({ ...n, data: { ...n.data, onDelete: removeNode } })),
+    [nodes, removeNode],
+  );
 
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId), [nodes, selectedId]);
+  const hasTrigger = nodes.some((n) => (n.data as { kind?: NodeKind })?.kind === "trigger");
   const kind = (selected?.data as { kind?: NodeKind })?.kind;
   const cfg = ((selected?.data as { config?: Record<string, unknown> })?.config || {}) as Record<string, string>;
   const tokens = CONTEXT_TOKENS[triggerType] || [];
 
   return (
-    <div className="flex h-[560px] gap-3">
+    <div className="flex h-full min-h-[420px] gap-3">
       <div className="flex w-44 shrink-0 flex-col gap-1.5 overflow-y-auto rounded-lg border border-border bg-muted/30 p-2">
         <p className="px-1 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Steps</p>
         {ADDABLE_KINDS.map((k) => {
           const meta = NODE_CATALOG[k];
           const Icon = meta.icon;
+          const disabled = k === "trigger" && hasTrigger;
           return (
-            <Button key={k} variant="ghost" size="sm" className="justify-start" onClick={() => addNode(k)}>
+            <Button key={k} variant="ghost" size="sm" className="justify-start" disabled={disabled} onClick={() => addNode(k)}>
               <Icon className={`mr-2 h-4 w-4 ${meta.accent}`} />
               <span className="truncate text-xs">{meta.label}</span>
               <Plus className="ml-auto h-3 w-3 opacity-50" />
             </Button>
           );
         })}
+        {!hasTrigger && (
+          <p className="px-1 pt-1 text-[10px] leading-tight text-muted-foreground">
+            Add a Trigger step to start this automation.
+          </p>
+        )}
       </div>
 
       <div className="flex-1 overflow-hidden rounded-lg border border-border">
         <ReactFlow
-          nodes={nodes}
+          nodes={displayNodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -158,6 +217,7 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
           nodeTypes={nodeTypes}
           onNodeClick={(_, n) => setSelectedId(n.id)}
           onPaneClick={() => setSelectedId(null)}
+          deleteKeyCode={["Backspace", "Delete"]}
           fitView
           proOptions={{ hideAttribution: true }}
         >
@@ -179,11 +239,9 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold">{NODE_CATALOG[kind!]?.label}</h4>
               <div className="flex gap-1">
-                {selected.id !== "trigger" && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={removeSelected}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={removeSelected}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedId(null)}>
                   <X className="h-3.5 w-3.5" />
                 </Button>
@@ -356,6 +414,10 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
                     <Input value={cfg.value || ""} onChange={(e) => updateConfig({ value: e.target.value })} />
                   </div>
                 )}
+                <p className="text-[11px] text-muted-foreground">
+                  Connect the green <span className="font-medium text-emerald-500">Yes</span> handle for the matching
+                  branch and the red <span className="font-medium text-destructive">No</span> handle for everything else.
+                </p>
               </div>
             )}
 
@@ -367,6 +429,42 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
                     <Badge key={t} variant="secondary" className="font-mono text-[10px]">{`{{${t}}}`}</Badge>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {kind && kind !== "trigger" && (
+              <div className="space-y-2 rounded-md border border-border p-2">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Timing &amp; reliability</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-[10px]">Delay (s)</Label>
+                    <Input
+                      type="number" min={0} max={60}
+                      value={cfg.delay_seconds ?? ""}
+                      onChange={(e) => updateConfig({ delay_seconds: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">Retries</Label>
+                    <Input
+                      type="number" min={1} max={5}
+                      value={cfg.retry_attempts ?? ""}
+                      onChange={(e) => updateConfig({ retry_attempts: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">Cooldown (min)</Label>
+                    <Input
+                      type="number" min={0}
+                      value={cfg.cooldown_minutes ?? ""}
+                      onChange={(e) => updateConfig({ cooldown_minutes: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Delay waits before this step runs (max 60s). Retries re-attempt on failure. Cooldown skips the step if
+                  it already succeeded within the window.
+                </p>
               </div>
             )}
           </div>

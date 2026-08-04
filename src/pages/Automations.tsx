@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Pencil, Trash2, Workflow, CheckCircle2, XCircle, Copy, Mail } from "lucide-react";
+import { Plus, Pencil, Trash2, Workflow, CheckCircle2, XCircle, Copy, Mail, RotateCw, MinusCircle, Clock } from "lucide-react";
 import AutomationCanvas, { type Graph, type StaffOption } from "@/components/automations/AutomationCanvas";
 import { CLIENT_STAGES, LEAD_STAGES, TASK_EVENTS, TRIGGER_TYPES } from "@/components/automations/nodeCatalog";
 
@@ -33,11 +33,24 @@ interface Automation {
 
 interface RunRow {
   id: string;
+  automation_id: string | null;
   automation_name: string;
   trigger_type: string;
   status: string;
   error_message: string | null;
-  steps: { kind: string; result: string; status: string }[];
+  context: Record<string, unknown> | null;
+  steps: {
+    node?: string;
+    kind: string;
+    label?: string | null;
+    result: string;
+    status: string;
+    attempts?: number;
+    duration_ms?: number;
+    delay_ms?: number;
+    branch?: string;
+    error?: string;
+  }[];
   created_at: string;
 }
 
@@ -52,18 +65,9 @@ interface InboundEmail {
 
 const INBOUND_URL = "https://gvkqcmssjjnmvkbdirrh.supabase.co/functions/v1/inbound-email";
 
-function emptyGraph(triggerType: string): Graph {
-  return {
-    nodes: [
-      {
-        id: "trigger",
-        type: "automationNode",
-        position: { x: 60, y: 140 },
-        data: { kind: "trigger", config: { trigger_type: triggerType } },
-      },
-    ],
-    edges: [],
-  } as Graph;
+// Triggers are added by the user from the step palette — never auto-created.
+function emptyGraph(_triggerType: string): Graph {
+  return { nodes: [], edges: [] } as Graph;
 }
 
 export default function Automations() {
@@ -77,6 +81,22 @@ export default function Automations() {
   const [editing, setEditing] = useState<Automation | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [rerunning, setRerunning] = useState<string | null>(null);
+
+  const rerunFromStep = async (run: RunRow, nodeId: string) => {
+    if (!run.automation_id) { toast.error("This automation no longer exists"); return; }
+    const key = `${run.id}:${nodeId}`;
+    setRerunning(key);
+    const { data, error } = await supabase.functions.invoke("run-automation", {
+      body: { automation_id: run.automation_id, from_node_id: nodeId, context: run.context || {} },
+    });
+    setRerunning(null);
+    if (error) { toast.error(error.message); return; }
+    const result = (data as { results?: { status?: string }[] })?.results?.[0];
+    if (result?.status === "error") toast.error("Re-run finished with errors");
+    else toast.success("Re-run completed");
+    load();
+  };
 
   const load = async () => {
     setLoading(true);
@@ -273,7 +293,7 @@ export default function Automations() {
           {runs.length === 0 && <p className="text-sm text-muted-foreground">No automation runs yet.</p>}
           {runs.map((r) => (
             <Card key={r.id}>
-              <CardContent className="space-y-1 p-4">
+              <CardContent className="space-y-2 p-4">
                 <div className="flex items-center gap-2">
                   {r.status === "success"
                     ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -284,13 +304,57 @@ export default function Automations() {
                     {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
                   </span>
                 </div>
-                <ul className="ml-6 list-disc text-xs text-muted-foreground">
+                {r.error_message && (
+                  <p className="rounded bg-destructive/10 px-2 py-1 text-xs text-destructive">{r.error_message}</p>
+                )}
+                {(r.steps || []).length === 0 && (
+                  <p className="text-xs text-muted-foreground">No steps executed.</p>
+                )}
+                <div className="space-y-1">
                   {(r.steps || []).map((s, i) => (
-                    <li key={i} className={s.status === "error" ? "text-destructive" : undefined}>
-                      {s.kind}: {s.result}
-                    </li>
+                    <div key={i} className="flex items-start gap-2 rounded-md border border-border/60 px-2 py-1.5">
+                      {s.status === "error"
+                        ? <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                        : s.status === "skipped"
+                          ? <MinusCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          : <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs font-medium text-foreground">{s.kind}</span>
+                          {s.label && <span className="truncate text-xs text-muted-foreground">— {s.label}</span>}
+                          <Badge
+                            variant={s.status === "error" ? "destructive" : s.status === "skipped" ? "secondary" : "outline"}
+                            className="text-[10px]"
+                          >
+                            {s.status}
+                          </Badge>
+                          {s.branch && <Badge variant="secondary" className="text-[10px]">branch: {s.branch}</Badge>}
+                          {(s.attempts ?? 0) > 1 && <Badge variant="secondary" className="text-[10px]">{s.attempts} attempts</Badge>}
+                          {typeof s.duration_ms === "number" && (
+                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <Clock className="h-3 w-3" />{s.duration_ms} ms
+                            </span>
+                          )}
+                        </div>
+                        <p className={`text-xs ${s.status === "error" ? "text-destructive" : "text-muted-foreground"}`}>
+                          {s.error || s.result}
+                        </p>
+                      </div>
+                      {s.node && r.automation_id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 shrink-0 text-xs"
+                          disabled={rerunning === `${r.id}:${s.node}`}
+                          onClick={() => rerunFromStep(r, s.node!)}
+                        >
+                          <RotateCw className="mr-1 h-3 w-3" />
+                          {rerunning === `${r.id}:${s.node}` ? "Running…" : "Re-run from here"}
+                        </Button>
+                      )}
+                    </div>
                   ))}
-                </ul>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -332,13 +396,13 @@ export default function Automations() {
       </Tabs>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent className="max-w-[1200px]">
-          <DialogHeader>
+        <DialogContent className="flex h-screen w-screen max-w-none flex-col gap-4 rounded-none border-0 p-6 sm:rounded-none">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{editing?.id ? "Edit automation" : "New automation"}</DialogTitle>
           </DialogHeader>
           {editing && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
+              <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-3">
                 <div>
                   <Label className="text-xs">Name</Label>
                   <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Welcome new lead" />
@@ -372,15 +436,17 @@ export default function Automations() {
                 <div>{triggerOptions}</div>
               </div>
 
-              <AutomationCanvas
-                key={editing.id || "new"}
-                graph={editing.graph}
-                triggerType={editing.trigger_type}
-                staff={staff}
-                onChange={(g) => setEditing((prev) => (prev ? { ...prev, graph: g } : prev))}
-              />
+              <div className="min-h-0 flex-1">
+                <AutomationCanvas
+                  key={editing.id || "new"}
+                  graph={editing.graph}
+                  triggerType={editing.trigger_type}
+                  staff={staff}
+                  onChange={(g) => setEditing((prev) => (prev ? { ...prev, graph: g } : prev))}
+                />
+              </div>
 
-              <div className="flex items-center justify-end gap-3">
+              <div className="flex shrink-0 items-center justify-end gap-3">
                 <div className="mr-auto flex items-center gap-2">
                   <Switch checked={editing.is_active} onCheckedChange={(v) => setEditing({ ...editing, is_active: v })} />
                   <span className="text-sm text-muted-foreground">Active</span>

@@ -90,6 +90,31 @@ function evalCondition(cfg: Any, ctx: Record<string, Any>): boolean {
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Hard cap so an edge function invocation can never hang forever.
+const MAX_DELAY_MS = 60_000;
+
+async function inCooldown(
+  db: Any,
+  automationId: string | null,
+  nodeId: string,
+  minutes: number,
+): Promise<boolean> {
+  if (!automationId || !minutes) return false;
+  const cutoff = new Date(Date.now() - minutes * 60_000).toISOString();
+  const { data } = await db
+    .from("automation_runs")
+    .select("steps, created_at")
+    .eq("automation_id", automationId)
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: false })
+    .limit(25);
+  return (data || []).some((run: Any) =>
+    (run.steps || []).some((s: Any) => s.node === nodeId && s.status === "success")
+  );
+}
+
 async function runAction(
   db: Any,
   kind: string,
@@ -190,6 +215,138 @@ async function runAction(
   }
 }
 
+/**
+ * Executes a single automation graph, optionally starting from an arbitrary
+ * node (used by "re-run from step"). Records a detailed per-step timeline.
+ */
+async function executeGraph(
+  db: Any,
+  auto: Any,
+  ctx: Record<string, Any>,
+  actorId: string | null,
+  opts: { startNodeId?: string; startInclusive?: boolean; triggerType?: string; label?: string } = {},
+) {
+  const graph = auto.graph || { nodes: [], edges: [] };
+  const nodes: Any[] = graph.nodes || [];
+  const edges: Any[] = graph.edges || [];
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const steps: Any[] = [];
+  let status = "success";
+  let errorMessage: string | null = null;
+  const seen = new Set<string>();
+
+  const runNode = async (node: Any, depth: number): Promise<void> => {
+    const kind = node.data?.kind;
+    const cfg = node.data?.config || {};
+    if (kind === "trigger") {
+      await visitFrom(node.id, depth + 1);
+      return;
+    }
+
+    const startedAt = new Date().toISOString();
+    const t0 = Date.now();
+    const delayMs = Math.min(Number(cfg.delay_seconds || 0) * 1000, MAX_DELAY_MS);
+    const maxAttempts = Math.max(1, Math.min(Number(cfg.retry_attempts || 1), 5));
+    const cooldown = Number(cfg.cooldown_minutes || 0);
+
+    const push = (extra: Any) =>
+      steps.push({
+        node: node.id,
+        kind,
+        label: cfg.label || cfg.title || cfg.subject || null,
+        started_at: startedAt,
+        duration_ms: Date.now() - t0,
+        delay_ms: delayMs,
+        ...extra,
+      });
+
+    if (cooldown && (await inCooldown(db, auto.id ?? null, node.id, cooldown))) {
+      push({ status: "skipped", attempts: 0, result: `Skipped — cooldown active (${cooldown} min)` });
+      await visitFrom(node.id, depth + 1);
+      return;
+    }
+
+    if (delayMs > 0) await sleep(delayMs);
+
+    if (kind === "condition") {
+      const pass = evalCondition(cfg, ctx);
+      push({
+        status: "success",
+        attempts: 1,
+        branch: pass ? "true" : "false",
+        result: pass ? "Condition met → true branch" : "Condition not met → false branch",
+      });
+      await visitFrom(node.id, depth + 1, pass ? "true" : "false");
+      return;
+    }
+
+    let attempts = 0;
+    let lastError = "";
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        const result = await runAction(db, kind, cfg, ctx, actorId);
+        push({ status: "success", attempts, result });
+        await visitFrom(node.id, depth + 1);
+        return;
+      } catch (e) {
+        lastError = (e as Error)?.message ?? String(e);
+        if (attempts < maxAttempts) await sleep(Math.min(1000 * attempts, 5000));
+      }
+    }
+    status = "error";
+    errorMessage = lastError;
+    push({ status: "error", attempts, result: lastError, error: lastError });
+  };
+
+  const visitFrom = async (nodeId: string, depth: number, branch?: string) => {
+    if (depth > 25) return;
+    const outgoing = edges.filter((e: Any) => {
+      if (e.source !== nodeId) return false;
+      if (!branch) return true;
+      const handle = String(e.sourceHandle || "");
+      if (handle.endsWith("-false")) return branch === "false";
+      // untagged and "-true" handles follow the true branch
+      return branch === "true";
+    });
+    for (const edge of outgoing) {
+      const node = byId.get(edge.target);
+      if (!node) continue;
+      const key = `${node.id}:${depth}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      await runNode(node, depth);
+    }
+  };
+
+  if (opts.startNodeId) {
+    const start = byId.get(opts.startNodeId);
+    if (!start) throw new Error("Step not found in this automation");
+    if (opts.startInclusive === false) await visitFrom(start.id, 0);
+    else await runNode(start, 0);
+  } else {
+    const trigger = nodes.find((n: Any) => n.data?.kind === "trigger");
+    if (trigger) await visitFrom(trigger.id, 0);
+    else {
+      const targets = new Set(edges.map((e: Any) => e.target));
+      for (const n of nodes.filter((n: Any) => !targets.has(n.id))) await runNode(n, 0);
+    }
+  }
+
+  await db.from("automation_runs").insert({
+    automation_id: auto.id ?? null,
+    automation_name: opts.label ? `${auto.name} ${opts.label}` : auto.name,
+    trigger_type: opts.triggerType || auto.trigger_type,
+    context: ctx,
+    steps,
+    status,
+    error_message: errorMessage,
+    executed_by: actorId,
+  });
+
+  return { automation: auto.name, status, steps, error_message: errorMessage };
+}
+
 export async function runAutomations(
   triggerType: string,
   ctx: Record<string, Any>,
@@ -203,60 +360,26 @@ export async function runAutomations(
     .eq("is_active", true);
 
   const summary: Any[] = [];
-
   for (const auto of (automations || []) as Any[]) {
     if (!matchesTrigger(auto, ctx)) continue;
-
-    const graph = auto.graph || { nodes: [], edges: [] };
-    const nodes: Any[] = graph.nodes || [];
-    const edges: Any[] = graph.edges || [];
-    const byId = new Map(nodes.map((n) => [n.id, n]));
-    const trigger = nodes.find((n) => n.data?.kind === "trigger");
-    const steps: Any[] = [];
-    let status = "success";
-    let errorMessage: string | null = null;
-
-    const visit = async (nodeId: string, depth: number) => {
-      if (depth > 25) return;
-      const outgoing = edges.filter((e) => e.source === nodeId);
-      for (const edge of outgoing) {
-        const node = byId.get(edge.target);
-        if (!node) continue;
-        const kind = node.data?.kind;
-        const cfg = node.data?.config || {};
-        try {
-          if (kind === "condition") {
-            const pass = evalCondition(cfg, ctx);
-            steps.push({ node: node.id, kind, result: pass ? "Condition met" : "Condition not met", status: "success" });
-            if (!pass) continue;
-          } else {
-            const result = await runAction(db, kind, cfg, ctx, actorId);
-            steps.push({ node: node.id, kind, result, status: "success" });
-          }
-          await visit(node.id, depth + 1);
-        } catch (e) {
-          status = "error";
-          errorMessage = (e as Error)?.message ?? String(e);
-          steps.push({ node: node.id, kind, result: errorMessage, status: "error" });
-        }
-      }
-    };
-
-    if (trigger) await visit(trigger.id, 0);
-
-    await db.from("automation_runs").insert({
-      automation_id: auto.id,
-      automation_name: auto.name,
-      trigger_type: triggerType,
-      context: ctx,
-      steps,
-      status,
-      error_message: errorMessage,
-      executed_by: actorId,
-    });
-
-    summary.push({ automation: auto.name, status, steps });
+    summary.push(await executeGraph(db, auto, ctx, actorId, { triggerType }));
   }
-
   return summary;
+}
+
+/** Re-runs an existing automation starting at a specific step. */
+export async function replayAutomation(
+  automationId: string,
+  fromNodeId: string,
+  ctx: Record<string, Any>,
+  actorId: string | null = null,
+) {
+  const db = adminClient();
+  const { data: auto } = await db.from("automations").select("*").eq("id", automationId).maybeSingle();
+  if (!auto) throw new Error("Automation not found");
+  return await executeGraph(db, auto, ctx, actorId, {
+    startNodeId: fromNodeId,
+    triggerType: auto.trigger_type,
+    label: "(re-run)",
+  });
 }
