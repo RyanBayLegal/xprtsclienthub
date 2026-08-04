@@ -155,25 +155,34 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
   }, [nodes, edges]);
 
   const onConnect = useCallback(
-    (params: Connection) =>
-      setEdges((eds) =>
+    (params: Connection) => {
+      const handle = String(params.sourceHandle || "");
+      const color = handle.endsWith("-false")
+        ? "hsl(var(--destructive))"
+        : handle.endsWith("-true")
+          ? "hsl(var(--primary))"
+          : "hsl(var(--muted-foreground))";
+      return setEdges((eds) =>
         addEdge(
           {
             ...params,
             animated: true,
             type: "smoothstep",
-            markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+            pathOptions: { borderRadius: 14, offset: 24 },
+            style: { strokeWidth: 2.25, stroke: color },
+            markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color },
           },
           eds,
         ),
-      ),
+      );
+    },
     [setEdges],
   );
 
   const addNode = (kind: NodeKind) => {
     if (kind === "trigger" && nodes.some((n) => (n.data as { kind?: NodeKind })?.kind === "trigger")) return;
     const id = `${kind}-${Date.now()}`;
-    const y = 60 + nodes.length * 150;
+    const y = 60 + nodes.length * 190;
     setNodes((ns) => [
       ...ns,
       {
@@ -268,15 +277,18 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
           defaultEdgeOptions={{
             type: "smoothstep",
             animated: true,
-            markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+            pathOptions: { borderRadius: 14, offset: 24 },
+            style: { strokeWidth: 2.25 },
+            markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
           }}
           onNodeClick={(_, n) => setSelectedId(n.id)}
           onPaneClick={() => setSelectedId(null)}
           deleteKeyCode={["Backspace", "Delete"]}
           fitView
+          fitViewOptions={{ padding: 0.25 }}
           proOptions={{ hideAttribution: true }}
         >
-          <Background gap={16} />
+          <Background gap={18} size={1.5} />
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>
