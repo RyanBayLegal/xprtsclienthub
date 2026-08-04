@@ -1311,6 +1311,9 @@ export default function Leads() {
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
               {bulkEditMode ? "Exit Bulk Edit" : "Bulk Edit"}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setMergeOpen(true)}>
+              <GitMerge className="mr-1.5 h-3.5 w-3.5" /> Merge Leads
+            </Button>
           </div>
 
           {bulkEditMode ? (
