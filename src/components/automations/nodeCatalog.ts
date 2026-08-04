@@ -29,6 +29,7 @@ export const ADDABLE_KINDS: NodeKind[] = [
 export const TRIGGER_TYPES = [
   { value: "lead_created", label: "New lead from web form" },
   { value: "lead_created_manual", label: "New lead created/added manually" },
+  { value: "lead_merged", label: "Two leads merged" },
   { value: "lead_stage_change", label: "Lead stage changed" },
   { value: "client_stage_change", label: "Client stage changed" },
   { value: "task_event", label: "Task event" },
@@ -64,7 +65,16 @@ export const TASK_EVENTS = [
 
 export const CONTEXT_TOKENS: Record<string, string[]> = {
   lead_created: ["name", "email", "contact", "source", "needs", "notes"],
-  lead_created_manual: ["name", "email", "contact", "source", "needs", "notes", "stage"],
+  lead_created_manual: [
+    "name", "email", "phone", "contact", "source", "referrer_name", "website",
+    "date_reached", "follow_up_date", "follow_up_email_after", "follow_up_email_sent",
+    "booked", "email_sent_with_info", "next_steps", "needs", "notes", "stage",
+    "lead_id", "created_at",
+  ],
+  lead_merged: [
+    "name", "email", "contact", "source", "stage", "needs", "notes", "next_steps",
+    "lead_id", "merged_lead_id", "merged_lead_name", "merged_fields", "merged_at",
+  ],
   lead_stage_change: ["name", "email", "contact", "stage", "previous_stage", "source"],
   client_stage_change: ["name", "email", "stage", "previous_stage", "company"],
   task_event: ["title", "description", "priority", "due_date", "assignee_name", "email", "event"],
