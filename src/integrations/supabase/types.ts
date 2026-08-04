@@ -122,6 +122,92 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_runs: {
+        Row: {
+          automation_id: string | null
+          automation_name: string
+          context: Json
+          created_at: string
+          error_message: string | null
+          executed_by: string | null
+          id: string
+          status: string
+          steps: Json
+          trigger_type: string
+        }
+        Insert: {
+          automation_id?: string | null
+          automation_name: string
+          context?: Json
+          created_at?: string
+          error_message?: string | null
+          executed_by?: string | null
+          id?: string
+          status?: string
+          steps?: Json
+          trigger_type: string
+        }
+        Update: {
+          automation_id?: string | null
+          automation_name?: string
+          context?: Json
+          created_at?: string
+          error_message?: string | null
+          executed_by?: string | null
+          id?: string
+          status?: string
+          steps?: Json
+          trigger_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          graph: Json
+          id: string
+          is_active: boolean
+          name: string
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          graph?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          graph?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       branding_settings: {
         Row: {
           accent_color: string | null
@@ -513,6 +599,66 @@ export type Database = {
           {
             foreignKeyName: "engagement_agreements_lead_id_fkey"
             columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inbound_emails: {
+        Row: {
+          body_html: string | null
+          body_text: string | null
+          from_email: string | null
+          from_name: string | null
+          id: string
+          matched_client_id: string | null
+          matched_lead_id: string | null
+          processed: boolean
+          raw_payload: Json | null
+          received_at: string
+          subject: string | null
+          to_email: string | null
+        }
+        Insert: {
+          body_html?: string | null
+          body_text?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          matched_client_id?: string | null
+          matched_lead_id?: string | null
+          processed?: boolean
+          raw_payload?: Json | null
+          received_at?: string
+          subject?: string | null
+          to_email?: string | null
+        }
+        Update: {
+          body_html?: string | null
+          body_text?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          matched_client_id?: string | null
+          matched_lead_id?: string | null
+          processed?: boolean
+          raw_payload?: Json | null
+          received_at?: string
+          subject?: string | null
+          to_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_emails_matched_client_id_fkey"
+            columns: ["matched_client_id"]
+            isOneToOne: false
+            referencedRelation: "client_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_matched_lead_id_fkey"
+            columns: ["matched_lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
             referencedColumns: ["id"]
