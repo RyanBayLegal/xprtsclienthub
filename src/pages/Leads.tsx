@@ -159,8 +159,9 @@ export default function Leads() {
 
     const patch: Record<string, unknown> = {};
     const mergedFields: string[] = [];
+    const fieldSources: Record<string, string> = {};
     for (const f of MERGE_FILL_FIELDS) {
-      if (!primary[f] && duplicate[f]) { patch[f] = duplicate[f]; mergedFields.push(f); }
+      if (!primary[f] && duplicate[f]) { patch[f] = duplicate[f]; mergedFields.push(f); fieldSources[f] = "secondary"; }
     }
     for (const f of MERGE_TEXT_FIELDS) {
       const a = String(primary[f] ?? "").trim();
@@ -168,10 +169,11 @@ export default function Leads() {
       if (b && !a.includes(b)) {
         patch[f] = a ? `${a}\n\n— merged from "${duplicate.name}":\n${b}` : b;
         mergedFields.push(f);
+        fieldSources[f] = a ? "both" : "secondary";
       }
     }
     for (const f of ["booked", "follow_up_email_sent", "email_sent_with_info"] as const) {
-      if (!primary[f] && duplicate[f]) { patch[f] = true; mergedFields.push(f); }
+      if (!primary[f] && duplicate[f]) { patch[f] = true; mergedFields.push(f); fieldSources[f] = "secondary"; }
     }
 
     if (Object.keys(patch).length > 0) {
@@ -190,14 +192,26 @@ export default function Leads() {
       });
     }
     const parts = splitContact(String(merged.contact ?? "") || null);
+    const secondaryName = String(duplicate.name ?? "");
+    const primaryName = String(primary.name ?? "");
     triggerAutomation("lead_merged", {
       ...merged,
       lead_id: mergePrimaryId,
       email: parts.email,
       phone: parts.phone,
+      primary_lead_id: mergePrimaryId,
+      primary_lead_name: primaryName,
+      secondary_lead_id: mergeDuplicateId,
+      secondary_lead_name: secondaryName,
       merged_lead_id: mergeDuplicateId,
-      merged_lead_name: duplicate.name,
+      merged_lead_name: secondaryName,
       merged_fields: mergedFields.join(", "),
+      merged_field_count: mergedFields.length,
+      merged_field_sources: mergedFields
+        .map((f) => `${f} ← ${fieldSources[f] === "both" ? `${primaryName} + ${secondaryName}` : secondaryName}`)
+        .join("; "),
+      merged_from: fieldSources,
+      merge_source_ids: `${mergePrimaryId}, ${mergeDuplicateId}`,
       merged_at: new Date().toISOString(),
     });
 
