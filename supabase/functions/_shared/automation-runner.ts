@@ -109,6 +109,14 @@ function matchesTrigger(auto: Any, ctx: Record<string, Any>): { ok: boolean; cap
   const none = { ok: false, captures: {} };
   const yes = { ok: true, captures: {} };
   switch (auto.trigger_type) {
+    case "lead_created":
+    case "lead_created_manual":
+    case "lead_merged": {
+      if (cfg.stage && cfg.stage !== "any" && cfg.stage !== ctx.stage) return none;
+      const src = String(cfg.source_contains ?? "").trim().toLowerCase();
+      if (src && !String(ctx.source ?? "").toLowerCase().includes(src)) return none;
+      return matchRules(cfg, ctx);
+    }
     case "lead_stage_change":
     case "client_stage_change":
       return (!cfg.stage || cfg.stage === "any" || cfg.stage === ctx.stage) ? yes : none;
