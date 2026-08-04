@@ -6,6 +6,7 @@ import {
   Handle,
   Position,
   addEdge,
+  MarkerType,
   useNodesState,
   useEdgesState,
   type Connection,
@@ -67,7 +68,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
         selected ? "border-primary ring-1 ring-primary" : hasError ? "border-destructive ring-1 ring-destructive/50" : "border-border"
       }`}
     >
-      {kind !== "trigger" && <Handle type="target" position={Position.Left} className="!h-2 !w-2 !bg-muted-foreground" />}
+      {kind !== "trigger" && <Handle type="target" position={Position.Top} className="!h-2 !w-2 !bg-muted-foreground" />}
       <div className="flex items-center gap-2">
         <Icon className={`h-4 w-4 shrink-0 ${meta.accent}`} />
         <span className="text-sm font-medium text-foreground">{meta.label}</span>
@@ -90,25 +91,25 @@ function FlowNode({ id, data, selected }: NodeProps) {
       )}
       {kind === "condition" ? (
         <>
-          <span className="absolute -right-1 top-[38%] translate-x-full text-[9px] font-medium text-emerald-500">Yes</span>
+          <span className="absolute -bottom-4 left-[22%] text-[9px] font-medium text-emerald-500">Yes</span>
           <Handle
             type="source"
-            position={Position.Right}
+            position={Position.Bottom}
             id={`${id}-true`}
-            style={{ top: "40%" }}
+            style={{ left: "30%" }}
             className="!h-2 !w-2 !bg-emerald-500"
           />
-          <span className="absolute -right-1 top-[68%] translate-x-full text-[9px] font-medium text-destructive">No</span>
+          <span className="absolute -bottom-4 left-[68%] text-[9px] font-medium text-destructive">No</span>
           <Handle
             type="source"
-            position={Position.Right}
+            position={Position.Bottom}
             id={`${id}-false`}
-            style={{ top: "70%" }}
+            style={{ left: "72%" }}
             className="!h-2 !w-2 !bg-destructive"
           />
         </>
       ) : (
-        <Handle type="source" position={Position.Right} className="!h-2 !w-2 !bg-primary" id={`${id}-out`} />
+        <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !bg-primary" id={`${id}-out`} />
       )}
     </div>
   );
