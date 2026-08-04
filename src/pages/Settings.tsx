@@ -20,7 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
-import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield, Trash2, ShieldCheck } from "lucide-react";
+import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield, Trash2, ShieldCheck, History } from "lucide-react";
 import LeadSourcesManager from "@/components/LeadSourcesManager";
 import LeadNotificationRecipients from "@/components/LeadNotificationRecipients";
 import GmailSmtpSettings from "@/components/GmailSmtpSettings";
@@ -70,6 +70,7 @@ export default function Settings() {
     { userId: string; name: string; action: "disable" | "enable" | "delete" } | null
   >(null);
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
+  const [roleHistoryUser, setRoleHistoryUser] = useState<{ id: string; name: string } | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const avatarTargetUser = useRef<string | null>(null);
 
