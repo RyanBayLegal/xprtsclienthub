@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { logAudit, logFieldChanges, getUserName } from "@/lib/audit-logger";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { triggerAutomation } from "@/lib/automations";
 import LeadsKanban from "./LeadsKanban";
 import NDABuilder from "@/components/NDABuilder";
 import AgreementBuilder from "@/components/AgreementBuilder";
