@@ -347,6 +347,7 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
                 {triggerType === "lead_stage_change" && (
                   <p className="text-xs text-muted-foreground">Runs when a lead moves into the selected stage.</p>
                 )}
+                <TokenPreview triggerType={triggerType} extraTokens={extraTokens} />
               </div>
             )}
 
@@ -515,6 +516,39 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
                   the matching branch and the red <span className="font-medium text-destructive">No</span> handle
                   (bottom right) for everything else.
                 </p>
+              </div>
+            )}
+
+            {kind === "wait_for_reply" && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Checks whether the lead / client has replied by email. Continues down the
+                  <span className="font-medium text-emerald-500"> Yes</span> branch when a reply is found.
+                </p>
+                <div>
+                  <Label className="text-xs">Look back (days)</Label>
+                  <Input
+                    type="number" min={1} max={90}
+                    value={cfg.within_days ?? 7}
+                    onChange={(e) => updateConfig({ within_days: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Wait for a live reply (seconds, max 60)</Label>
+                  <Input
+                    type="number" min={0} max={60}
+                    value={cfg.wait_seconds ?? 0}
+                    onChange={(e) => updateConfig({ wait_seconds: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Reply must contain (optional)</Label>
+                  <Input
+                    value={cfg.keyword || ""}
+                    placeholder="e.g. yes, interested"
+                    onChange={(e) => updateConfig({ keyword: e.target.value })}
+                  />
+                </div>
               </div>
             )}
 
