@@ -28,6 +28,7 @@ export const ADDABLE_KINDS: NodeKind[] = [
 
 export const TRIGGER_TYPES = [
   { value: "lead_created", label: "New lead from web form" },
+  { value: "lead_created_manual", label: "New lead created/added manually" },
   { value: "lead_stage_change", label: "Lead stage changed" },
   { value: "client_stage_change", label: "Client stage changed" },
   { value: "task_event", label: "Task event" },
@@ -63,6 +64,7 @@ export const TASK_EVENTS = [
 
 export const CONTEXT_TOKENS: Record<string, string[]> = {
   lead_created: ["name", "email", "contact", "source", "needs", "notes"],
+  lead_created_manual: ["name", "email", "contact", "source", "needs", "notes", "stage"],
   lead_stage_change: ["name", "email", "contact", "stage", "previous_stage", "source"],
   client_stage_change: ["name", "email", "stage", "previous_stage", "company"],
   task_event: ["title", "description", "priority", "due_date", "assignee_name", "email", "event"],

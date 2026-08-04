@@ -107,6 +107,8 @@ export default function Automations() {
         return { name: "Acme Legal", email: "ops@acme.com", company: "Acme Legal", stage: "Active", previous_stage: "Qualified" };
       case "lead_stage_change":
         return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review", stage: "Discovery Stage", previous_stage: "Prospecting Stage" };
+      case "lead_created_manual":
+        return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Manual entry", needs: "Needs a VA", notes: "Added by staff", stage: "Prospecting Stage" };
       default:
         return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review - xprts.com", needs: "Needs a VA", notes: "Submitted from web form" };
     }

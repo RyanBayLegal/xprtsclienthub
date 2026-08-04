@@ -62,7 +62,7 @@ export function validateAutomation(
         if (!str(cfg.subject)) issues.push({ level: "error", nodeId: n.id, message: `${name}: subject is required.` });
         if (!str(cfg.body)) issues.push({ level: "error", nodeId: n.id, message: `${name}: body is required.` });
         if (cfg.to_mode === "custom" && !str(cfg.to)) issues.push({ level: "error", nodeId: n.id, message: `${name}: specific email address is required.` });
-        if ((cfg.to_mode ?? "contact") === "contact" && !["lead_created", "lead_stage_change", "client_stage_change", "email_received", "task_event"].includes(triggerType)) {
+        if ((cfg.to_mode ?? "contact") === "contact" && !["lead_created", "lead_created_manual", "lead_stage_change", "client_stage_change", "email_received", "task_event"].includes(triggerType)) {
           issues.push({ level: "warning", nodeId: n.id, message: `${name}: this trigger may not provide a contact email.` });
         }
         break;
@@ -80,7 +80,7 @@ export function validateAutomation(
         break;
       }
       case "convert_to_client": {
-        if (!["lead_created", "lead_stage_change", "email_received"].includes(triggerType)) {
+        if (!["lead_created", "lead_created_manual", "lead_stage_change", "email_received"].includes(triggerType)) {
           issues.push({ level: "warning", nodeId: n.id, message: `${name}: this trigger rarely carries a lead to convert.` });
         }
         break;
