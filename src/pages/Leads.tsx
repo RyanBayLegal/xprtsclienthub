@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Pencil, Trash2, UserCheck, FileText, Shield, ChevronLeft, ChevronRight, Download, Zap, Eye, ArrowRight } from "lucide-react";
-import { AlertTriangle, RefreshCw, CheckCircle2, ExternalLink } from "lucide-react";
+import { AlertTriangle, RefreshCw, CheckCircle2, ExternalLink, GitMerge } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import BulkLeadImport from "@/components/BulkLeadImport";
 import { exportToCSV } from "@/lib/csv-export";
@@ -135,6 +135,81 @@ export default function Leads() {
   const [docTab, setDocTab] = useState<"nda" | "agreement">("nda");
   const [loadingDocProfile, setLoadingDocProfile] = useState(false);
 
+  // Merge two leads
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergePrimaryId, setMergePrimaryId] = useState("");
+  const [mergeDuplicateId, setMergeDuplicateId] = useState("");
+  const [merging, setMerging] = useState(false);
+
+  const MERGE_TEXT_FIELDS = ["needs", "notes", "next_steps"] as const;
+  const MERGE_FILL_FIELDS = [
+    "contact", "source", "website", "referrer_name", "date_reached",
+    "follow_up_date", "follow_up_email_after",
+  ] as const;
+
+  const mergeLeads = async () => {
+    if (!mergePrimaryId || !mergeDuplicateId || mergePrimaryId === mergeDuplicateId) {
+      toast.error("Pick two different leads");
+      return;
+    }
+    setMerging(true);
+    const primary = leads.find((l) => l.id === mergePrimaryId) as unknown as Record<string, unknown> | undefined;
+    const duplicate = leads.find((l) => l.id === mergeDuplicateId) as unknown as Record<string, unknown> | undefined;
+    if (!primary || !duplicate) { setMerging(false); toast.error("Leads not found"); return; }
+
+    const patch: Record<string, unknown> = {};
+    const mergedFields: string[] = [];
+    for (const f of MERGE_FILL_FIELDS) {
+      if (!primary[f] && duplicate[f]) { patch[f] = duplicate[f]; mergedFields.push(f); }
+    }
+    for (const f of MERGE_TEXT_FIELDS) {
+      const a = String(primary[f] ?? "").trim();
+      const b = String(duplicate[f] ?? "").trim();
+      if (b && !a.includes(b)) {
+        patch[f] = a ? `${a}\n\n— merged from "${duplicate.name}":\n${b}` : b;
+        mergedFields.push(f);
+      }
+    }
+    for (const f of ["booked", "follow_up_email_sent", "email_sent_with_info"] as const) {
+      if (!primary[f] && duplicate[f]) { patch[f] = true; mergedFields.push(f); }
+    }
+
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase.from("leads").update(patch as never).eq("id", mergePrimaryId);
+      if (error) { setMerging(false); toast.error(error.message); return; }
+    }
+    const { error: delError } = await supabase.from("leads").delete().eq("id", mergeDuplicateId);
+    if (delError) { setMerging(false); toast.error(delError.message); return; }
+
+    const merged = { ...primary, ...patch } as Record<string, unknown>;
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({
+        userId: user.id, userName, entityType: "lead", entityId: mergePrimaryId, action: "update",
+        description: `Merged lead "${duplicate.name}" into "${primary.name}"${mergedFields.length ? ` (fields: ${mergedFields.join(", ")})` : ""}`,
+      });
+    }
+    const parts = splitContact(String(merged.contact ?? "") || null);
+    triggerAutomation("lead_merged", {
+      ...merged,
+      lead_id: mergePrimaryId,
+      email: parts.email,
+      phone: parts.phone,
+      merged_lead_id: mergeDuplicateId,
+      merged_lead_name: duplicate.name,
+      merged_fields: mergedFields.join(", "),
+      merged_at: new Date().toISOString(),
+    });
+
+    setMerging(false);
+    setMergeOpen(false);
+    setMergePrimaryId("");
+    setMergeDuplicateId("");
+    toast.success("Leads merged");
+    fetchLeads();
+    setKanbanKey((k) => k + 1);
+  };
+
   const fetchLeads = async () => {
     let q = supabase.from("leads").select("*").order("created_at", { ascending: false });
     if (stageFilter !== "all") q = q.eq("stage", stageFilter);
@@ -213,7 +288,7 @@ export default function Leads() {
       }
       toast.success("Lead updated");
     } else {
-      const { data: inserted, error } = await supabase.from("leads").insert(payload).select("id").single();
+      const { data: inserted, error } = await supabase.from("leads").insert(payload).select("*").single();
       if (error) { toast.error(error.message); return; }
       if (user && inserted) {
         const userName = await getUserName(user.id);
@@ -229,14 +304,14 @@ export default function Leads() {
             notes: form.notes || null,
           },
         }).catch((e) => console.error("Lead email notify failed:", e));
+        const row = inserted as Record<string, unknown>;
+        const parts = splitContact(String(row.contact ?? "") || null);
         triggerAutomation("lead_created_manual", {
+          ...row,
           lead_id: inserted.id,
-          name: form.name,
-          email: payload.contact || null,
-          source: form.source || "Manual entry",
-          needs: form.needs || null,
-          notes: form.notes || null,
-          stage: payload.stage,
+          email: parts.email || form.email || null,
+          phone: parts.phone || form.phone || null,
+          source: row.source || "Manual entry",
         });
       }
       toast.success("Lead created");
@@ -1236,6 +1311,9 @@ export default function Leads() {
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
               {bulkEditMode ? "Exit Bulk Edit" : "Bulk Edit"}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setMergeOpen(true)}>
+              <GitMerge className="mr-1.5 h-3.5 w-3.5" /> Merge Leads
+            </Button>
           </div>
 
           {bulkEditMode ? (
@@ -1380,6 +1458,46 @@ export default function Leads() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Merge two leads</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Primary lead (kept)</Label>
+              <Select value={mergePrimaryId} onValueChange={setMergePrimaryId}>
+                <SelectTrigger><SelectValue placeholder="Select lead" /></SelectTrigger>
+                <SelectContent>
+                  {leads.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Duplicate lead (merged in, then deleted)</Label>
+              <Select value={mergeDuplicateId} onValueChange={setMergeDuplicateId}>
+                <SelectTrigger><SelectValue placeholder="Select lead" /></SelectTrigger>
+                <SelectContent>
+                  {leads.filter((l) => l.id !== mergePrimaryId).map((l) => (
+                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Empty fields on the primary lead are filled from the duplicate, and Needs / Notes / Next steps are
+              appended. A “Two leads merged” automation fires with the combined data.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setMergeOpen(false)}>Cancel</Button>
+              <Button onClick={mergeLeads} disabled={merging || !mergePrimaryId || !mergeDuplicateId}>
+                {merging ? "Merging…" : "Merge leads"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

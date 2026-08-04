@@ -36,9 +36,12 @@ interface Props {
   rules: EmailRule[];
   matchMode: string;
   onChange: (rules: EmailRule[], matchMode: string) => void;
+  fields?: { value: string; label: string }[];
+  emptyHint?: string;
 }
 
-export default function EmailRuleBuilder({ rules, matchMode, onChange }: Props) {
+export default function EmailRuleBuilder({ rules, matchMode, onChange, fields, emptyHint }: Props) {
+  const fieldList = fields?.length ? fields : FIELDS;
   const update = (i: number, patch: Partial<EmailRule>) =>
     onChange(rules.map((r, idx) => (idx === i ? { ...r, ...patch } : r)), matchMode);
 
@@ -59,14 +62,14 @@ export default function EmailRuleBuilder({ rules, matchMode, onChange }: Props) 
           variant="outline"
           size="sm"
           className="ml-auto"
-          onClick={() => onChange([...rules, { field: "subject", operator: "contains", value: "" }], matchMode)}
+          onClick={() => onChange([...rules, { field: fieldList[0].value, operator: "contains", value: "" }], matchMode)}
         >
           <Plus className="mr-1 h-3.5 w-3.5" /> Add rule
         </Button>
       </div>
 
       {rules.length === 0 && (
-        <p className="text-xs text-muted-foreground">No rules — every inbound email will trigger this automation.</p>
+        <p className="text-xs text-muted-foreground">{emptyHint || "No rules — every inbound email will trigger this automation."}</p>
       )}
 
       {rules.map((r, i) => {
@@ -77,7 +80,7 @@ export default function EmailRuleBuilder({ rules, matchMode, onChange }: Props) 
               <Select value={r.field} onValueChange={(v) => update(i, { field: v })}>
                 <SelectTrigger className="h-8 flex-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {FIELDS.map((f) => (<SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>))}
+                  {fieldList.map((f) => (<SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>))}
                 </SelectContent>
               </Select>
               <Select value={r.operator} onValueChange={(v) => update(i, { operator: v })}>

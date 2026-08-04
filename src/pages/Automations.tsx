@@ -109,6 +109,16 @@ export default function Automations() {
         return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review", stage: "Discovery Stage", previous_stage: "Prospecting Stage" };
       case "lead_created_manual":
         return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Manual entry", needs: "Needs a VA", notes: "Added by staff", stage: "Prospecting Stage" };
+      case "lead_merged":
+        return {
+          name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Referral from Client",
+          stage: "Discovery Stage", needs: "Needs a VA", notes: "Primary lead notes",
+          lead_id: "00000000-0000-0000-0000-000000000001",
+          merged_lead_id: "00000000-0000-0000-0000-000000000002",
+          merged_lead_name: "J. Doe (duplicate)",
+          merged_fields: "needs, notes, website",
+          merged_at: new Date().toISOString(),
+        };
       default:
         return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review - xprts.com", needs: "Needs a VA", notes: "Submitted from web form" };
     }
@@ -288,6 +298,61 @@ export default function Automations() {
             }
           />
         </div>
+      );
+    }
+    if (editing.trigger_type === "lead_created_manual" || editing.trigger_type === "lead_created") {
+      return (
+        <>
+          <div>
+            <Label className="text-xs">Only when stage is</Label>
+            <Select
+              value={editing.trigger_config?.stage || "any"}
+              onValueChange={(v) => setEditing({ ...editing, trigger_config: { ...editing.trigger_config, stage: v } })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any stage</SelectItem>
+                {LEAD_STAGES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Only when source contains</Label>
+            <Input
+              placeholder="e.g. Referral, Strategy Review (blank = any)"
+              value={(editing.trigger_config?.source_contains as string) || ""}
+              onChange={(e) =>
+                setEditing({ ...editing, trigger_config: { ...editing.trigger_config, source_contains: e.target.value } })
+              }
+            />
+          </div>
+          <div className="md:col-span-3">
+            <Label className="text-xs">Field pattern filters (optional)</Label>
+            <EmailRuleBuilder
+              rules={(editing.trigger_config?.rules as EmailRule[]) || []}
+              matchMode={(editing.trigger_config?.match_mode as string) || "all"}
+              onChange={(rules, match_mode) =>
+                setEditing({ ...editing, trigger_config: { ...editing.trigger_config, rules, match_mode } })
+              }
+              emptyHint="No filters — every new lead triggers this automation."
+              fields={[
+                { value: "name", label: "Name" },
+                { value: "email", label: "Email" },
+                { value: "contact", label: "Contact" },
+                { value: "source", label: "Source" },
+                { value: "referrer_name", label: "Referrer" },
+                { value: "website", label: "Website" },
+                { value: "needs", label: "Needs" },
+                { value: "notes", label: "Notes" },
+                { value: "next_steps", label: "Next steps" },
+                { value: "stage", label: "Stage" },
+              ]}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Rules test lead fields such as needs, notes or email — regex captures become tokens for later steps.
+            </p>
+          </div>
+        </>
       );
     }
     return null;
