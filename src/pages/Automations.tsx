@@ -294,12 +294,32 @@ export default function Automations() {
           <div>
             <Label className="text-xs">Only when source contains</Label>
             <Input
-              placeholder="e.g. Referral, Strategy Review (blank = any)"
+              placeholder={editing.trigger_config?.source_regex ? "e.g. ^(Referral|Strategy).*" : "e.g. Referral, Strategy Review (blank = any)"}
               value={(editing.trigger_config?.source_contains as string) || ""}
               onChange={(e) =>
                 setEditing({ ...editing, trigger_config: { ...editing.trigger_config, source_contains: e.target.value } })
               }
             />
+            <div className="mt-2 flex items-center gap-2">
+              <Switch
+                checked={!!editing.trigger_config?.source_regex}
+                onCheckedChange={(v) =>
+                  setEditing({ ...editing, trigger_config: { ...editing.trigger_config, source_regex: v } })
+                }
+              />
+              <Label className="text-[11px] text-muted-foreground">Treat as regular expression</Label>
+              <Switch
+                className="ml-3"
+                checked={!!editing.trigger_config?.source_case_sensitive}
+                onCheckedChange={(v) =>
+                  setEditing({ ...editing, trigger_config: { ...editing.trigger_config, source_case_sensitive: v } })
+                }
+              />
+              <Label className="text-[11px] text-muted-foreground">Case sensitive</Label>
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Stage and source matching ignore letter case by default.
+            </p>
           </div>
           <div className="md:col-span-3">
             <Label className="text-xs">Field pattern filters (optional)</Label>
