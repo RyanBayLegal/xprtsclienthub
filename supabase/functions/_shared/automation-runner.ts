@@ -27,7 +27,7 @@ function render(template: string, ctx: Record<string, Any>): string {
   });
 }
 
-async function sendMail(to: string, subject: string, html: string) {
+export async function sendMail(to: string, subject: string, html: string) {
   const user = Deno.env.get("GMAIL_USER");
   const pass = Deno.env.get("GMAIL_APP_PASSWORD")?.replace(/\s+/g, "");
   if (!user || !pass) throw new Error("Gmail SMTP is not configured");
@@ -288,6 +288,10 @@ async function runAction(
         task_id: ctx.task_id || null,
         subject,
         status: "sent",
+        direction: "outbound",
+        body_html: html,
+        body_text: html.replace(/<[^>]+>/g, " "),
+        client_profile_id: ctx.client_profile_id || null,
       });
       return `Email sent to ${to}`;
     }
