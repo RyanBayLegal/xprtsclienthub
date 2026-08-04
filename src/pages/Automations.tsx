@@ -334,10 +334,22 @@ export default function Automations() {
               onChange={(rules, match_mode) =>
                 setEditing({ ...editing, trigger_config: { ...editing.trigger_config, rules, match_mode } })
               }
+              emptyHint="No filters — every new lead triggers this automation."
+              fields={[
+                { value: "name", label: "Name" },
+                { value: "email", label: "Email" },
+                { value: "contact", label: "Contact" },
+                { value: "source", label: "Source" },
+                { value: "referrer_name", label: "Referrer" },
+                { value: "website", label: "Website" },
+                { value: "needs", label: "Needs" },
+                { value: "notes", label: "Notes" },
+                { value: "next_steps", label: "Next steps" },
+                { value: "stage", label: "Stage" },
+              ]}
             />
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Rules can test any lead field (type the field name, e.g. <code>needs</code>, <code>notes</code>,{" "}
-              <code>email</code>) — regex captures become tokens for later steps.
+              Rules test lead fields such as needs, notes or email — regex captures become tokens for later steps.
             </p>
           </div>
         </>
