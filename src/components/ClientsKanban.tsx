@@ -134,6 +134,13 @@ export default function ClientsKanban({ refreshKey }: ClientsKanbanProps) {
 
     if (user) {
       const userName = await getUserName(user.id);
+      triggerAutomation("client_stage_change", {
+        client_id: client.id,
+        name: client.name,
+        email: (client as unknown as { email?: string }).email ?? null,
+        stage: newStage,
+        previous_stage: oldStage,
+      });
       const stageAge = client.stage_changed_at
         ? Math.floor((Date.now() - new Date(client.stage_changed_at).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
