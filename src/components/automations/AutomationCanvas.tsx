@@ -137,11 +137,17 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
   );
 
   const addNode = (kind: NodeKind) => {
+    if (kind === "trigger" && nodes.some((n) => (n.data as { kind?: NodeKind })?.kind === "trigger")) return;
     const id = `${kind}-${Date.now()}`;
     const y = 80 + nodes.length * 110;
     setNodes((ns) => [
       ...ns,
-      { id, type: "automationNode", position: { x: 420, y }, data: { kind, config: {} } } as Node,
+      {
+        id,
+        type: "automationNode",
+        position: { x: kind === "trigger" ? 60 : 420, y },
+        data: { kind, config: kind === "trigger" ? { trigger_type: triggerType } : {} },
+      } as Node,
     ]);
     setSelectedId(id);
   };
@@ -156,14 +162,24 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
     );
   };
 
-  const removeSelected = () => {
-    if (!selectedId || selectedId === "trigger") return;
-    setNodes((ns) => ns.filter((n) => n.id !== selectedId));
-    setEdges((es) => es.filter((e) => e.source !== selectedId && e.target !== selectedId));
-    setSelectedId(null);
-  };
+  const removeNode = useCallback(
+    (id: string) => {
+      setNodes((ns) => ns.filter((n) => n.id !== id));
+      setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
+      setSelectedId((cur) => (cur === id ? null : cur));
+    },
+    [setNodes, setEdges],
+  );
+
+  const removeSelected = () => { if (selectedId) removeNode(selectedId); };
+
+  const displayNodes = useMemo(
+    () => nodes.map((n) => ({ ...n, data: { ...n.data, onDelete: removeNode } })),
+    [nodes, removeNode],
+  );
 
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId), [nodes, selectedId]);
+  const hasTrigger = nodes.some((n) => (n.data as { kind?: NodeKind })?.kind === "trigger");
   const kind = (selected?.data as { kind?: NodeKind })?.kind;
   const cfg = ((selected?.data as { config?: Record<string, unknown> })?.config || {}) as Record<string, string>;
   const tokens = CONTEXT_TOKENS[triggerType] || [];
@@ -175,19 +191,25 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
         {ADDABLE_KINDS.map((k) => {
           const meta = NODE_CATALOG[k];
           const Icon = meta.icon;
+          const disabled = k === "trigger" && hasTrigger;
           return (
-            <Button key={k} variant="ghost" size="sm" className="justify-start" onClick={() => addNode(k)}>
+            <Button key={k} variant="ghost" size="sm" className="justify-start" disabled={disabled} onClick={() => addNode(k)}>
               <Icon className={`mr-2 h-4 w-4 ${meta.accent}`} />
               <span className="truncate text-xs">{meta.label}</span>
               <Plus className="ml-auto h-3 w-3 opacity-50" />
             </Button>
           );
         })}
+        {!hasTrigger && (
+          <p className="px-1 pt-1 text-[10px] leading-tight text-muted-foreground">
+            Add a Trigger step to start this automation.
+          </p>
+        )}
       </div>
 
       <div className="flex-1 overflow-hidden rounded-lg border border-border">
         <ReactFlow
-          nodes={nodes}
+          nodes={displayNodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
@@ -195,6 +217,7 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
           nodeTypes={nodeTypes}
           onNodeClick={(_, n) => setSelectedId(n.id)}
           onPaneClick={() => setSelectedId(null)}
+          deleteKeyCode={["Backspace", "Delete"]}
           fitView
           proOptions={{ hideAttribution: true }}
         >
