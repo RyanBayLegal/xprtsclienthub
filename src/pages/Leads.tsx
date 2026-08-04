@@ -228,6 +228,15 @@ export default function Leads() {
             notes: form.notes || null,
           },
         }).catch((e) => console.error("Lead email notify failed:", e));
+        triggerAutomation("lead_created", {
+          lead_id: inserted.id,
+          name: form.name,
+          email: payload.contact || null,
+          source: form.source || "Manual entry",
+          needs: form.needs || null,
+          notes: form.notes || null,
+          stage: payload.stage,
+        });
       }
       toast.success("Lead created");
     }
