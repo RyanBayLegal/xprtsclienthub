@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, runAutomations } from "../_shared/automation-runner.ts";
+import { corsHeaders, replayAutomation, runAutomations } from "../_shared/automation-runner.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -25,7 +25,13 @@ Deno.serve(async (req: Request) => {
     const callerId = userData?.user?.id;
     if (userError || !callerId) return json({ error: "Unauthorized" }, 401);
 
-    const { trigger_type, context } = await req.json();
+    const { trigger_type, context, automation_id, from_node_id } = await req.json();
+
+    if (automation_id && from_node_id) {
+      const result = await replayAutomation(automation_id, from_node_id, context || {}, callerId);
+      return json({ success: true, results: [result] });
+    }
+
     if (!trigger_type) return json({ error: "trigger_type is required" }, 400);
 
     const results = await runAutomations(trigger_type, context || {}, callerId);
