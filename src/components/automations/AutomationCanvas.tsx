@@ -33,6 +33,7 @@ import {
   TRIGGER_TYPES,
   type NodeKind,
 } from "./nodeCatalog";
+import TokenPreview from "./TokenPreview";
 
 export interface Graph {
   nodes: Node[];
