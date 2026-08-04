@@ -21,7 +21,9 @@ import { Textarea } from "@/components/ui/textarea";
 import EmailRuleBuilder, { type EmailRule } from "@/components/automations/EmailRuleBuilder";
 import { countErrors, type ValidationIssue } from "@/lib/automation-validator";
 import AutomationCanvas, { type Graph, type StaffOption } from "@/components/automations/AutomationCanvas";
-import { CLIENT_STAGES, LEAD_STAGES, TASK_EVENTS, TRIGGER_TYPES } from "@/components/automations/nodeCatalog";
+import { CLIENT_STAGES, LEAD_STAGES, TASK_EVENTS, TRIGGER_TYPES, sampleContext } from "@/components/automations/nodeCatalog";
+import TokenPreview from "@/components/automations/TokenPreview";
+import EmailReplies from "@/components/automations/EmailReplies";
 
 interface Automation {
   id: string;
@@ -96,33 +98,6 @@ export default function Automations() {
     steps?: { kind: string; status: string; result?: string; branch?: string }[];
     error_message?: string | null;
   } | null>(null);
-
-  const sampleContext = (triggerType: string) => {
-    switch (triggerType) {
-      case "email_received":
-        return { from_email: "jane@lawfirm.com", from_name: "Jane Doe", to_email: "ryan@xprts.com", subject: "Invoice #1042 question", body: "Hi, following up about invoice #1042.", email: "jane@lawfirm.com", name: "Jane Doe" };
-      case "task_event":
-        return { title: "Follow up with lead", description: "Call back", priority: "high", due_date: "2026-01-01", assignee_name: "Ryan", email: "ryan@xprts.com", event: "created" };
-      case "client_stage_change":
-        return { name: "Acme Legal", email: "ops@acme.com", company: "Acme Legal", stage: "Active", previous_stage: "Qualified" };
-      case "lead_stage_change":
-        return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review", stage: "Discovery Stage", previous_stage: "Prospecting Stage" };
-      case "lead_created_manual":
-        return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Manual entry", needs: "Needs a VA", notes: "Added by staff", stage: "Prospecting Stage" };
-      case "lead_merged":
-        return {
-          name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Referral from Client",
-          stage: "Discovery Stage", needs: "Needs a VA", notes: "Primary lead notes",
-          lead_id: "00000000-0000-0000-0000-000000000001",
-          merged_lead_id: "00000000-0000-0000-0000-000000000002",
-          merged_lead_name: "J. Doe (duplicate)",
-          merged_fields: "needs, notes, website",
-          merged_at: new Date().toISOString(),
-        };
-      default:
-        return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review - xprts.com", needs: "Needs a VA", notes: "Submitted from web form" };
-    }
-  };
 
   const openSimulation = () => {
     if (!editing) return;
