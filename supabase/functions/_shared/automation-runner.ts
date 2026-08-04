@@ -27,7 +27,18 @@ function render(template: string, ctx: Record<string, Any>): string {
   });
 }
 
-export async function sendMail(to: string, subject: string, html: string) {
+export interface MailAttachment {
+  filename: string;
+  contentBase64: string;
+  contentType?: string;
+}
+
+export async function sendMail(
+  to: string,
+  subject: string,
+  html: string,
+  attachments: MailAttachment[] = [],
+) {
   const user = Deno.env.get("GMAIL_USER");
   const pass = Deno.env.get("GMAIL_APP_PASSWORD")?.replace(/\s+/g, "");
   if (!user || !pass) throw new Error("Gmail SMTP is not configured");
@@ -44,6 +55,12 @@ export async function sendMail(to: string, subject: string, html: string) {
         subject,
         content: html.replace(/<[^>]+>/g, " "),
         html,
+        attachments: attachments.map((a) => ({
+          filename: a.filename,
+          encoding: "base64" as const,
+          content: a.contentBase64,
+          contentType: a.contentType || "application/octet-stream",
+        })),
       });
       try { await client.close(); } catch (_) { /* ignore */ }
       return;

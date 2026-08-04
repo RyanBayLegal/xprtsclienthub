@@ -31,14 +31,28 @@ Deno.serve(async (req: Request) => {
     const allowed = (roles || []).some((r: { role: string }) => r.role === "team_admin" || r.role === "staff_member");
     if (!allowed) return json({ error: "Forbidden" }, 403);
 
-    const { to, subject, body, lead_id, client_profile_id } = await req.json();
+    const { to, subject, body, lead_id, client_profile_id, attachments } = await req.json();
     if (!to || !body) return json({ error: "Recipient and message are required" }, 400);
 
     const html = String(body).replace(/\n/g, "<br/>");
     const finalSubject = String(subject || "Re:");
 
+    // Pull attachment bytes out of private storage.
+    const files: { path: string; name: string; type?: string; size?: number }[] = Array.isArray(attachments) ? attachments : [];
+    const mailAttachments: { filename: string; contentBase64: string; contentType?: string }[] = [];
+    for (const f of files) {
+      const { data: blob, error: dlError } = await db.storage.from("email-attachments").download(f.path);
+      if (dlError || !blob) return json({ error: `Could not read attachment ${f.name}` }, 400);
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      }
+      mailAttachments.push({ filename: f.name, contentBase64: btoa(binary), contentType: f.type });
+    }
+
     try {
-      await sendMail(String(to), finalSubject, html);
+      await sendMail(String(to), finalSubject, html, mailAttachments);
     } catch (e) {
       await db.from("notification_logs").insert({
         channel: "thread_reply",
@@ -50,6 +64,7 @@ Deno.serve(async (req: Request) => {
         lead_id: lead_id || null,
         client_profile_id: client_profile_id || null,
         status: "failed",
+        attachments: files,
         error_message: (e as Error)?.message ?? String(e),
       });
       return json({ error: (e as Error)?.message ?? "Send failed" }, 500);
@@ -65,6 +80,7 @@ Deno.serve(async (req: Request) => {
       lead_id: lead_id || null,
       client_profile_id: client_profile_id || null,
       status: "sent",
+      attachments: files,
     });
 
     return json({ success: true });

@@ -536,6 +536,27 @@ export type Database = {
           },
         ]
       }
+      email_sync_state: {
+        Row: {
+          id: boolean
+          last_checked_at: string | null
+          last_uid: number | null
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          last_checked_at?: string | null
+          last_uid?: number | null
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          last_checked_at?: string | null
+          last_uid?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       engagement_agreements: {
         Row: {
           agreement_url: string | null
@@ -607,6 +628,7 @@ export type Database = {
       }
       inbound_emails: {
         Row: {
+          attachments: Json
           body_html: string | null
           body_text: string | null
           from_email: string | null
@@ -614,6 +636,7 @@ export type Database = {
           id: string
           matched_client_id: string | null
           matched_lead_id: string | null
+          message_uid: string | null
           processed: boolean
           raw_payload: Json | null
           received_at: string
@@ -621,6 +644,7 @@ export type Database = {
           to_email: string | null
         }
         Insert: {
+          attachments?: Json
           body_html?: string | null
           body_text?: string | null
           from_email?: string | null
@@ -628,6 +652,7 @@ export type Database = {
           id?: string
           matched_client_id?: string | null
           matched_lead_id?: string | null
+          message_uid?: string | null
           processed?: boolean
           raw_payload?: Json | null
           received_at?: string
@@ -635,6 +660,7 @@ export type Database = {
           to_email?: string | null
         }
         Update: {
+          attachments?: Json
           body_html?: string | null
           body_text?: string | null
           from_email?: string | null
@@ -642,6 +668,7 @@ export type Database = {
           id?: string
           matched_client_id?: string | null
           matched_lead_id?: string | null
+          message_uid?: string | null
           processed?: boolean
           raw_payload?: Json | null
           received_at?: string
@@ -828,6 +855,7 @@ export type Database = {
       }
       notification_logs: {
         Row: {
+          attachments: Json
           body_html: string | null
           body_text: string | null
           channel: string
@@ -844,6 +872,7 @@ export type Database = {
           task_id: string | null
         }
         Insert: {
+          attachments?: Json
           body_html?: string | null
           body_text?: string | null
           channel: string
@@ -860,6 +889,7 @@ export type Database = {
           task_id?: string | null
         }
         Update: {
+          attachments?: Json
           body_html?: string | null
           body_text?: string | null
           channel?: string
