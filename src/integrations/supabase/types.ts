@@ -828,8 +828,12 @@ export type Database = {
       }
       notification_logs: {
         Row: {
+          body_html: string | null
+          body_text: string | null
           channel: string
+          client_profile_id: string | null
           created_at: string
+          direction: string
           error_message: string | null
           id: string
           lead_id: string | null
@@ -840,8 +844,12 @@ export type Database = {
           task_id: string | null
         }
         Insert: {
+          body_html?: string | null
+          body_text?: string | null
           channel: string
+          client_profile_id?: string | null
           created_at?: string
+          direction?: string
           error_message?: string | null
           id?: string
           lead_id?: string | null
@@ -852,8 +860,12 @@ export type Database = {
           task_id?: string | null
         }
         Update: {
+          body_html?: string | null
+          body_text?: string | null
           channel?: string
+          client_profile_id?: string | null
           created_at?: string
+          direction?: string
           error_message?: string | null
           id?: string
           lead_id?: string | null
