@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.run-automation]
 verify_jwt = false
+
+[functions.send-thread-reply]
+verify_jwt = false
