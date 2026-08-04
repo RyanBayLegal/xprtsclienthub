@@ -263,16 +263,31 @@ export default function Automations() {
     }
     if (editing.trigger_type === "email_received") {
       return (
-        <div className="md:col-span-3">
-          <Label className="text-xs">Inbound email rules</Label>
-          <EmailRuleBuilder
-            rules={(editing.trigger_config?.rules as EmailRule[]) || []}
-            matchMode={(editing.trigger_config?.match_mode as string) || "all"}
-            onChange={(rules, match_mode) =>
-              setEditing({ ...editing, trigger_config: { ...editing.trigger_config, rules, match_mode } })
-            }
-          />
-        </div>
+        <>
+          <div className="md:col-span-3">
+            <Label className="text-xs">Subject pattern (optional regex)</Label>
+            <Input
+              placeholder="e.g. ^Re: Invoice #(\d+)"
+              value={(editing.trigger_config?.subject_regex as string) || ""}
+              onChange={(e) =>
+                setEditing({ ...editing, trigger_config: { ...editing.trigger_config, subject_regex: e.target.value } })
+              }
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Case-insensitive by default. The first capture group is available as <code>{"{{subject_match}}"}</code>.
+            </p>
+          </div>
+          <div className="md:col-span-3">
+            <Label className="text-xs">Inbound email rules</Label>
+            <EmailRuleBuilder
+              rules={(editing.trigger_config?.rules as EmailRule[]) || []}
+              matchMode={(editing.trigger_config?.match_mode as string) || "all"}
+              onChange={(rules, match_mode) =>
+                setEditing({ ...editing, trigger_config: { ...editing.trigger_config, rules, match_mode } })
+              }
+            />
+          </div>
+        </>
       );
     }
     if (editing.trigger_type === "lead_created_manual" || editing.trigger_type === "lead_created") {
@@ -371,8 +386,13 @@ export default function Automations() {
         <TabsList>
           <TabsTrigger value="flows">Flows</TabsTrigger>
           <TabsTrigger value="runs">Run history</TabsTrigger>
+          <TabsTrigger value="replies">Email replies</TabsTrigger>
           <TabsTrigger value="inbox">Inbound email</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="replies" className="pt-4">
+          <EmailReplies />
+        </TabsContent>
 
         <TabsContent value="flows" className="space-y-3 pt-4">
           {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
