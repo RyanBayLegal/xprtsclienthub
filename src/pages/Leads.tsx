@@ -175,7 +175,7 @@ export default function Leads() {
     }
 
     if (Object.keys(patch).length > 0) {
-      const { error } = await supabase.from("leads").update(patch).eq("id", mergePrimaryId);
+      const { error } = await supabase.from("leads").update(patch as never).eq("id", mergePrimaryId);
       if (error) { setMerging(false); toast.error(error.message); return; }
     }
     const { error: delError } = await supabase.from("leads").delete().eq("id", mergeDuplicateId);
