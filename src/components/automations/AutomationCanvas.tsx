@@ -47,6 +47,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
   const meta = NODE_CATALOG[kind] ?? NODE_CATALOG.condition;
   const Icon = meta.icon;
   const config = ((data as { config?: Record<string, unknown> }).config) || {};
+  const onDelete = (data as { onDelete?: (id: string) => void }).onDelete;
   const subtitle =
     kind === "trigger"
       ? TRIGGER_TYPES.find((t) => t.value === config.trigger_type)?.label ?? "Choose a trigger"
@@ -60,7 +61,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`min-w-[210px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
+      className={`group relative min-w-[210px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
         selected ? "border-primary ring-1 ring-primary" : "border-border"
       }`}
     >
@@ -68,9 +69,45 @@ function FlowNode({ id, data, selected }: NodeProps) {
       <div className="flex items-center gap-2">
         <Icon className={`h-4 w-4 shrink-0 ${meta.accent}`} />
         <span className="text-sm font-medium text-foreground">{meta.label}</span>
+        <button
+          type="button"
+          aria-label="Delete step"
+          className="ml-auto rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+          onClick={(e) => { e.stopPropagation(); onDelete?.(id); }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
       <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{subtitle}</p>
-      <Handle type="source" position={Position.Right} className="!h-2 !w-2 !bg-primary" id={`${id}-out`} />
+      {(Number(config.delay_seconds) > 0 || Number(config.retry_attempts) > 1 || Number(config.cooldown_minutes) > 0) && (
+        <p className="mt-1 text-[10px] text-muted-foreground">
+          {Number(config.delay_seconds) > 0 && `wait ${config.delay_seconds}s · `}
+          {Number(config.retry_attempts) > 1 && `${config.retry_attempts} tries · `}
+          {Number(config.cooldown_minutes) > 0 && `cooldown ${config.cooldown_minutes}m`}
+        </p>
+      )}
+      {kind === "condition" ? (
+        <>
+          <span className="absolute -right-1 top-[38%] translate-x-full text-[9px] font-medium text-emerald-500">Yes</span>
+          <Handle
+            type="source"
+            position={Position.Right}
+            id={`${id}-true`}
+            style={{ top: "40%" }}
+            className="!h-2 !w-2 !bg-emerald-500"
+          />
+          <span className="absolute -right-1 top-[68%] translate-x-full text-[9px] font-medium text-destructive">No</span>
+          <Handle
+            type="source"
+            position={Position.Right}
+            id={`${id}-false`}
+            style={{ top: "70%" }}
+            className="!h-2 !w-2 !bg-destructive"
+          />
+        </>
+      ) : (
+        <Handle type="source" position={Position.Right} className="!h-2 !w-2 !bg-primary" id={`${id}-out`} />
+      )}
     </div>
   );
 }
