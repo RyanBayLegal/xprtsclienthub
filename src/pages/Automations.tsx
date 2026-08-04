@@ -16,7 +16,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Pencil, Trash2, Workflow, CheckCircle2, XCircle, Copy, Mail, RotateCw, MinusCircle, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Workflow, CheckCircle2, XCircle, Copy, Mail, RotateCw, MinusCircle, Clock, AlertTriangle, FlaskConical } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import EmailRuleBuilder, { type EmailRule } from "@/components/automations/EmailRuleBuilder";
+import { countErrors, type ValidationIssue } from "@/lib/automation-validator";
 import AutomationCanvas, { type Graph, type StaffOption } from "@/components/automations/AutomationCanvas";
 import { CLIENT_STAGES, LEAD_STAGES, TASK_EVENTS, TRIGGER_TYPES } from "@/components/automations/nodeCatalog";
 
@@ -25,7 +28,7 @@ interface Automation {
   name: string;
   description: string | null;
   trigger_type: string;
-  trigger_config: Record<string, string>;
+  trigger_config: Record<string, any>;
   graph: Graph;
   is_active: boolean;
   created_at: string;
@@ -82,6 +85,60 @@ export default function Automations() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [rerunning, setRerunning] = useState<string | null>(null);
+  const [issues, setIssues] = useState<ValidationIssue[]>([]);
+  const [simOpen, setSimOpen] = useState(false);
+  const [simInput, setSimInput] = useState("{}");
+  const [simRunning, setSimRunning] = useState(false);
+  const [simResult, setSimResult] = useState<{
+    status?: string;
+    trigger_matched?: boolean;
+    captures?: Record<string, string>;
+    steps?: { kind: string; status: string; result?: string; branch?: string }[];
+    error_message?: string | null;
+  } | null>(null);
+
+  const sampleContext = (triggerType: string) => {
+    switch (triggerType) {
+      case "email_received":
+        return { from_email: "jane@lawfirm.com", from_name: "Jane Doe", to_email: "ryan@xprts.com", subject: "Invoice #1042 question", body: "Hi, following up about invoice #1042.", email: "jane@lawfirm.com", name: "Jane Doe" };
+      case "task_event":
+        return { title: "Follow up with lead", description: "Call back", priority: "high", due_date: "2026-01-01", assignee_name: "Ryan", email: "ryan@xprts.com", event: "created" };
+      case "client_stage_change":
+        return { name: "Acme Legal", email: "ops@acme.com", company: "Acme Legal", stage: "Active", previous_stage: "Qualified" };
+      case "lead_stage_change":
+        return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review", stage: "Discovery Stage", previous_stage: "Prospecting Stage" };
+      default:
+        return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review - xprts.com", needs: "Needs a VA", notes: "Submitted from web form" };
+    }
+  };
+
+  const openSimulation = () => {
+    if (!editing) return;
+    setSimResult(null);
+    setSimInput(JSON.stringify(sampleContext(editing.trigger_type), null, 2));
+    setSimOpen(true);
+  };
+
+  const runSimulation = async () => {
+    if (!editing) return;
+    let context: Record<string, unknown>;
+    try { context = JSON.parse(simInput || "{}"); }
+    catch { toast.error("Test data must be valid JSON"); return; }
+    setSimRunning(true);
+    const { data, error } = await supabase.functions.invoke("run-automation", {
+      body: {
+        simulate: true,
+        automation_id: editing.id || null,
+        trigger_type: editing.trigger_type,
+        trigger_config: editing.trigger_config,
+        graph: editing.graph,
+        context,
+      },
+    });
+    setSimRunning(false);
+    if (error) { toast.error(error.message); return; }
+    setSimResult((data as { results?: any[] })?.results?.[0] ?? null);
+  };
 
   const rerunFromStep = async (run: RunRow, nodeId: string) => {
     if (!run.automation_id) { toast.error("This automation no longer exists"); return; }
@@ -131,6 +188,11 @@ export default function Automations() {
   const save = async () => {
     if (!editing) return;
     if (!editing.name.trim()) { toast.error("Give the automation a name"); return; }
+    const errors = countErrors(issues);
+    if (errors > 0) {
+      toast.error(`Fix ${errors} validation ${errors === 1 ? "error" : "errors"} before saving`);
+      return;
+    }
     setSaving(true);
     const payload = {
       name: editing.name.trim(),
@@ -214,23 +276,15 @@ export default function Automations() {
     }
     if (editing.trigger_type === "email_received") {
       return (
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs">Subject contains</Label>
-            <Input
-              value={editing.trigger_config?.subject_contains || ""}
-              onChange={(e) => setEditing({ ...editing, trigger_config: { ...editing.trigger_config, subject_contains: e.target.value } })}
-              placeholder="Optional"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">From contains</Label>
-            <Input
-              value={editing.trigger_config?.from_contains || ""}
-              onChange={(e) => setEditing({ ...editing, trigger_config: { ...editing.trigger_config, from_contains: e.target.value } })}
-              placeholder="Optional"
-            />
-          </div>
+        <div className="md:col-span-3">
+          <Label className="text-xs">Inbound email rules</Label>
+          <EmailRuleBuilder
+            rules={(editing.trigger_config?.rules as EmailRule[]) || []}
+            matchMode={(editing.trigger_config?.match_mode as string) || "all"}
+            onChange={(rules, match_mode) =>
+              setEditing({ ...editing, trigger_config: { ...editing.trigger_config, rules, match_mode } })
+            }
+          />
         </div>
       );
     }
@@ -433,7 +487,7 @@ export default function Automations() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>{triggerOptions}</div>
+                {triggerOptions}
               </div>
 
               <div className="min-h-0 flex-1">
@@ -442,6 +496,10 @@ export default function Automations() {
                   graph={editing.graph}
                   triggerType={editing.trigger_type}
                   staff={staff}
+                  extraTokens={((editing.trigger_config?.rules as EmailRule[]) || [])
+                    .map((r) => r.capture_as)
+                    .filter(Boolean) as string[]}
+                  onValidate={setIssues}
                   onChange={(g) => setEditing((prev) => (prev ? { ...prev, graph: g } : prev))}
                 />
               </div>
@@ -451,9 +509,80 @@ export default function Automations() {
                   <Switch checked={editing.is_active} onCheckedChange={(v) => setEditing({ ...editing, is_active: v })} />
                   <span className="text-sm text-muted-foreground">Active</span>
                 </div>
+                {countErrors(issues) > 0 && (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" /> {countErrors(issues)} error{countErrors(issues) === 1 ? "" : "s"}
+                  </Badge>
+                )}
+                <Button variant="outline" onClick={openSimulation}>
+                  <FlaskConical className="mr-2 h-4 w-4" /> Simulate
+                </Button>
                 <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
                 <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save automation"}</Button>
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={simOpen} onOpenChange={setSimOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Simulate automation</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Replays this flow with your test data. No emails are sent and no tasks, clients or notifications are created.
+          </p>
+          <div>
+            <Label className="text-xs">Test context (JSON)</Label>
+            <Textarea rows={10} className="font-mono text-xs" value={simInput} onChange={(e) => setSimInput(e.target.value)} />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setSimInput(JSON.stringify(sampleContext(editing?.trigger_type || "lead_created"), null, 2))}>
+              Reset sample
+            </Button>
+            <Button onClick={runSimulation} disabled={simRunning}>
+              <FlaskConical className="mr-2 h-4 w-4" /> {simRunning ? "Simulating…" : "Run simulation"}
+            </Button>
+          </div>
+
+          {simResult && (
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={simResult.trigger_matched ? "default" : "secondary"}>
+                  {simResult.trigger_matched ? "Trigger matched" : "Trigger did not match"}
+                </Badge>
+                <Badge variant={simResult.status === "error" ? "destructive" : "outline"}>{simResult.status}</Badge>
+              </div>
+              {simResult.captures && Object.keys(simResult.captures).length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(simResult.captures).map(([k, v]) => (
+                    <Badge key={k} variant="secondary" className="font-mono text-[10px]">{`{{${k}}} = ${v}`}</Badge>
+                  ))}
+                </div>
+              )}
+              {simResult.error_message && (
+                <p className="rounded bg-destructive/10 px-2 py-1 text-xs text-destructive">{simResult.error_message}</p>
+              )}
+              {(simResult.steps || []).length === 0 && (
+                <p className="text-xs text-muted-foreground">No steps ran with this data.</p>
+              )}
+              {(simResult.steps || []).map((st, i) => (
+                <div key={i} className="flex items-start gap-2 rounded border border-border/60 px-2 py-1.5">
+                  {st.status === "error"
+                    ? <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                    : st.status === "skipped"
+                      ? <MinusCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      : <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-medium text-foreground">{st.kind}</span>
+                      {st.branch && <Badge variant="secondary" className="text-[10px]">branch: {st.branch}</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{st.result}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </DialogContent>
