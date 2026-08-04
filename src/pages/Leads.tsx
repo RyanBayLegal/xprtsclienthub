@@ -1458,6 +1458,46 @@ export default function Leads() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Merge two leads</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Primary lead (kept)</Label>
+              <Select value={mergePrimaryId} onValueChange={setMergePrimaryId}>
+                <SelectTrigger><SelectValue placeholder="Select lead" /></SelectTrigger>
+                <SelectContent>
+                  {leads.map((l) => (<SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Duplicate lead (merged in, then deleted)</Label>
+              <Select value={mergeDuplicateId} onValueChange={setMergeDuplicateId}>
+                <SelectTrigger><SelectValue placeholder="Select lead" /></SelectTrigger>
+                <SelectContent>
+                  {leads.filter((l) => l.id !== mergePrimaryId).map((l) => (
+                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Empty fields on the primary lead are filled from the duplicate, and Needs / Notes / Next steps are
+              appended. A “Two leads merged” automation fires with the combined data.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setMergeOpen(false)}>Cancel</Button>
+              <Button onClick={mergeLeads} disabled={merging || !mergePrimaryId || !mergeDuplicateId}>
+                {merging ? "Merging…" : "Merge leads"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
