@@ -20,12 +20,13 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
-import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield, Trash2, ShieldCheck } from "lucide-react";
+import { Upload, Palette, Save, UserPlus, Users, RotateCcw, Shield, Trash2, ShieldCheck, History } from "lucide-react";
 import LeadSourcesManager from "@/components/LeadSourcesManager";
 import LeadNotificationRecipients from "@/components/LeadNotificationRecipients";
 import GmailSmtpSettings from "@/components/GmailSmtpSettings";
 import DataExport from "@/components/DataExport";
 import UserAdminAuditLog from "@/components/UserAdminAuditLog";
+import UserRoleHistoryDialog from "@/components/UserRoleHistoryDialog";
 
 interface ManagedUser {
   id: string;
@@ -69,6 +70,7 @@ export default function Settings() {
     { userId: string; name: string; action: "disable" | "enable" | "delete" } | null
   >(null);
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
+  const [roleHistoryUser, setRoleHistoryUser] = useState<{ id: string; name: string } | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const avatarTargetUser = useRef<string | null>(null);
 
@@ -653,6 +655,14 @@ export default function Settings() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => setRoleHistoryUser({ id: u.id, name: u.full_name || u.email || "this user" })}
+                            title="Role change history"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => handleResendInvite(u.id)}
                             disabled={resendingId === u.id}
                             title="Resend invite email"
@@ -688,6 +698,13 @@ export default function Settings() {
               <AvatarCropDialog file={cropFile} open={cropOpen} onClose={() => { setCropOpen(false); setCropFile(null); }} onCrop={handleCroppedAvatarUpload} />
             </CardContent>
           </Card>
+
+          <UserRoleHistoryDialog
+            userId={roleHistoryUser?.id ?? null}
+            userName={roleHistoryUser?.name}
+            open={!!roleHistoryUser}
+            onOpenChange={(o) => !o && setRoleHistoryUser(null)}
+          />
 
           {isSuperAdmin && <UserAdminAuditLog refreshKey={auditRefreshKey} />}
 
