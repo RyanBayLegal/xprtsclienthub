@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, replayAutomation, runAutomations } from "../_shared/automation-runner.ts";
+import { corsHeaders, replayAutomation, runAutomations, simulateAutomation } from "../_shared/automation-runner.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -25,7 +25,18 @@ Deno.serve(async (req: Request) => {
     const callerId = userData?.user?.id;
     if (userError || !callerId) return json({ error: "Unauthorized" }, 401);
 
-    const { trigger_type, context, automation_id, from_node_id } = await req.json();
+    const { trigger_type, context, automation_id, from_node_id, simulate, graph, trigger_config } =
+      await req.json();
+
+    if (simulate) {
+      const result = await simulateAutomation(
+        automation_id || "",
+        context || {},
+        callerId,
+        graph ? { graph, trigger_config, trigger_type } : undefined,
+      );
+      return json({ success: true, simulated: true, results: [result] });
+    }
 
     if (automation_id && from_node_id) {
       const result = await replayAutomation(automation_id, from_node_id, context || {}, callerId);

@@ -55,23 +55,69 @@ async function sendMail(to: string, subject: string, html: string) {
   throw new Error(lastError || "SMTP send failed");
 }
 
-function matchesTrigger(auto: Any, ctx: Record<string, Any>): boolean {
+export function matchRules(
+  cfg: Any,
+  ctx: Record<string, Any>,
+): { ok: boolean; captures: Record<string, string> } {
+  const rules: Any[] = Array.isArray(cfg.rules) ? cfg.rules : [];
+  const captures: Record<string, string> = {};
+
+  // Legacy single-field config still supported.
+  const legacy: Any[] = [];
+  if (cfg.subject_contains) legacy.push({ field: "subject", operator: "contains", value: cfg.subject_contains });
+  if (cfg.from_contains) legacy.push({ field: "from_email", operator: "contains", value: cfg.from_contains });
+  const all = [...legacy, ...rules];
+  if (all.length === 0) return { ok: true, captures };
+
+  const mode = (cfg.match_mode || "all").toLowerCase();
+  const results = all.map((rule) => {
+    const source = String(ctx[rule.field || "subject"] ?? "");
+    const needle = String(rule.value ?? "");
+    const hay = rule.case_sensitive ? source : source.toLowerCase();
+    const val = rule.case_sensitive ? needle : needle.toLowerCase();
+    let ok = false;
+    let captured: string | null = null;
+    switch (rule.operator || "contains") {
+      case "contains": ok = !!val && hay.includes(val); if (ok) captured = needle; break;
+      case "not_contains": ok = !val || !hay.includes(val); break;
+      case "equals": ok = hay === val; if (ok) captured = source; break;
+      case "starts_with": ok = hay.startsWith(val); if (ok) captured = needle; break;
+      case "ends_with": ok = hay.endsWith(val); if (ok) captured = needle; break;
+      case "is_empty": ok = source.trim() === ""; break;
+      case "is_not_empty": ok = source.trim() !== ""; break;
+      case "matches_regex": {
+        try {
+          const re = new RegExp(needle, rule.case_sensitive ? "" : "i");
+          const m = source.match(re);
+          ok = !!m;
+          if (m) captured = m[1] ?? m[0];
+        } catch (_) { ok = false; }
+        break;
+      }
+      default: ok = true;
+    }
+    if (ok && rule.capture_as && captured != null) captures[String(rule.capture_as)] = captured;
+    return ok;
+  });
+
+  const ok = mode === "any" ? results.some(Boolean) : results.every(Boolean);
+  return { ok, captures: ok ? captures : {} };
+}
+
+function matchesTrigger(auto: Any, ctx: Record<string, Any>): { ok: boolean; captures: Record<string, string> } {
   const cfg = auto.trigger_config || {};
+  const none = { ok: false, captures: {} };
+  const yes = { ok: true, captures: {} };
   switch (auto.trigger_type) {
     case "lead_stage_change":
     case "client_stage_change":
-      return !cfg.stage || cfg.stage === "any" || cfg.stage === ctx.stage;
+      return (!cfg.stage || cfg.stage === "any" || cfg.stage === ctx.stage) ? yes : none;
     case "task_event":
-      return !cfg.event || cfg.event === "any" || cfg.event === ctx.event;
-    case "email_received": {
-      const needle = (cfg.subject_contains || "").toLowerCase().trim();
-      const from = (cfg.from_contains || "").toLowerCase().trim();
-      const okSubject = !needle || String(ctx.subject || "").toLowerCase().includes(needle);
-      const okFrom = !from || String(ctx.from_email || "").toLowerCase().includes(from);
-      return okSubject && okFrom;
-    }
+      return (!cfg.event || cfg.event === "any" || cfg.event === ctx.event) ? yes : none;
+    case "email_received":
+      return matchRules(cfg, ctx);
     default:
-      return true;
+      return yes;
   }
 }
 
@@ -84,6 +130,13 @@ function evalCondition(cfg: Any, ctx: Record<string, Any>): boolean {
     case "not_equals": return left !== right;
     case "contains": return left.includes(right);
     case "not_contains": return !left.includes(right);
+    case "starts_with": return left.startsWith(right);
+    case "ends_with": return left.endsWith(right);
+    case "matches_regex": {
+      try { return new RegExp(String(cfg.value ?? ""), "i").test(String(raw ?? "")); } catch (_) { return false; }
+    }
+    case "greater_than": return Number(raw) > Number(cfg.value);
+    case "less_than": return Number(raw) < Number(cfg.value);
     case "is_empty": return left === "";
     case "is_not_empty": return left !== "";
     default: return true;
@@ -115,13 +168,39 @@ async function inCooldown(
   );
 }
 
+function simulateAction(kind: string, cfg: Any, ctx: Record<string, Any>): string {
+  switch (kind) {
+    case "send_email": {
+      const to = cfg.to_mode === "custom"
+        ? render(cfg.to || "", ctx)
+        : cfg.to_mode === "recipients"
+          ? "lead notification recipients"
+          : String(ctx.email || ctx.contact_email || "(no recipient resolved)");
+      return `[simulated] Email to ${to} — "${render(cfg.subject || "Notification", ctx)}"`;
+    }
+    case "create_task":
+      return `[simulated] Task "${render(cfg.title || "Follow up", ctx)}"${cfg.assigned_to_name ? ` for ${cfg.assigned_to_name}` : ""}`;
+    case "send_notification":
+    case "notify":
+      return `[simulated] Notification "${render(cfg.title || "Automation triggered", ctx)}"`;
+    case "convert_to_client":
+      return ctx.lead_id
+        ? `[simulated] Convert lead to client (stage ${cfg.default_stage || "Prospect"})`
+        : "[simulated] Skipped: no lead in context";
+    default:
+      return `[simulated] Skipped unknown step "${kind}"`;
+  }
+}
+
 async function runAction(
   db: Any,
   kind: string,
   cfg: Any,
   ctx: Record<string, Any>,
   actorId: string | null,
+  dryRun = false,
 ): Promise<string> {
+  if (dryRun) return simulateAction(kind, cfg, ctx);
   switch (kind) {
     case "send_email": {
       let to = "";
@@ -224,7 +303,7 @@ async function executeGraph(
   auto: Any,
   ctx: Record<string, Any>,
   actorId: string | null,
-  opts: { startNodeId?: string; startInclusive?: boolean; triggerType?: string; label?: string } = {},
+  opts: { startNodeId?: string; startInclusive?: boolean; triggerType?: string; label?: string; dryRun?: boolean } = {},
 ) {
   const graph = auto.graph || { nodes: [], edges: [] };
   const nodes: Any[] = graph.nodes || [];
@@ -245,7 +324,7 @@ async function executeGraph(
 
     const startedAt = new Date().toISOString();
     const t0 = Date.now();
-    const delayMs = Math.min(Number(cfg.delay_seconds || 0) * 1000, MAX_DELAY_MS);
+    const delayMs = opts.dryRun ? 0 : Math.min(Number(cfg.delay_seconds || 0) * 1000, MAX_DELAY_MS);
     const maxAttempts = Math.max(1, Math.min(Number(cfg.retry_attempts || 1), 5));
     const cooldown = Number(cfg.cooldown_minutes || 0);
 
@@ -260,7 +339,7 @@ async function executeGraph(
         ...extra,
       });
 
-    if (cooldown && (await inCooldown(db, auto.id ?? null, node.id, cooldown))) {
+    if (!opts.dryRun && cooldown && (await inCooldown(db, auto.id ?? null, node.id, cooldown))) {
       push({ status: "skipped", attempts: 0, result: `Skipped — cooldown active (${cooldown} min)` });
       await visitFrom(node.id, depth + 1);
       return;
@@ -285,7 +364,7 @@ async function executeGraph(
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        const result = await runAction(db, kind, cfg, ctx, actorId);
+        const result = await runAction(db, kind, cfg, ctx, actorId, opts.dryRun === true);
         push({ status: "success", attempts, result });
         await visitFrom(node.id, depth + 1);
         return;
@@ -333,6 +412,10 @@ async function executeGraph(
     }
   }
 
+  if (opts.dryRun) {
+    return { automation: auto.name, status, steps, error_message: errorMessage, simulated: true };
+  }
+
   await db.from("automation_runs").insert({
     automation_id: auto.id ?? null,
     automation_name: opts.label ? `${auto.name} ${opts.label}` : auto.name,
@@ -361,8 +444,10 @@ export async function runAutomations(
 
   const summary: Any[] = [];
   for (const auto of (automations || []) as Any[]) {
-    if (!matchesTrigger(auto, ctx)) continue;
-    summary.push(await executeGraph(db, auto, ctx, actorId, { triggerType }));
+    const match = matchesTrigger(auto, ctx);
+    if (!match.ok) continue;
+    const runCtx = { ...ctx, ...match.captures, match: match.captures };
+    summary.push(await executeGraph(db, auto, runCtx, actorId, { triggerType }));
   }
   return summary;
 }
@@ -382,4 +467,30 @@ export async function replayAutomation(
     triggerType: auto.trigger_type,
     label: "(re-run)",
   });
+}
+/** Executes an automation in simulation mode — no emails, tasks, or records are created. */
+export async function simulateAutomation(
+  automationId: string,
+  ctx: Record<string, Any>,
+  actorId: string | null = null,
+  graphOverride?: Any,
+) {
+  const db = adminClient();
+  let auto: Any = null;
+  if (automationId) {
+    const { data } = await db.from("automations").select("*").eq("id", automationId).maybeSingle();
+    auto = data;
+  }
+  if (!auto && graphOverride) auto = { name: "Draft automation", trigger_type: graphOverride.trigger_type, graph: graphOverride.graph, trigger_config: graphOverride.trigger_config || {} };
+  if (!auto) throw new Error("Automation not found");
+  if (graphOverride?.graph) auto = { ...auto, graph: graphOverride.graph, trigger_config: graphOverride.trigger_config ?? auto.trigger_config };
+
+  const match = matchesTrigger(auto, ctx);
+  const runCtx = { ...ctx, ...match.captures, match: match.captures };
+  const result = await executeGraph(db, auto, runCtx, actorId, {
+    triggerType: auto.trigger_type,
+    label: "(simulation)",
+    dryRun: true,
+  });
+  return { ...result, trigger_matched: match.ok, captures: match.captures, context: runCtx };
 }
