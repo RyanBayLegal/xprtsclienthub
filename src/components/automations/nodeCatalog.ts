@@ -18,6 +18,7 @@ export const NODE_CATALOG: Record<NodeKind, { label: string; icon: LucideIcon; a
 };
 
 export const ADDABLE_KINDS: NodeKind[] = [
+  "trigger",
   "send_email",
   "create_task",
   "send_notification",
