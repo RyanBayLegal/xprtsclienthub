@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.send-thread-reply]
 verify_jwt = false
+
+[functions.fetch-inbound-email]
+verify_jwt = false
