@@ -456,7 +456,7 @@ export default function Tasks() {
         due_date: form.due_date || null,
         assignee_name: assigneeName,
         client_name: selectedClient?.name || null,
-        email: staffMembers.find((s) => s.id === form.assigned_to)?.email ?? null,
+        assigned_to: form.assigned_to || null,
       });
     }
 
