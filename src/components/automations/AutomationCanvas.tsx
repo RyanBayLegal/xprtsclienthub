@@ -33,6 +33,7 @@ import {
   TRIGGER_TYPES,
   type NodeKind,
 } from "./nodeCatalog";
+import TokenPreview from "./TokenPreview";
 
 export interface Graph {
   nodes: Node[];
@@ -51,6 +52,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
   const config = ((data as { config?: Record<string, unknown> }).config) || {};
   const onDelete = (data as { onDelete?: (id: string) => void }).onDelete;
   const hasError = (data as { hasError?: boolean }).hasError;
+  const isBranching = kind === "condition" || kind === "wait_for_reply";
   const subtitle =
     kind === "trigger"
       ? TRIGGER_TYPES.find((t) => t.value === config.trigger_type)?.label ?? "Choose a trigger"
@@ -60,15 +62,23 @@ function FlowNode({ id, data, selected }: NodeProps) {
           ? String(config.title || "Untitled task")
           : kind === "condition"
             ? `${config.field || "field"} ${String(config.operator || "equals").replace("_", " ")} ${config.value ?? ""}`
-            : String(config.title || meta.label);
+            : kind === "wait_for_reply"
+              ? `Reply within ${config.within_days || 7} day(s)${config.wait_seconds ? ` · wait ${config.wait_seconds}s` : ""}`
+              : String(config.title || meta.label);
 
   return (
     <div
-      className={`group relative min-w-[210px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
+      className={`group relative min-w-[230px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
         selected ? "border-primary ring-1 ring-primary" : hasError ? "border-destructive ring-1 ring-destructive/50" : "border-border"
       }`}
     >
-      {kind !== "trigger" && <Handle type="target" position={Position.Top} className="!h-2 !w-2 !bg-muted-foreground" />}
+      {kind !== "trigger" && (
+        <Handle
+          type="target"
+          position={Position.Top}
+          className="!h-3 !w-3 !-top-1.5 !border-2 !border-background !bg-muted-foreground"
+        />
+      )}
       <div className="flex items-center gap-2">
         <Icon className={`h-4 w-4 shrink-0 ${meta.accent}`} />
         <span className="text-sm font-medium text-foreground">{meta.label}</span>
@@ -89,27 +99,36 @@ function FlowNode({ id, data, selected }: NodeProps) {
           {Number(config.cooldown_minutes) > 0 && `cooldown ${config.cooldown_minutes}m`}
         </p>
       )}
-      {kind === "condition" ? (
+      {isBranching ? (
         <>
-          <span className="absolute -bottom-4 left-[22%] text-[9px] font-medium text-emerald-500">Yes</span>
+          <span className="absolute -bottom-5 left-[30%] -translate-x-1/2 text-[10px] font-semibold text-emerald-500">
+            Yes
+          </span>
           <Handle
             type="source"
             position={Position.Bottom}
             id={`${id}-true`}
             style={{ left: "30%" }}
-            className="!h-2 !w-2 !bg-emerald-500"
+            className="!h-3 !w-3 !-bottom-1.5 !border-2 !border-background !bg-emerald-500"
           />
-          <span className="absolute -bottom-4 left-[68%] text-[9px] font-medium text-destructive">No</span>
+          <span className="absolute -bottom-5 left-[70%] -translate-x-1/2 text-[10px] font-semibold text-destructive">
+            No
+          </span>
           <Handle
             type="source"
             position={Position.Bottom}
             id={`${id}-false`}
-            style={{ left: "72%" }}
-            className="!h-2 !w-2 !bg-destructive"
+            style={{ left: "70%" }}
+            className="!h-3 !w-3 !-bottom-1.5 !border-2 !border-background !bg-destructive"
           />
         </>
       ) : (
-        <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !bg-primary" id={`${id}-out`} />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className="!h-3 !w-3 !-bottom-1.5 !border-2 !border-background !bg-primary"
+          id={`${id}-out`}
+        />
       )}
     </div>
   );
@@ -137,25 +156,33 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
   }, [nodes, edges]);
 
   const onConnect = useCallback(
-    (params: Connection) =>
-      setEdges((eds) =>
+    (params: Connection) => {
+      const handle = String(params.sourceHandle || "");
+      const color = handle.endsWith("-false")
+        ? "hsl(var(--destructive))"
+        : handle.endsWith("-true")
+          ? "hsl(var(--primary))"
+          : "hsl(var(--muted-foreground))";
+      return setEdges((eds) =>
         addEdge(
           {
             ...params,
             animated: true,
             type: "smoothstep",
-            markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+            style: { strokeWidth: 2.25, stroke: color },
+            markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20, color },
           },
           eds,
         ),
-      ),
+      );
+    },
     [setEdges],
   );
 
   const addNode = (kind: NodeKind) => {
     if (kind === "trigger" && nodes.some((n) => (n.data as { kind?: NodeKind })?.kind === "trigger")) return;
     const id = `${kind}-${Date.now()}`;
-    const y = 60 + nodes.length * 150;
+    const y = 60 + nodes.length * 190;
     setNodes((ns) => [
       ...ns,
       {
@@ -250,15 +277,17 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
           defaultEdgeOptions={{
             type: "smoothstep",
             animated: true,
-            markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+            style: { strokeWidth: 2.25 },
+            markerEnd: { type: MarkerType.ArrowClosed, width: 20, height: 20 },
           }}
           onNodeClick={(_, n) => setSelectedId(n.id)}
           onPaneClick={() => setSelectedId(null)}
           deleteKeyCode={["Backspace", "Delete"]}
           fitView
+          fitViewOptions={{ padding: 0.25 }}
           proOptions={{ hideAttribution: true }}
         >
-          <Background gap={16} />
+          <Background gap={18} size={1.5} />
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>
@@ -319,6 +348,7 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
                 {triggerType === "lead_stage_change" && (
                   <p className="text-xs text-muted-foreground">Runs when a lead moves into the selected stage.</p>
                 )}
+                <TokenPreview triggerType={triggerType} extraTokens={extraTokens} />
               </div>
             )}
 
@@ -487,6 +517,39 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
                   the matching branch and the red <span className="font-medium text-destructive">No</span> handle
                   (bottom right) for everything else.
                 </p>
+              </div>
+            )}
+
+            {kind === "wait_for_reply" && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Checks whether the lead / client has replied by email. Continues down the
+                  <span className="font-medium text-emerald-500"> Yes</span> branch when a reply is found.
+                </p>
+                <div>
+                  <Label className="text-xs">Look back (days)</Label>
+                  <Input
+                    type="number" min={1} max={90}
+                    value={cfg.within_days ?? 7}
+                    onChange={(e) => updateConfig({ within_days: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Wait for a live reply (seconds, max 60)</Label>
+                  <Input
+                    type="number" min={0} max={60}
+                    value={cfg.wait_seconds ?? 0}
+                    onChange={(e) => updateConfig({ wait_seconds: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Reply must contain (optional)</Label>
+                  <Input
+                    value={cfg.keyword || ""}
+                    placeholder="e.g. yes, interested"
+                    onChange={(e) => updateConfig({ keyword: e.target.value })}
+                  />
+                </div>
               </div>
             )}
 

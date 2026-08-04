@@ -21,7 +21,9 @@ import { Textarea } from "@/components/ui/textarea";
 import EmailRuleBuilder, { type EmailRule } from "@/components/automations/EmailRuleBuilder";
 import { countErrors, type ValidationIssue } from "@/lib/automation-validator";
 import AutomationCanvas, { type Graph, type StaffOption } from "@/components/automations/AutomationCanvas";
-import { CLIENT_STAGES, LEAD_STAGES, TASK_EVENTS, TRIGGER_TYPES } from "@/components/automations/nodeCatalog";
+import { CLIENT_STAGES, LEAD_STAGES, TASK_EVENTS, TRIGGER_TYPES, sampleContext } from "@/components/automations/nodeCatalog";
+import TokenPreview from "@/components/automations/TokenPreview";
+import EmailReplies from "@/components/automations/EmailReplies";
 
 interface Automation {
   id: string;
@@ -96,33 +98,6 @@ export default function Automations() {
     steps?: { kind: string; status: string; result?: string; branch?: string }[];
     error_message?: string | null;
   } | null>(null);
-
-  const sampleContext = (triggerType: string) => {
-    switch (triggerType) {
-      case "email_received":
-        return { from_email: "jane@lawfirm.com", from_name: "Jane Doe", to_email: "ryan@xprts.com", subject: "Invoice #1042 question", body: "Hi, following up about invoice #1042.", email: "jane@lawfirm.com", name: "Jane Doe" };
-      case "task_event":
-        return { title: "Follow up with lead", description: "Call back", priority: "high", due_date: "2026-01-01", assignee_name: "Ryan", email: "ryan@xprts.com", event: "created" };
-      case "client_stage_change":
-        return { name: "Acme Legal", email: "ops@acme.com", company: "Acme Legal", stage: "Active", previous_stage: "Qualified" };
-      case "lead_stage_change":
-        return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review", stage: "Discovery Stage", previous_stage: "Prospecting Stage" };
-      case "lead_created_manual":
-        return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Manual entry", needs: "Needs a VA", notes: "Added by staff", stage: "Prospecting Stage" };
-      case "lead_merged":
-        return {
-          name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Referral from Client",
-          stage: "Discovery Stage", needs: "Needs a VA", notes: "Primary lead notes",
-          lead_id: "00000000-0000-0000-0000-000000000001",
-          merged_lead_id: "00000000-0000-0000-0000-000000000002",
-          merged_lead_name: "J. Doe (duplicate)",
-          merged_fields: "needs, notes, website",
-          merged_at: new Date().toISOString(),
-        };
-      default:
-        return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review - xprts.com", needs: "Needs a VA", notes: "Submitted from web form" };
-    }
-  };
 
   const openSimulation = () => {
     if (!editing) return;
@@ -288,16 +263,31 @@ export default function Automations() {
     }
     if (editing.trigger_type === "email_received") {
       return (
-        <div className="md:col-span-3">
-          <Label className="text-xs">Inbound email rules</Label>
-          <EmailRuleBuilder
-            rules={(editing.trigger_config?.rules as EmailRule[]) || []}
-            matchMode={(editing.trigger_config?.match_mode as string) || "all"}
-            onChange={(rules, match_mode) =>
-              setEditing({ ...editing, trigger_config: { ...editing.trigger_config, rules, match_mode } })
-            }
-          />
-        </div>
+        <>
+          <div className="md:col-span-3">
+            <Label className="text-xs">Subject pattern (optional regex)</Label>
+            <Input
+              placeholder="e.g. ^Re: Invoice #(\d+)"
+              value={(editing.trigger_config?.subject_regex as string) || ""}
+              onChange={(e) =>
+                setEditing({ ...editing, trigger_config: { ...editing.trigger_config, subject_regex: e.target.value } })
+              }
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Case-insensitive by default. The first capture group is available as <code>{"{{subject_match}}"}</code>.
+            </p>
+          </div>
+          <div className="md:col-span-3">
+            <Label className="text-xs">Inbound email rules</Label>
+            <EmailRuleBuilder
+              rules={(editing.trigger_config?.rules as EmailRule[]) || []}
+              matchMode={(editing.trigger_config?.match_mode as string) || "all"}
+              onChange={(rules, match_mode) =>
+                setEditing({ ...editing, trigger_config: { ...editing.trigger_config, rules, match_mode } })
+              }
+            />
+          </div>
+        </>
       );
     }
     if (editing.trigger_type === "lead_created_manual" || editing.trigger_type === "lead_created") {
@@ -319,12 +309,32 @@ export default function Automations() {
           <div>
             <Label className="text-xs">Only when source contains</Label>
             <Input
-              placeholder="e.g. Referral, Strategy Review (blank = any)"
+              placeholder={editing.trigger_config?.source_regex ? "e.g. ^(Referral|Strategy).*" : "e.g. Referral, Strategy Review (blank = any)"}
               value={(editing.trigger_config?.source_contains as string) || ""}
               onChange={(e) =>
                 setEditing({ ...editing, trigger_config: { ...editing.trigger_config, source_contains: e.target.value } })
               }
             />
+            <div className="mt-2 flex items-center gap-2">
+              <Switch
+                checked={!!editing.trigger_config?.source_regex}
+                onCheckedChange={(v) =>
+                  setEditing({ ...editing, trigger_config: { ...editing.trigger_config, source_regex: v } })
+                }
+              />
+              <Label className="text-[11px] text-muted-foreground">Treat as regular expression</Label>
+              <Switch
+                className="ml-3"
+                checked={!!editing.trigger_config?.source_case_sensitive}
+                onCheckedChange={(v) =>
+                  setEditing({ ...editing, trigger_config: { ...editing.trigger_config, source_case_sensitive: v } })
+                }
+              />
+              <Label className="text-[11px] text-muted-foreground">Case sensitive</Label>
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Stage and source matching ignore letter case by default.
+            </p>
           </div>
           <div className="md:col-span-3">
             <Label className="text-xs">Field pattern filters (optional)</Label>
@@ -376,8 +386,13 @@ export default function Automations() {
         <TabsList>
           <TabsTrigger value="flows">Flows</TabsTrigger>
           <TabsTrigger value="runs">Run history</TabsTrigger>
+          <TabsTrigger value="replies">Email replies</TabsTrigger>
           <TabsTrigger value="inbox">Inbound email</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="replies" className="pt-4">
+          <EmailReplies />
+        </TabsContent>
 
         <TabsContent value="flows" className="space-y-3 pt-4">
           {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -555,6 +570,17 @@ export default function Automations() {
                   </Select>
                 </div>
                 {triggerOptions}
+                <div className="md:col-span-3">
+                  <TokenPreview
+                    triggerType={editing.trigger_type}
+                    extraTokens={[
+                      ...(((editing.trigger_config?.rules as EmailRule[]) || [])
+                        .map((r) => r.capture_as)
+                        .filter(Boolean) as string[]),
+                      ...(editing.trigger_config?.subject_regex ? ["subject_match"] : []),
+                    ]}
+                  />
+                </div>
               </div>
 
               <div className="min-h-0 flex-1">

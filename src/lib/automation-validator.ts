@@ -100,6 +100,16 @@ export function validateAutomation(
         if (!hasFalse) issues.push({ level: "warning", nodeId: n.id, message: `${name}: the No branch is empty — non-matching runs stop here.` });
         break;
       }
+      case "wait_for_reply": {
+        const days = Number(cfg.within_days ?? 7);
+        if (!(days > 0)) issues.push({ level: "error", nodeId: n.id, message: `${name}: look-back days must be greater than 0.` });
+        if (Number(cfg.wait_seconds || 0) > 60) issues.push({ level: "warning", nodeId: n.id, message: `${name}: live wait is capped at 60 seconds.` });
+        const repliedBranch = outgoing.some((e) => !String(e.sourceHandle ?? "").endsWith("-false"));
+        const noReplyBranch = outgoing.some((e) => String(e.sourceHandle ?? "").endsWith("-false"));
+        if (!repliedBranch) issues.push({ level: "error", nodeId: n.id, message: `${name}: the Yes (replied) branch has no next step.` });
+        if (!noReplyBranch) issues.push({ level: "warning", nodeId: n.id, message: `${name}: the No (no reply) branch is empty.` });
+        break;
+      }
     }
 
     if (kind !== "trigger") {

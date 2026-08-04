@@ -65,6 +65,15 @@ export function matchRules(
   // Legacy single-field config still supported.
   const legacy: Any[] = [];
   if (cfg.subject_contains) legacy.push({ field: "subject", operator: "contains", value: cfg.subject_contains });
+  if (cfg.subject_regex) {
+    legacy.push({
+      field: "subject",
+      operator: "matches_regex",
+      value: cfg.subject_regex,
+      case_sensitive: cfg.case_sensitive === true,
+      capture_as: "subject_match",
+    });
+  }
   if (cfg.from_contains) legacy.push({ field: "from_email", operator: "contains", value: cfg.from_contains });
   const all = [...legacy, ...rules];
   if (all.length === 0) return { ok: true, captures };
@@ -112,21 +121,72 @@ function matchesTrigger(auto: Any, ctx: Record<string, Any>): { ok: boolean; cap
     case "lead_created":
     case "lead_created_manual":
     case "lead_merged": {
-      if (cfg.stage && cfg.stage !== "any" && cfg.stage !== ctx.stage) return none;
-      const src = String(cfg.source_contains ?? "").trim().toLowerCase();
-      if (src && !String(ctx.source ?? "").toLowerCase().includes(src)) return none;
+      // Stage / source filters are case-insensitive; source may optionally be a regex.
+      const wantStage = String(cfg.stage ?? "").trim().toLowerCase();
+      if (wantStage && wantStage !== "any" && wantStage !== String(ctx.stage ?? "").trim().toLowerCase()) return none;
+      const src = String(cfg.source_contains ?? "").trim();
+      const haystack = String(ctx.source ?? "");
+      if (src) {
+        if (cfg.source_regex) {
+          try {
+            if (!new RegExp(src, cfg.source_case_sensitive ? "" : "i").test(haystack)) return none;
+          } catch (_) { return none; }
+        } else if (!haystack.toLowerCase().includes(src.toLowerCase())) return none;
+      }
       return matchRules(cfg, ctx);
     }
     case "lead_stage_change":
-    case "client_stage_change":
-      return (!cfg.stage || cfg.stage === "any" || cfg.stage === ctx.stage) ? yes : none;
+    case "client_stage_change": {
+      const want = String(cfg.stage ?? "").trim().toLowerCase();
+      return (!want || want === "any" || want === String(ctx.stage ?? "").trim().toLowerCase()) ? yes : none;
+    }
     case "task_event":
-      return (!cfg.event || cfg.event === "any" || cfg.event === ctx.event) ? yes : none;
+      return (!cfg.event || cfg.event === "any" ||
+        String(cfg.event).toLowerCase() === String(ctx.event ?? "").toLowerCase()) ? yes : none;
     case "email_received":
       return matchRules(cfg, ctx);
     default:
       return yes;
   }
+}
+
+/** Looks for an inbound email reply from the contact in the run context. */
+async function hasReplied(db: Any, cfg: Any, ctx: Record<string, Any>): Promise<{ found: boolean; detail: string }> {
+  const days = Math.max(1, Number(cfg.within_days ?? 7));
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const email = String(ctx.email || ctx.from_email || ctx.contact_email || "").trim().toLowerCase();
+  const keyword = String(cfg.keyword ?? "").trim().toLowerCase();
+
+  const lookup = async () => {
+    let q = db.from("inbound_emails").select("from_email, subject, body_text, received_at")
+      .gte("received_at", since).order("received_at", { ascending: false }).limit(20);
+    if (ctx.client_profile_id) q = q.eq("matched_client_id", ctx.client_profile_id);
+    else if (ctx.lead_id) q = q.eq("matched_lead_id", ctx.lead_id);
+    else if (email) q = q.ilike("from_email", email);
+    else return null;
+    const { data } = await q;
+    const rows: Any[] = data || [];
+    if (!keyword) return rows[0] ?? null;
+    return rows.find((r) =>
+      `${r.subject ?? ""} ${r.body_text ?? ""}`.toLowerCase().includes(keyword)
+    ) ?? null;
+  };
+
+  const waitMs = Math.min(Number(cfg.wait_seconds || 0) * 1000, MAX_DELAY_MS);
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    const hit = await lookup();
+    if (hit) {
+      ctx.reply_subject = hit.subject ?? "";
+      ctx.reply_body = hit.body_text ?? "";
+      ctx.reply_from = hit.from_email ?? "";
+      ctx.reply_received_at = hit.received_at ?? "";
+      return { found: true, detail: `Reply found from ${hit.from_email ?? "contact"}` };
+    }
+    if (Date.now() >= deadline) break;
+    await sleep(Math.min(5000, Math.max(500, deadline - Date.now())));
+  }
+  return { found: false, detail: `No reply in the last ${days} day(s)` };
 }
 
 function evalCondition(cfg: Any, ctx: Record<string, Any>): boolean {
@@ -364,6 +424,24 @@ async function executeGraph(
         result: pass ? "Condition met → true branch" : "Condition not met → false branch",
       });
       await visitFrom(node.id, depth + 1, pass ? "true" : "false");
+      return;
+    }
+
+    if (kind === "wait_for_reply") {
+      let found = true;
+      let detail = "[simulated] Reply found → Yes branch";
+      if (!opts.dryRun) {
+        const res = await hasReplied(db, cfg, ctx);
+        found = res.found;
+        detail = res.detail;
+      }
+      push({
+        status: "success",
+        attempts: 1,
+        branch: found ? "true" : "false",
+        result: detail,
+      });
+      await visitFrom(node.id, depth + 1, found ? "true" : "false");
       return;
     }
 
