@@ -213,7 +213,7 @@ export default function Leads() {
       }
       toast.success("Lead updated");
     } else {
-      const { data: inserted, error } = await supabase.from("leads").insert(payload).select("id").single();
+      const { data: inserted, error } = await supabase.from("leads").insert(payload).select("*").single();
       if (error) { toast.error(error.message); return; }
       if (user && inserted) {
         const userName = await getUserName(user.id);
@@ -229,14 +229,14 @@ export default function Leads() {
             notes: form.notes || null,
           },
         }).catch((e) => console.error("Lead email notify failed:", e));
+        const row = inserted as Record<string, unknown>;
+        const parts = splitContact(String(row.contact ?? "") || null);
         triggerAutomation("lead_created_manual", {
+          ...row,
           lead_id: inserted.id,
-          name: form.name,
-          email: payload.contact || null,
-          source: form.source || "Manual entry",
-          needs: form.needs || null,
-          notes: form.notes || null,
-          stage: payload.stage,
+          email: parts.email || form.email || null,
+          phone: parts.phone || form.phone || null,
+          source: row.source || "Manual entry",
         });
       }
       toast.success("Lead created");
