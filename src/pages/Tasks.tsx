@@ -447,6 +447,17 @@ export default function Tasks() {
           created_by_name: creatorName,
         },
       }).catch((e) => console.error("Task email notify failed:", e));
+      triggerAutomation("task_event", {
+        event: form.assigned_to ? "assigned" : "created",
+        task_id: inserted.id,
+        title: form.title,
+        description: form.description || null,
+        priority: form.priority,
+        due_date: form.due_date || null,
+        assignee_name: assigneeName,
+        client_name: selectedClient?.name || null,
+        email: staffMembers.find((s) => s.id === form.assigned_to)?.email ?? null,
+      });
     }
 
     // Notify the assigned staff member (not the creator)
