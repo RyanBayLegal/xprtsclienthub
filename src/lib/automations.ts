@@ -4,6 +4,7 @@ export type AutomationTrigger =
   | "lead_stage_change"
   | "lead_created"
   | "lead_created_manual"
+  | "lead_merged"
   | "client_stage_change"
   | "task_event"
   | "email_received";
