@@ -193,7 +193,7 @@ async function runAction(
 export async function runAutomations(
   triggerType: string,
   ctx: Record<string, Any>,
-  actorId: string | null,
+  actorId: string | null = null,
 ) {
   const db = adminClient();
   const { data: automations } = await db
