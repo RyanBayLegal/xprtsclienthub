@@ -67,46 +67,65 @@ Deno.serve(async (req) => {
     sendTo = body?.to;
   } catch (_) { /* ignore */ }
 
-  const client = new SMTPClient({
-    connection: {
-      hostname: "smtp.gmail.com",
-      port: 465,
-      tls: true,
-      auth: { username: GMAIL_USER, password: GMAIL_APP_PASSWORD },
-    },
-  });
+  // Gmail App Passwords are shown with spaces — strip whitespace before auth.
+  const password = GMAIL_APP_PASSWORD.replace(/\s+/g, "");
 
-  try {
-    if (sendTo) {
-      await client.send({
-        from: GMAIL_USER,
-        to: sendTo,
-        subject: "Gmail SMTP test from CRM",
-        content: "This is a test message confirming your Gmail SMTP credentials work.",
-        html: "<p>This is a test message confirming your <strong>Gmail SMTP</strong> credentials work.</p>",
-      });
+  const attempt = async (port: number, tls: boolean) => {
+    const client = new SMTPClient({
+      connection: {
+        hostname: "smtp.gmail.com",
+        port,
+        tls,
+        auth: { username: GMAIL_USER, password },
+      },
+    });
+    try {
+      if (sendTo) {
+        await client.send({
+          from: GMAIL_USER,
+          to: sendTo,
+          subject: "Gmail SMTP test from CRM",
+          content: "This is a test message confirming your Gmail SMTP credentials work.",
+          html: "<p>This is a test message confirming your <strong>Gmail SMTP</strong> credentials work.</p>",
+        });
+      } else {
+        // No recipient: just verify we can open an authenticated connection.
+        // deno-lint-ignore no-explicit-any
+        await (client as any).connection?.ready;
+      }
+    } finally {
+      try { await client.close(); } catch (_) { /* connection may never have opened */ }
     }
-    await client.close();
-    return new Response(
-      JSON.stringify({
-        configured: true,
-        ok: true,
-        gmail_user: GMAIL_USER,
-        sent_test: !!sendTo,
-        message: sendTo ? `Test email sent to ${sendTo}.` : "SMTP credentials are configured.",
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (e) {
-    try { await client.close(); } catch (_) { /* ignore */ }
-    return new Response(
-      JSON.stringify({
-        configured: true,
-        ok: false,
-        gmail_user: GMAIL_USER,
-        error: (e as Error).message,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+  };
+
+  let lastError = "";
+  for (const [port, tls] of [[465, true], [587, false]] as [number, boolean][]) {
+    try {
+      await attempt(port, tls);
+      return new Response(
+        JSON.stringify({
+          configured: true,
+          ok: true,
+          gmail_user: GMAIL_USER,
+          sent_test: !!sendTo,
+          port,
+          message: sendTo ? `Test email sent to ${sendTo}.` : "SMTP credentials are configured.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (e) {
+      lastError = `port ${port}: ${(e as Error)?.message ?? String(e)}`;
+      console.error("Gmail SMTP attempt failed", lastError);
+    }
   }
+
+  return new Response(
+    JSON.stringify({
+      configured: true,
+      ok: false,
+      gmail_user: GMAIL_USER,
+      error: lastError || "Unknown SMTP error",
+    }),
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
 });
