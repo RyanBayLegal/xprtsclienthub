@@ -137,20 +137,31 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
   }, [nodes, edges]);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
+    (params: Connection) =>
+      setEdges((eds) =>
+        addEdge(
+          {
+            ...params,
+            animated: true,
+            type: "smoothstep",
+            markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+          },
+          eds,
+        ),
+      ),
     [setEdges],
   );
 
   const addNode = (kind: NodeKind) => {
     if (kind === "trigger" && nodes.some((n) => (n.data as { kind?: NodeKind })?.kind === "trigger")) return;
     const id = `${kind}-${Date.now()}`;
-    const y = 80 + nodes.length * 110;
+    const y = 60 + nodes.length * 150;
     setNodes((ns) => [
       ...ns,
       {
         id,
         type: "automationNode",
-        position: { x: kind === "trigger" ? 60 : 420, y },
+        position: { x: 240, y },
         data: { kind, config: kind === "trigger" ? { trigger_type: triggerType } : {} },
       } as Node,
     ]);
@@ -236,6 +247,11 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
+          defaultEdgeOptions={{
+            type: "smoothstep",
+            animated: true,
+            markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+          }}
           onNodeClick={(_, n) => setSelectedId(n.id)}
           onPaneClick={() => setSelectedId(null)}
           deleteKeyCode={["Backspace", "Delete"]}
@@ -276,8 +292,8 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
       <div className="w-80 shrink-0 overflow-y-auto rounded-lg border border-border bg-card p-3">
         {!selected && (
           <p className="text-sm text-muted-foreground">
-            Select a step on the canvas to configure it, or add one from the left. Drag from a node's right dot to
-            connect it to the next step.
+            Select a step on the canvas to configure it, or add one from the left. Drag from a node's bottom dot down
+            to the next step to connect them.
           </p>
         )}
 
@@ -467,8 +483,9 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
                   </div>
                 )}
                 <p className="text-[11px] text-muted-foreground">
-                  Connect the green <span className="font-medium text-emerald-500">Yes</span> handle for the matching
-                  branch and the red <span className="font-medium text-destructive">No</span> handle for everything else.
+                  Connect the green <span className="font-medium text-emerald-500">Yes</span> handle (bottom left) for
+                  the matching branch and the red <span className="font-medium text-destructive">No</span> handle
+                  (bottom right) for everything else.
                 </p>
               </div>
             )}
