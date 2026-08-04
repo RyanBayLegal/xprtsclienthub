@@ -570,6 +570,17 @@ export default function Automations() {
                   </Select>
                 </div>
                 {triggerOptions}
+                <div className="md:col-span-3">
+                  <TokenPreview
+                    triggerType={editing.trigger_type}
+                    extraTokens={[
+                      ...(((editing.trigger_config?.rules as EmailRule[]) || [])
+                        .map((r) => r.capture_as)
+                        .filter(Boolean) as string[]),
+                      ...(editing.trigger_config?.subject_regex ? ["subject_match"] : []),
+                    ]}
+                  />
+                </div>
               </div>
 
               <div className="min-h-0 flex-1">
