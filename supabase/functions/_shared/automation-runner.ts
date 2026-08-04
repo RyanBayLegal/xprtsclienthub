@@ -90,6 +90,31 @@ function evalCondition(cfg: Any, ctx: Record<string, Any>): boolean {
   }
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Hard cap so an edge function invocation can never hang forever.
+const MAX_DELAY_MS = 60_000;
+
+async function inCooldown(
+  db: Any,
+  automationId: string | null,
+  nodeId: string,
+  minutes: number,
+): Promise<boolean> {
+  if (!automationId || !minutes) return false;
+  const cutoff = new Date(Date.now() - minutes * 60_000).toISOString();
+  const { data } = await db
+    .from("automation_runs")
+    .select("steps, created_at")
+    .eq("automation_id", automationId)
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: false })
+    .limit(25);
+  return (data || []).some((run: Any) =>
+    (run.steps || []).some((s: Any) => s.node === nodeId && s.status === "success")
+  );
+}
+
 async function runAction(
   db: Any,
   kind: string,
