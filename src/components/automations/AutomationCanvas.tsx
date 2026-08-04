@@ -20,7 +20,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, X } from "lucide-react";
+import { Trash2, Plus, X, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { validateAutomation, type ValidationIssue } from "@/lib/automation-validator";
 import {
   ADDABLE_KINDS,
   CLIENT_STAGES,
@@ -48,6 +49,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
   const Icon = meta.icon;
   const config = ((data as { config?: Record<string, unknown> }).config) || {};
   const onDelete = (data as { onDelete?: (id: string) => void }).onDelete;
+  const hasError = (data as { hasError?: boolean }).hasError;
   const subtitle =
     kind === "trigger"
       ? TRIGGER_TYPES.find((t) => t.value === config.trigger_type)?.label ?? "Choose a trigger"
@@ -62,7 +64,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
   return (
     <div
       className={`group relative min-w-[210px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
-        selected ? "border-primary ring-1 ring-primary" : "border-border"
+        selected ? "border-primary ring-1 ring-primary" : hasError ? "border-destructive ring-1 ring-destructive/50" : "border-border"
       }`}
     >
       {kind !== "trigger" && <Handle type="target" position={Position.Left} className="!h-2 !w-2 !bg-muted-foreground" />}
@@ -119,9 +121,11 @@ interface Props {
   triggerType: string;
   onChange: (graph: Graph) => void;
   staff: StaffOption[];
+  extraTokens?: string[];
+  onValidate?: (issues: ValidationIssue[]) => void;
 }
 
-export default function AutomationCanvas({ graph, triggerType, onChange, staff }: Props) {
+export default function AutomationCanvas({ graph, triggerType, onChange, staff, extraTokens = [], onValidate }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(graph.nodes as Node[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(graph.edges as Edge[]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -173,16 +177,31 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
 
   const removeSelected = () => { if (selectedId) removeNode(selectedId); };
 
+  const issues = useMemo(
+    () => validateAutomation({ nodes, edges }, triggerType),
+    [nodes, edges, triggerType],
+  );
+
+  useEffect(() => { onValidate?.(issues); }, [issues, onValidate]);
+
+  const errorNodeIds = useMemo(
+    () => new Set(issues.filter((i) => i.level === "error" && i.nodeId).map((i) => i.nodeId as string)),
+    [issues],
+  );
+
   const displayNodes = useMemo(
-    () => nodes.map((n) => ({ ...n, data: { ...n.data, onDelete: removeNode } })),
-    [nodes, removeNode],
+    () => nodes.map((n) => ({ ...n, data: { ...n.data, onDelete: removeNode, hasError: errorNodeIds.has(n.id) } })),
+    [nodes, removeNode, errorNodeIds],
   );
 
   const selected = useMemo(() => nodes.find((n) => n.id === selectedId), [nodes, selectedId]);
   const hasTrigger = nodes.some((n) => (n.data as { kind?: NodeKind })?.kind === "trigger");
   const kind = (selected?.data as { kind?: NodeKind })?.kind;
   const cfg = ((selected?.data as { config?: Record<string, unknown> })?.config || {}) as Record<string, string>;
-  const tokens = CONTEXT_TOKENS[triggerType] || [];
+  const tokens = useMemo(
+    () => Array.from(new Set([...(CONTEXT_TOKENS[triggerType] || []), ...extraTokens])),
+    [triggerType, extraTokens],
+  );
 
   return (
     <div className="flex h-full min-h-[420px] gap-3">
@@ -207,7 +226,8 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
         )}
       </div>
 
-      <div className="flex-1 overflow-hidden rounded-lg border border-border">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border">
         <ReactFlow
           nodes={displayNodes}
           edges={edges}
@@ -224,6 +244,32 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
           <Background gap={16} />
           <Controls showInteractive={false} />
         </ReactFlow>
+      </div>
+
+      <div className="max-h-36 shrink-0 overflow-y-auto rounded-lg border border-border bg-muted/30 p-2">
+        {issues.length === 0 ? (
+          <p className="flex items-center gap-2 text-xs text-emerald-600">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Validation passed — this automation is ready to save.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {issues.map((iss, i) => (
+              <li key={i}>
+                <button
+                  type="button"
+                  className={`flex w-full items-start gap-2 rounded px-1 py-0.5 text-left text-xs hover:bg-muted ${
+                    iss.level === "error" ? "text-destructive" : "text-amber-600"
+                  }`}
+                  onClick={() => iss.nodeId && setSelectedId(iss.nodeId)}
+                >
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{iss.message}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       </div>
 
       <div className="w-80 shrink-0 overflow-y-auto rounded-lg border border-border bg-card p-3">
@@ -403,6 +449,11 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff }
                       <SelectItem value="not_equals">does not equal</SelectItem>
                       <SelectItem value="contains">contains</SelectItem>
                       <SelectItem value="not_contains">does not contain</SelectItem>
+                      <SelectItem value="starts_with">starts with</SelectItem>
+                      <SelectItem value="ends_with">ends with</SelectItem>
+                      <SelectItem value="matches_regex">matches regex</SelectItem>
+                      <SelectItem value="greater_than">is greater than</SelectItem>
+                      <SelectItem value="less_than">is less than</SelectItem>
                       <SelectItem value="is_empty">is empty</SelectItem>
                       <SelectItem value="is_not_empty">is not empty</SelectItem>
                     </SelectContent>
