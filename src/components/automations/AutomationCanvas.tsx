@@ -51,6 +51,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
   const config = ((data as { config?: Record<string, unknown> }).config) || {};
   const onDelete = (data as { onDelete?: (id: string) => void }).onDelete;
   const hasError = (data as { hasError?: boolean }).hasError;
+  const isBranching = kind === "condition" || kind === "wait_for_reply";
   const subtitle =
     kind === "trigger"
       ? TRIGGER_TYPES.find((t) => t.value === config.trigger_type)?.label ?? "Choose a trigger"
@@ -60,15 +61,23 @@ function FlowNode({ id, data, selected }: NodeProps) {
           ? String(config.title || "Untitled task")
           : kind === "condition"
             ? `${config.field || "field"} ${String(config.operator || "equals").replace("_", " ")} ${config.value ?? ""}`
-            : String(config.title || meta.label);
+            : kind === "wait_for_reply"
+              ? `Reply within ${config.within_days || 7} day(s)${config.wait_seconds ? ` · wait ${config.wait_seconds}s` : ""}`
+              : String(config.title || meta.label);
 
   return (
     <div
-      className={`group relative min-w-[210px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
+      className={`group relative min-w-[230px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
         selected ? "border-primary ring-1 ring-primary" : hasError ? "border-destructive ring-1 ring-destructive/50" : "border-border"
       }`}
     >
-      {kind !== "trigger" && <Handle type="target" position={Position.Top} className="!h-2 !w-2 !bg-muted-foreground" />}
+      {kind !== "trigger" && (
+        <Handle
+          type="target"
+          position={Position.Top}
+          className="!h-3 !w-3 !-top-1.5 !border-2 !border-background !bg-muted-foreground"
+        />
+      )}
       <div className="flex items-center gap-2">
         <Icon className={`h-4 w-4 shrink-0 ${meta.accent}`} />
         <span className="text-sm font-medium text-foreground">{meta.label}</span>
@@ -89,27 +98,36 @@ function FlowNode({ id, data, selected }: NodeProps) {
           {Number(config.cooldown_minutes) > 0 && `cooldown ${config.cooldown_minutes}m`}
         </p>
       )}
-      {kind === "condition" ? (
+      {isBranching ? (
         <>
-          <span className="absolute -bottom-4 left-[22%] text-[9px] font-medium text-emerald-500">Yes</span>
+          <span className="absolute -bottom-5 left-[30%] -translate-x-1/2 text-[10px] font-semibold text-emerald-500">
+            Yes
+          </span>
           <Handle
             type="source"
             position={Position.Bottom}
             id={`${id}-true`}
             style={{ left: "30%" }}
-            className="!h-2 !w-2 !bg-emerald-500"
+            className="!h-3 !w-3 !-bottom-1.5 !border-2 !border-background !bg-emerald-500"
           />
-          <span className="absolute -bottom-4 left-[68%] text-[9px] font-medium text-destructive">No</span>
+          <span className="absolute -bottom-5 left-[70%] -translate-x-1/2 text-[10px] font-semibold text-destructive">
+            No
+          </span>
           <Handle
             type="source"
             position={Position.Bottom}
             id={`${id}-false`}
-            style={{ left: "72%" }}
-            className="!h-2 !w-2 !bg-destructive"
+            style={{ left: "70%" }}
+            className="!h-3 !w-3 !-bottom-1.5 !border-2 !border-background !bg-destructive"
           />
         </>
       ) : (
-        <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !bg-primary" id={`${id}-out`} />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className="!h-3 !w-3 !-bottom-1.5 !border-2 !border-background !bg-primary"
+          id={`${id}-out`}
+        />
       )}
     </div>
   );
