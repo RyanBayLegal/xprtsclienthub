@@ -229,7 +229,7 @@ export default function Leads() {
             notes: form.notes || null,
           },
         }).catch((e) => console.error("Lead email notify failed:", e));
-        triggerAutomation("lead_created", {
+        triggerAutomation("lead_created_manual", {
           lead_id: inserted.id,
           name: form.name,
           email: payload.contact || null,

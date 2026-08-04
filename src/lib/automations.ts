@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type AutomationTrigger =
   | "lead_stage_change"
   | "lead_created"
+  | "lead_created_manual"
   | "client_stage_change"
   | "task_event"
   | "email_received";
