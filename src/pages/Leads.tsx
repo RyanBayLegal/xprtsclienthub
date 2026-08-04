@@ -135,6 +135,81 @@ export default function Leads() {
   const [docTab, setDocTab] = useState<"nda" | "agreement">("nda");
   const [loadingDocProfile, setLoadingDocProfile] = useState(false);
 
+  // Merge two leads
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergePrimaryId, setMergePrimaryId] = useState("");
+  const [mergeDuplicateId, setMergeDuplicateId] = useState("");
+  const [merging, setMerging] = useState(false);
+
+  const MERGE_TEXT_FIELDS = ["needs", "notes", "next_steps"] as const;
+  const MERGE_FILL_FIELDS = [
+    "contact", "source", "website", "referrer_name", "date_reached",
+    "follow_up_date", "follow_up_email_after",
+  ] as const;
+
+  const mergeLeads = async () => {
+    if (!mergePrimaryId || !mergeDuplicateId || mergePrimaryId === mergeDuplicateId) {
+      toast.error("Pick two different leads");
+      return;
+    }
+    setMerging(true);
+    const primary = leads.find((l) => l.id === mergePrimaryId) as unknown as Record<string, unknown> | undefined;
+    const duplicate = leads.find((l) => l.id === mergeDuplicateId) as unknown as Record<string, unknown> | undefined;
+    if (!primary || !duplicate) { setMerging(false); toast.error("Leads not found"); return; }
+
+    const patch: Record<string, unknown> = {};
+    const mergedFields: string[] = [];
+    for (const f of MERGE_FILL_FIELDS) {
+      if (!primary[f] && duplicate[f]) { patch[f] = duplicate[f]; mergedFields.push(f); }
+    }
+    for (const f of MERGE_TEXT_FIELDS) {
+      const a = String(primary[f] ?? "").trim();
+      const b = String(duplicate[f] ?? "").trim();
+      if (b && !a.includes(b)) {
+        patch[f] = a ? `${a}\n\n— merged from "${duplicate.name}":\n${b}` : b;
+        mergedFields.push(f);
+      }
+    }
+    for (const f of ["booked", "follow_up_email_sent", "email_sent_with_info"] as const) {
+      if (!primary[f] && duplicate[f]) { patch[f] = true; mergedFields.push(f); }
+    }
+
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase.from("leads").update(patch).eq("id", mergePrimaryId);
+      if (error) { setMerging(false); toast.error(error.message); return; }
+    }
+    const { error: delError } = await supabase.from("leads").delete().eq("id", mergeDuplicateId);
+    if (delError) { setMerging(false); toast.error(delError.message); return; }
+
+    const merged = { ...primary, ...patch } as Record<string, unknown>;
+    if (user) {
+      const userName = await getUserName(user.id);
+      await logAudit({
+        userId: user.id, userName, entityType: "lead", entityId: mergePrimaryId, action: "update",
+        description: `Merged lead "${duplicate.name}" into "${primary.name}"${mergedFields.length ? ` (fields: ${mergedFields.join(", ")})` : ""}`,
+      });
+    }
+    const parts = splitContact(String(merged.contact ?? "") || null);
+    triggerAutomation("lead_merged", {
+      ...merged,
+      lead_id: mergePrimaryId,
+      email: parts.email,
+      phone: parts.phone,
+      merged_lead_id: mergeDuplicateId,
+      merged_lead_name: duplicate.name,
+      merged_fields: mergedFields.join(", "),
+      merged_at: new Date().toISOString(),
+    });
+
+    setMerging(false);
+    setMergeOpen(false);
+    setMergePrimaryId("");
+    setMergeDuplicateId("");
+    toast.success("Leads merged");
+    fetchLeads();
+    setKanbanKey((k) => k + 1);
+  };
+
   const fetchLeads = async () => {
     let q = supabase.from("leads").select("*").order("created_at", { ascending: false });
     if (stageFilter !== "all") q = q.eq("stage", stageFilter);
