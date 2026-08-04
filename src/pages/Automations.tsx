@@ -300,6 +300,49 @@ export default function Automations() {
         </div>
       );
     }
+    if (editing.trigger_type === "lead_created_manual" || editing.trigger_type === "lead_created") {
+      return (
+        <>
+          <div>
+            <Label className="text-xs">Only when stage is</Label>
+            <Select
+              value={editing.trigger_config?.stage || "any"}
+              onValueChange={(v) => setEditing({ ...editing, trigger_config: { ...editing.trigger_config, stage: v } })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any stage</SelectItem>
+                {LEAD_STAGES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Only when source contains</Label>
+            <Input
+              placeholder="e.g. Referral, Strategy Review (blank = any)"
+              value={(editing.trigger_config?.source_contains as string) || ""}
+              onChange={(e) =>
+                setEditing({ ...editing, trigger_config: { ...editing.trigger_config, source_contains: e.target.value } })
+              }
+            />
+          </div>
+          <div className="md:col-span-3">
+            <Label className="text-xs">Field pattern filters (optional)</Label>
+            <EmailRuleBuilder
+              rules={(editing.trigger_config?.rules as EmailRule[]) || []}
+              matchMode={(editing.trigger_config?.match_mode as string) || "all"}
+              onChange={(rules, match_mode) =>
+                setEditing({ ...editing, trigger_config: { ...editing.trigger_config, rules, match_mode } })
+              }
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Rules can test any lead field (type the field name, e.g. <code>needs</code>, <code>notes</code>,{" "}
+              <code>email</code>) — regex captures become tokens for later steps.
+            </p>
+          </div>
+        </>
+      );
+    }
     return null;
   }, [editing]);
 
