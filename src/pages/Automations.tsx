@@ -109,6 +109,16 @@ export default function Automations() {
         return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review", stage: "Discovery Stage", previous_stage: "Prospecting Stage" };
       case "lead_created_manual":
         return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Manual entry", needs: "Needs a VA", notes: "Added by staff", stage: "Prospecting Stage" };
+      case "lead_merged":
+        return {
+          name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Referral from Client",
+          stage: "Discovery Stage", needs: "Needs a VA", notes: "Primary lead notes",
+          lead_id: "00000000-0000-0000-0000-000000000001",
+          merged_lead_id: "00000000-0000-0000-0000-000000000002",
+          merged_lead_name: "J. Doe (duplicate)",
+          merged_fields: "needs, notes, website",
+          merged_at: new Date().toISOString(),
+        };
       default:
         return { name: "Jane Doe", email: "jane@lawfirm.com", contact: "jane@lawfirm.com", source: "Strategy Review - xprts.com", needs: "Needs a VA", notes: "Submitted from web form" };
     }
