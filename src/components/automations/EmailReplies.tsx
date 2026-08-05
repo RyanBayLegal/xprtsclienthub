@@ -368,6 +368,71 @@ export default function EmailReplies() {
 
   const hasQuery = !!(search.trim() || sender.trim() || from || to);
 
+  // Every message whose MIME payload could not be decoded, with its context.
+  const failures = useMemo(
+    () =>
+      threads.flatMap((t) =>
+        t.messages
+          .map((m) => ({ thread: t, message: m, decision: renderDecisionFor(m) }))
+          .filter((row) => row.decision.mode === "error"),
+      ),
+    [threads],
+  );
+
+  const failureGroups = useMemo(() => {
+    const by = (pick: (row: (typeof failures)[number]) => string) => {
+      const counts = new Map<string, number>();
+      for (const row of failures) {
+        const key = pick(row) || "unknown";
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    };
+    return {
+      byContact: by((r) => `${r.thread.name} (${r.thread.kind})`),
+      bySender: by((r) => r.message.address),
+      byPath: by((r) => r.decision.failingPartPath || "unknown"),
+    };
+  }, [failures]);
+
+  // Persist newly seen failing payloads as regression fixtures.
+  useEffect(() => {
+    if (!captureEnabled || failures.length === 0) return;
+    let saved = 0;
+    for (const row of failures) {
+      const name = `production failure ${row.message.id} (${row.decision.failingPartPath || "unknown path"})`;
+      if (
+        captureFailingFixture(
+          name,
+          { body: row.message.body, html: row.message.html, charset: row.message.charset },
+          row.decision,
+        )
+      ) saved += 1;
+    }
+    if (saved) {
+      setCaptured(listCapturedFixtures());
+      toast.info(`${saved} failing MIME payload${saved === 1 ? "" : "s"} saved as regression fixtures`);
+    }
+  }, [failures, captureEnabled]);
+
+  const bulkReparse = async () => {
+    const targets = failures.map((f) => f.message).filter((m) => m.sourceId);
+    if (targets.length === 0) { toast.info("No decode failures to reparse"); return; }
+    setBulkReparsing(true);
+    setBulkProgress({ done: 0, total: targets.length });
+    let ok = 0;
+    for (const [i, m] of targets.entries()) {
+      const { data, error } = await supabase.functions.invoke("fetch-inbound-email", { body: { reparse_id: m.sourceId } });
+      if (!error && !(data as any)?.error) { ok += 1; clearRenderCache(m.id); }
+      setBulkProgress({ done: i + 1, total: targets.length });
+    }
+    setBulkReparsing(false);
+    toast[ok === targets.length ? "success" : "warning"](
+      `Reparsed ${ok} of ${targets.length} failing message${targets.length === 1 ? "" : "s"}`,
+    );
+    await load();
+  };
+
   // Matching details persisted on already-imported inbound messages.
   const storedDebug = useMemo(
     () =>
