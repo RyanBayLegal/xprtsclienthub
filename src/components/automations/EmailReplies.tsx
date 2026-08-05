@@ -617,6 +617,92 @@ export default function EmailReplies() {
           >
             Auto-refresh {autoRefresh ? `every ${pollInterval}s` : "off"}
           </Button>
+          <Dialog open={healthOpen} onOpenChange={setHealthOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant={failures.length ? "destructive" : "outline"}>
+                <ShieldAlert className="mr-2 h-4 w-4" />
+                MIME health{failures.length ? ` (${failures.length})` : ""}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
+              <DialogHeader><DialogTitle>MIME decode &amp; render failures</DialogTitle></DialogHeader>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={bulkReparse} disabled={bulkReparsing || failures.length === 0}>
+                  {bulkReparsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  {bulkReparsing
+                    ? `Reparsing ${bulkProgress.done}/${bulkProgress.total}…`
+                    : `Reparse all failing (${failures.length})`}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={captureEnabled ? "secondary" : "outline"}
+                  onClick={() => { const next = !captureEnabled; setFixtureCaptureEnabled(next); setCaptureEnabled(next); }}
+                >
+                  Auto-save fixtures {captureEnabled ? "on" : "off"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={captured.length === 0}
+                  onClick={() => downloadText("captured-mime-fixtures.ts", serializeFixtures(captured))}
+                >
+                  <Download className="mr-2 h-4 w-4" /> Download {captured.length} fixture{captured.length === 1 ? "" : "s"}
+                </Button>
+                {captured.length > 0 && (
+                  <Button size="sm" variant="ghost" onClick={() => { clearCapturedFixtures(); setCaptured([]); }}>
+                    Clear fixtures
+                  </Button>
+                )}
+              </div>
+              {failures.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Every imported message renders cleanly right now.</p>
+              ) : (
+                <div className="space-y-3">
+                  {([
+                    ["By contact / automation thread", failureGroups.byContact],
+                    ["By sender", failureGroups.bySender],
+                    ["By failing part path", failureGroups.byPath],
+                  ] as const).map(([title, rows]) => (
+                    <div key={title} className="rounded-md border p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+                      <ul className="mt-2 space-y-1 text-xs">
+                        {rows.map(([label, count]) => (
+                          <li key={label} className="flex items-center justify-between gap-2">
+                            <code className="truncate">{label}</code>
+                            <Badge variant="outline">{count}</Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Failing messages</p>
+                    <ul className="mt-2 space-y-1.5 text-xs">
+                      {failures.slice(0, 30).map(({ thread, message, decision }) => (
+                        <li key={message.id} className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate">
+                            {new Date(message.at).toLocaleDateString()} · {thread.name} · {message.subject || "(no subject)"}
+                          </span>
+                          <span className="flex shrink-0 items-center gap-1">
+                            <code className="text-muted-foreground">{decision.failingPartPath || "unknown"}</code>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2"
+                              disabled={!message.sourceId || reparsing === message.id}
+                              onClick={() => reparseMessage(message)}
+                            >
+                              {reparsing === message.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Reparse"}
+                            </Button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
           <Dialog open={debugOpen} onOpenChange={setDebugOpen}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline"><Bug className="mr-2 h-4 w-4" />Matching debug</Button>
