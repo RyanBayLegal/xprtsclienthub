@@ -261,16 +261,80 @@ async function inCooldown(
   );
 }
 
-function simulateAction(kind: string, cfg: Any, ctx: Record<string, Any>): string {
+/** Builds the {field: value} payload an "Update Fields" step would write. */
+function buildUpdatePayload(cfg: Any, ctx: Record<string, Any>): Record<string, Any> {
+  const updates: Any[] = Array.isArray(cfg.updates) ? cfg.updates : [];
+  const payload: Record<string, Any> = {};
+  for (const u of updates) {
+    const field = String(u?.field ?? "").trim();
+    if (!field) continue;
+    const raw = render(String(u?.value ?? ""), ctx).trim();
+    if (raw === "") { payload[field] = null; continue; }
+    if (/^(true|false)$/i.test(raw)) payload[field] = raw.toLowerCase() === "true";
+    else if (field === "client_health_score") payload[field] = Number(raw);
+    else payload[field] = raw;
+  }
+  return payload;
+}
+
+/** Reads the current values of the fields a step is about to write. */
+async function readCurrent(
+  db: Any,
+  table: string,
+  recordId: string,
+  fields: string[],
+): Promise<Record<string, Any>> {
+  if (fields.length === 0) return {};
+  try {
+    const { data } = await db.from(table).select(fields.join(",")).eq("id", recordId).maybeSingle();
+    return (data as Record<string, Any>) || {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function diffOf(before: Record<string, Any>, after: Record<string, Any>) {
+  return Object.keys(after).map((field) => ({
+    field,
+    from: before[field] ?? null,
+    to: after[field] ?? null,
+    changed: JSON.stringify(before[field] ?? null) !== JSON.stringify(after[field] ?? null),
+  }));
+}
+
+type ActionOutcome = { result: string; details?: Any };
+
+async function simulateAction(
+  db: Any,
+  kind: string,
+  cfg: Any,
+  ctx: Record<string, Any>,
+): Promise<ActionOutcome> {
   switch (kind) {
     case "delay": {
       const unit = cfg.wait_unit === "minutes" ? "minute(s)" : "second(s)";
-      return `[simulated] Wait ${Number(cfg.wait_amount || 0)} ${unit}`;
+      const amount = Number(cfg.wait_amount || 0);
+      const ms = (cfg.wait_unit === "minutes" ? amount * 60 : amount) * 1000;
+      return {
+        result: `[simulated] Wait ${amount} ${unit}`,
+        details: { wait_ms: ms, capped_ms: Math.min(ms, MAX_DELAY_MS), capped: ms > MAX_DELAY_MS },
+      };
     }
     case "update_fields": {
-      const updates: Any[] = Array.isArray(cfg.updates) ? cfg.updates : [];
-      const target = cfg.target === "client" ? "client profile" : "lead";
-      return `[simulated] Update ${target}: ${updates.map((u) => `${u.field}="${render(String(u.value ?? ""), ctx)}"`).join(", ") || "no changes"}`;
+      const isClient = cfg.target === "client";
+      const table = isClient ? "client_profiles" : "leads";
+      const target = isClient ? "client profile" : "lead";
+      const payload = buildUpdatePayload(cfg, ctx);
+      const recordId = isClient ? ctx.client_profile_id : ctx.lead_id;
+      const before = recordId ? await readCurrent(db, table, String(recordId), Object.keys(payload)) : {};
+      const changes = diffOf(before, payload);
+      const summary = changes.length
+        ? changes.map((c) => `${c.field}="${c.to ?? ""}"`).join(", ")
+        : "no changes";
+      return {
+        result: `[simulated] Update ${target}: ${summary}${recordId ? "" : " (no record in context — showing values only)"}`,
+        details: { target: isClient ? "client" : "lead", table, record_id: recordId ?? null, changes },
+      };
     }
     case "send_email": {
       const to = cfg.to_mode === "custom"
@@ -278,19 +342,19 @@ function simulateAction(kind: string, cfg: Any, ctx: Record<string, Any>): strin
         : cfg.to_mode === "recipients"
           ? "lead notification recipients"
           : String(ctx.email || ctx.contact_email || "(no recipient resolved)");
-      return `[simulated] Email to ${to} — "${render(cfg.subject || "Notification", ctx)}"`;
+      return { result: `[simulated] Email to ${to} — "${render(cfg.subject || "Notification", ctx)}"` };
     }
     case "create_task":
-      return `[simulated] Task "${render(cfg.title || "Follow up", ctx)}"${cfg.assigned_to_name ? ` for ${cfg.assigned_to_name}` : ""}`;
+      return { result: `[simulated] Task "${render(cfg.title || "Follow up", ctx)}"${cfg.assigned_to_name ? ` for ${cfg.assigned_to_name}` : ""}` };
     case "send_notification":
     case "notify":
-      return `[simulated] Notification "${render(cfg.title || "Automation triggered", ctx)}"`;
+      return { result: `[simulated] Notification "${render(cfg.title || "Automation triggered", ctx)}"` };
     case "convert_to_client":
-      return ctx.lead_id
+      return { result: ctx.lead_id
         ? `[simulated] Convert lead to client (stage ${cfg.default_stage || "Prospect"})`
-        : "[simulated] Skipped: no lead in context";
+        : "[simulated] Skipped: no lead in context" };
     default:
-      return `[simulated] Skipped unknown step "${kind}"`;
+      return { result: `[simulated] Skipped unknown step "${kind}"` };
   }
 }
 
@@ -301,40 +365,47 @@ async function runAction(
   ctx: Record<string, Any>,
   actorId: string | null,
   dryRun = false,
-): Promise<string> {
-  if (dryRun) return simulateAction(kind, cfg, ctx);
+): Promise<ActionOutcome> {
+  if (dryRun) return await simulateAction(db, kind, cfg, ctx);
   switch (kind) {
     case "delay": {
       const amount = Number(cfg.wait_amount || 0);
       const ms = (cfg.wait_unit === "minutes" ? amount * 60 : amount) * 1000;
       const waited = Math.min(Math.max(ms, 0), MAX_DELAY_MS);
       if (waited > 0) await sleep(waited);
-      return `Waited ${Math.round(waited / 1000)}s${ms > MAX_DELAY_MS ? " (capped at 60s)" : ""}`;
+      return {
+        result: `Waited ${Math.round(waited / 1000)}s${ms > MAX_DELAY_MS ? " (capped at 60s)" : ""}`,
+        details: { wait_ms: ms, waited_ms: waited, capped: ms > MAX_DELAY_MS },
+      };
     }
 
     case "update_fields": {
       const updates: Any[] = Array.isArray(cfg.updates) ? cfg.updates : [];
-      if (updates.length === 0) return "Skipped: no field changes configured";
+      if (updates.length === 0) return { result: "Skipped: no field changes configured" };
       const isClient = cfg.target === "client";
       const table = isClient ? "client_profiles" : "leads";
       const recordId = isClient ? ctx.client_profile_id : ctx.lead_id;
-      if (!recordId) return `Skipped: no ${isClient ? "client profile" : "lead"} in context`;
+      if (!recordId) return { result: `Skipped: no ${isClient ? "client profile" : "lead"} in context` };
 
-      const payload: Record<string, Any> = {};
-      for (const u of updates) {
-        const field = String(u?.field ?? "").trim();
-        if (!field) continue;
-        const raw = render(String(u?.value ?? ""), ctx).trim();
-        if (raw === "") { payload[field] = null; continue; }
-        if (/^(true|false)$/i.test(raw)) payload[field] = raw.toLowerCase() === "true";
-        else if (field === "client_health_score") payload[field] = Number(raw);
-        else payload[field] = raw;
-      }
-      if (Object.keys(payload).length === 0) return "Skipped: no field changes configured";
+      const payload = buildUpdatePayload(cfg, ctx);
+      if (Object.keys(payload).length === 0) return { result: "Skipped: no field changes configured" };
 
-      const { error } = await db.from(table).update(payload).eq("id", recordId);
+      const before = await readCurrent(db, table, String(recordId), Object.keys(payload));
+      const { data: updated, error } = await db
+        .from(table)
+        .update(payload)
+        .eq("id", recordId)
+        .select(Object.keys(payload).join(","))
+        .maybeSingle();
       if (error) throw new Error(error.message);
-      return `Updated ${isClient ? "client" : "lead"}: ${Object.keys(payload).join(", ")}`;
+      const after = (updated as Record<string, Any>) || payload;
+      // Keep the run context in sync so later steps see the new values.
+      for (const [k, v] of Object.entries(after)) ctx[k] = v;
+      const changes = diffOf(before, after);
+      return {
+        result: `Updated ${isClient ? "client" : "lead"}: ${changes.map((c) => `${c.field}=${c.to ?? "(cleared)"}`).join(", ")}`,
+        details: { target: isClient ? "client" : "lead", table, record_id: recordId, changes },
+      };
     }
 
     case "send_email": {
@@ -366,7 +437,7 @@ async function runAction(
             ? `lead:${ctx.lead_id}`
             : null,
       });
-      return `Email sent to ${to}`;
+      return { result: `Email sent to ${to}`, details: { to, subject } };
     }
 
     case "create_task": {
@@ -386,7 +457,7 @@ async function runAction(
         created_by: actorId,
         status: "todo",
       });
-      return `Task "${title}" created`;
+      return { result: `Task "${title}" created`, details: { title, due_date: due, assigned_to: cfg.assigned_to || null } };
     }
 
     case "send_notification":
@@ -408,13 +479,13 @@ async function runAction(
           lead_id: ctx.lead_id || null,
         });
       }
-      return `Notified ${targets.length} user(s)`;
+      return { result: `Notified ${targets.length} user(s)`, details: { recipients: targets.length } };
     }
 
     case "convert_to_client": {
-      if (!ctx.lead_id) return "Skipped: no lead in context";
+      if (!ctx.lead_id) return { result: "Skipped: no lead in context" };
       const { data: existing } = await db.from("client_profiles").select("id").eq("lead_id", ctx.lead_id).maybeSingle();
-      if (existing) return "Client profile already exists";
+      if (existing) return { result: "Client profile already exists" };
       const { data: lead } = await db.from("leads").select("*").eq("id", ctx.lead_id).maybeSingle();
       const l: Any = lead || {};
       const contact = String(l.contact || "").trim();
@@ -431,11 +502,11 @@ async function runAction(
         discovery_source: l.source || null,
         date_reached: l.date_reached || null,
       });
-      return `Converted "${l.name || ctx.name}" to client`;
+      return { result: `Converted "${l.name || ctx.name}" to client` };
     }
 
     default:
-      return `Skipped unknown step "${kind}"`;
+      return { result: `Skipped unknown step "${kind}"` };
   }
 }
 
@@ -527,8 +598,8 @@ async function executeGraph(
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        const result = await runAction(db, kind, cfg, ctx, actorId, opts.dryRun === true);
-        push({ status: "success", attempts, result });
+        const outcome = await runAction(db, kind, cfg, ctx, actorId, opts.dryRun === true);
+        push({ status: "success", attempts, result: outcome.result, details: outcome.details ?? null });
         await visitFrom(node.id, depth + 1);
         return;
       } catch (e) {
@@ -538,7 +609,7 @@ async function executeGraph(
     }
     status = "error";
     errorMessage = lastError;
-    push({ status: "error", attempts, result: lastError, error: lastError });
+    push({ status: "error", attempts, result: lastError, error: lastError, details: { error_kind: kind } });
   };
 
   const visitFrom = async (nodeId: string, depth: number, branch?: string) => {
