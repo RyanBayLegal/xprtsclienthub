@@ -463,54 +463,13 @@ export default function Automations() {
                 {r.error_message && (
                   <p className="rounded bg-destructive/10 px-2 py-1 text-xs text-destructive">{r.error_message}</p>
                 )}
-                {(r.steps || []).length === 0 && (
-                  <p className="text-xs text-muted-foreground">No steps executed.</p>
-                )}
-                <div className="space-y-1">
-                  {(r.steps || []).map((s, i) => (
-                    <div key={i} className="flex items-start gap-2 rounded-md border border-border/60 px-2 py-1.5">
-                      {s.status === "error"
-                        ? <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
-                        : s.status === "skipped"
-                          ? <MinusCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          : <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-xs font-medium text-foreground">{s.kind}</span>
-                          {s.label && <span className="truncate text-xs text-muted-foreground">— {s.label}</span>}
-                          <Badge
-                            variant={s.status === "error" ? "destructive" : s.status === "skipped" ? "secondary" : "outline"}
-                            className="text-[10px]"
-                          >
-                            {s.status}
-                          </Badge>
-                          {s.branch && <Badge variant="secondary" className="text-[10px]">branch: {s.branch}</Badge>}
-                          {(s.attempts ?? 0) > 1 && <Badge variant="secondary" className="text-[10px]">{s.attempts} attempts</Badge>}
-                          {typeof s.duration_ms === "number" && (
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <Clock className="h-3 w-3" />{s.duration_ms} ms
-                            </span>
-                          )}
-                        </div>
-                        <p className={`text-xs ${s.status === "error" ? "text-destructive" : "text-muted-foreground"}`}>
-                          {s.error || s.result}
-                        </p>
-                      </div>
-                      {s.node && r.automation_id && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 shrink-0 text-xs"
-                          disabled={rerunning === `${r.id}:${s.node}`}
-                          onClick={() => rerunFromStep(r, s.node!)}
-                        >
-                          <RotateCw className="mr-1 h-3 w-3" />
-                          {rerunning === `${r.id}:${s.node}` ? "Running…" : "Re-run from here"}
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <StepTimeline
+                  steps={r.steps || []}
+                  onRerun={r.automation_id ? (nodeId) => rerunFromStep(r, nodeId) : undefined}
+                  rerunningNode={
+                    rerunning?.startsWith(`${r.id}:`) ? rerunning.slice(r.id.length + 1) : null
+                  }
+                />
               </CardContent>
             </Card>
           ))}
