@@ -611,6 +611,8 @@ export default function EmailReplies() {
                     {t.messages.map((m) => {
                       const st = statusLabel(m);
                       const isMatch = hasQuery && messageMatches(m);
+                      const decision = renderDecisionFor(m);
+                      const rawOpen = showRaw[m.id] ?? false;
                       return (
                         <div
                           key={m.id}
@@ -637,13 +639,23 @@ export default function EmailReplies() {
                               </span>
                             </div>
                             {m.subject && <p className="mt-0.5 text-sm font-medium text-foreground">{m.subject}</p>}
-                            {m.html ? (
+                            {decision.mode === "error" ? (
+                              <div className="mt-1 rounded-md border border-destructive/40 bg-destructive/10 p-2">
+                                <p className="flex items-center gap-1.5 text-[11px] font-medium text-destructive">
+                                  <AlertTriangle className="h-3 w-3" /> Could not decode this message
+                                </p>
+                                <p className="mt-1 text-[11px] text-destructive/90">{decision.errorMessage || decision.reason}</p>
+                                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                  Failing part path: <code className="break-all">{decision.failingPartPath || "unknown"}</code>
+                                </p>
+                              </div>
+                            ) : decision.mode === "html" ? (
                               <div
                                 className="prose prose-sm mt-1 max-w-none break-words text-muted-foreground prose-a:text-primary prose-a:underline prose-p:my-1 prose-br:leading-normal dark:prose-invert"
                                 dangerouslySetInnerHTML={{ __html: safeHtml(m) }}
                               />
                             ) : (
-                              <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{m.body}</p>
+                              <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{decision.text}</p>
                             )}
                             {m.attachments.some((a) => a.disposition === "inline" && a.type?.startsWith("image/")) && (
                               <div className="mt-2 space-y-2">
@@ -653,9 +665,27 @@ export default function EmailReplies() {
                               </div>
                             )}
                             {m.direction === "inbound" && (
-                              <Button size="sm" variant="ghost" className="mt-1 h-6 px-1.5 text-[11px]" onClick={() => setInspectMessage(m)}>
-                                <Code2 className="mr-1 h-3 w-3" /> Inspect MIME
-                              </Button>
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => setInspectMessage(m)}>
+                                  <Code2 className="mr-1 h-3 w-3" /> Inspect MIME
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-1.5 text-[11px]"
+                                  onClick={() => setShowRaw((s) => ({ ...s, [m.id]: !rawOpen }))}
+                                >
+                                  <FileCode2 className="mr-1 h-3 w-3" /> {rawOpen ? "Hide" : "Show"} raw source
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => exportMime(m)}>
+                                  <Download className="mr-1 h-3 w-3" /> Export JSON
+                                </Button>
+                              </div>
+                            )}
+                            {rawOpen && (
+                              <pre className="mt-1 max-h-72 overflow-auto rounded-md border bg-muted/60 p-2 text-[10px] leading-snug">
+                                {m.rawSource || "No raw MIME source is stored for this message. Use “Reparse and re-render” to fetch it from Gmail."}
+                              </pre>
                             )}
                             {m.attachments.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
