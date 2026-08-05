@@ -284,12 +284,14 @@ export default function EmailReplies() {
     subject: string,
     attachments: AttachmentRef[],
   ) => {
+    const lastInbound = [...t.messages].reverse().find((m) => m.direction === "inbound" && m.messageId);
     const { data, error } = await supabase.functions.invoke("send-thread-reply", {
       body: {
         to: t.email,
         subject,
         body,
         attachments,
+        in_reply_to: lastInbound?.messageId || null,
         lead_id: t.kind === "lead" ? t.id : null,
         client_profile_id: t.kind === "client" ? t.id : null,
       },
