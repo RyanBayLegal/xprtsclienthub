@@ -312,9 +312,10 @@ async function simulateAction(
 ): Promise<ActionOutcome> {
   switch (kind) {
     case "delay": {
-      const unit = cfg.wait_unit === "minutes" ? "minute(s)" : "second(s)";
       const amount = Number(cfg.wait_amount || 0);
-      const ms = (cfg.wait_unit === "minutes" ? amount * 60 : amount) * 1000;
+      const unitKey = normalizeWaitUnit(cfg.wait_unit);
+      const unit = `${unitKey.replace(/s$/, "")}(s)`;
+      const ms = waitMsOf(amount, unitKey);
       return {
         result: `[simulated] Wait ${amount} ${unit}`,
         details: { wait_ms: ms, capped_ms: Math.min(ms, MAX_DELAY_MS), capped: ms > MAX_DELAY_MS },
@@ -370,7 +371,7 @@ async function runAction(
   switch (kind) {
     case "delay": {
       const amount = Number(cfg.wait_amount || 0);
-      const ms = (cfg.wait_unit === "minutes" ? amount * 60 : amount) * 1000;
+      const ms = waitMsOf(amount, normalizeWaitUnit(cfg.wait_unit));
       const waited = Math.min(Math.max(ms, 0), MAX_DELAY_MS);
       if (waited > 0) await sleep(waited);
       return {
