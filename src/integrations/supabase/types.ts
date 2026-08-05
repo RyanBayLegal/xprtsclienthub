@@ -642,6 +642,7 @@ export type Database = {
           message_id: string | null
           message_uid: string | null
           processed: boolean
+          provider_fingerprint: string | null
           raw_payload: Json | null
           received_at: string
           references_header: string | null
@@ -664,6 +665,7 @@ export type Database = {
           message_id?: string | null
           message_uid?: string | null
           processed?: boolean
+          provider_fingerprint?: string | null
           raw_payload?: Json | null
           received_at?: string
           references_header?: string | null
@@ -686,6 +688,7 @@ export type Database = {
           message_id?: string | null
           message_uid?: string | null
           processed?: boolean
+          provider_fingerprint?: string | null
           raw_payload?: Json | null
           received_at?: string
           references_header?: string | null

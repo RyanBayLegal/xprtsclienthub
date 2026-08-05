@@ -305,7 +305,7 @@ async function runAction(
       if (!to) throw new Error("No email recipient resolved");
       const subject = render(cfg.subject || "Notification", ctx);
       const html = render(cfg.body || "", ctx).replace(/\n/g, "<br/>");
-      await sendMail(to, subject, html);
+      const sent = await sendMail(to, subject, html);
       await db.from("notification_logs").insert({
         channel: "automation_email",
         recipient_email: to,
@@ -317,6 +317,12 @@ async function runAction(
         body_html: html,
         body_text: html.replace(/<[^>]+>/g, " "),
         client_profile_id: ctx.client_profile_id || null,
+        message_id: sent.messageId,
+        thread_id: ctx.client_profile_id
+          ? `client:${ctx.client_profile_id}`
+          : ctx.lead_id
+            ? `lead:${ctx.lead_id}`
+            : null,
       });
       return `Email sent to ${to}`;
     }

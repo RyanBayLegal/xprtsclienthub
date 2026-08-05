@@ -264,6 +264,36 @@ export default function Automations() {
     if (editing.trigger_type === "email_received") {
       return (
         <>
+          <div className="md:col-span-3 flex flex-wrap items-end gap-4 rounded-md border border-border p-3">
+            <div className="flex items-center gap-2 pb-2">
+              <Switch
+                checked={editing.trigger_config?.auto_refresh_enabled !== false}
+                onCheckedChange={(v) =>
+                  setEditing({ ...editing, trigger_config: { ...editing.trigger_config, auto_refresh_enabled: v } })
+                }
+              />
+              <Label className="text-xs">Automatically check Gmail for replies</Label>
+            </div>
+            <div className="w-56">
+              <Label className="text-xs">Polling frequency</Label>
+              <Select
+                disabled={editing.trigger_config?.auto_refresh_enabled === false}
+                value={String(editing.trigger_config?.poll_interval_seconds || 60)}
+                onValueChange={(v) =>
+                  setEditing({ ...editing, trigger_config: { ...editing.trigger_config, poll_interval_seconds: Number(v) } })
+                }
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">Every 15 seconds</SelectItem>
+                  <SelectItem value="30">Every 30 seconds</SelectItem>
+                  <SelectItem value="60">Every minute</SelectItem>
+                  <SelectItem value="300">Every 5 minutes</SelectItem>
+                  <SelectItem value="900">Every 15 minutes</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="md:col-span-3">
             <Label className="text-xs">Subject pattern (optional regex)</Label>
             <Input
