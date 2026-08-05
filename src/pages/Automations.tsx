@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Pencil, Trash2, Workflow, CheckCircle2, XCircle, Copy, Mail, RotateCw, MinusCircle, Clock, AlertTriangle, FlaskConical } from "lucide-react";
+import { Plus, Pencil, Trash2, Workflow, CheckCircle2, XCircle, Copy, Mail, AlertTriangle, FlaskConical } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import EmailRuleBuilder, { type EmailRule } from "@/components/automations/EmailRuleBuilder";
 import { countErrors, type ValidationIssue } from "@/lib/automation-validator";
@@ -24,6 +24,7 @@ import AutomationCanvas, { type Graph, type StaffOption } from "@/components/aut
 import { CLIENT_STAGES, LEAD_STAGES, TASK_EVENTS, TRIGGER_TYPES, sampleContext } from "@/components/automations/nodeCatalog";
 import TokenPreview from "@/components/automations/TokenPreview";
 import EmailReplies from "@/components/automations/EmailReplies";
+import StepTimeline, { type StepRecord } from "@/components/automations/StepTimeline";
 
 interface Automation {
   id: string;
@@ -44,18 +45,7 @@ interface RunRow {
   status: string;
   error_message: string | null;
   context: Record<string, unknown> | null;
-  steps: {
-    node?: string;
-    kind: string;
-    label?: string | null;
-    result: string;
-    status: string;
-    attempts?: number;
-    duration_ms?: number;
-    delay_ms?: number;
-    branch?: string;
-    error?: string;
-  }[];
+  steps: StepRecord[];
   created_at: string;
 }
 
