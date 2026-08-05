@@ -11,10 +11,14 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import DOMPurify from "dompurify";
-import { buildMimeReport, decideRender, type MimePart, type RenderDecision } from "@/lib/email-mime";
+import {
+  buildMimeReport, captureFailingFixture, clearCapturedFixtures, clearRenderCache, decideRenderCached,
+  isFixtureCaptureEnabled, listCapturedFixtures, serializeFixtures, setFixtureCaptureEnabled,
+  type CapturedFixture, type MimePart, type RenderDecision,
+} from "@/lib/email-mime";
 import {
   AlertTriangle, Bug, ChevronDown, ChevronRight, Code2, Download, FileCode2, Loader2, Paperclip,
-  RefreshCw, RotateCw, Send, User, X,
+  RefreshCw, RotateCw, Send, ShieldAlert, User, X,
 } from "lucide-react";
 
 type Filter = "all" | "leads" | "clients";
@@ -62,7 +66,18 @@ const asAttachments = (v: unknown): AttachmentRef[] =>
   Array.isArray(v) ? (v as AttachmentRef[]).filter((a) => a && typeof a.path === "string") : [];
 
 const renderDecisionFor = (m: Message): RenderDecision =>
-  decideRender({ body: m.body, html: m.html, charset: m.charset, mimeParts: m.mimeParts, parseError: m.parseError });
+  decideRenderCached(m.id, {
+    body: m.body, html: m.html, charset: m.charset, mimeParts: m.mimeParts, parseError: m.parseError,
+  });
+
+const downloadText = (filename: string, text: string) => {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 const downloadJson = (filename: string, payload: unknown) => {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
