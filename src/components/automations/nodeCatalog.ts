@@ -1,4 +1,4 @@
-import { Mail, ListTodo, Bell, UserCheck, GitBranch, Zap, MailCheck, type LucideIcon } from "lucide-react";
+import { Mail, ListTodo, Bell, UserCheck, GitBranch, Zap, MailCheck, Timer, PencilLine, type LucideIcon } from "lucide-react";
 
 export type NodeKind =
   | "trigger"
@@ -7,7 +7,9 @@ export type NodeKind =
   | "send_notification"
   | "convert_to_client"
   | "condition"
-  | "wait_for_reply";
+  | "wait_for_reply"
+  | "delay"
+  | "update_fields";
 
 export const NODE_CATALOG: Record<NodeKind, { label: string; icon: LucideIcon; accent: string }> = {
   trigger: { label: "Trigger", icon: Zap, accent: "text-primary" },
@@ -17,6 +19,8 @@ export const NODE_CATALOG: Record<NodeKind, { label: string; icon: LucideIcon; a
   convert_to_client: { label: "Convert to Client", icon: UserCheck, accent: "text-violet-500" },
   condition: { label: "Condition", icon: GitBranch, accent: "text-muted-foreground" },
   wait_for_reply: { label: "If Client Replies", icon: MailCheck, accent: "text-sky-500" },
+  delay: { label: "Delay / Wait", icon: Timer, accent: "text-orange-500" },
+  update_fields: { label: "Update Fields", icon: PencilLine, accent: "text-teal-500" },
 };
 
 export const ADDABLE_KINDS: NodeKind[] = [
@@ -24,10 +28,48 @@ export const ADDABLE_KINDS: NodeKind[] = [
   "send_email",
   "create_task",
   "send_notification",
+  "delay",
+  "update_fields",
   "condition",
   "wait_for_reply",
   "convert_to_client",
 ];
+
+/** Fields that an "Update Fields" step can write to. */
+export const UPDATABLE_FIELDS: Record<"lead" | "client", { value: string; label: string }[]> = {
+  lead: [
+    { value: "stage", label: "Stage" },
+    { value: "stage_reason", label: "Stage reason" },
+    { value: "source", label: "Source" },
+    { value: "referrer_name", label: "Referrer name" },
+    { value: "needs", label: "Needs" },
+    { value: "notes", label: "Notes" },
+    { value: "next_steps", label: "Next steps" },
+    { value: "website", label: "Website" },
+    { value: "contact", label: "Contact" },
+    { value: "date_reached", label: "Date reached" },
+    { value: "follow_up_date", label: "Follow-up date" },
+    { value: "follow_up_email_after", label: "Follow-up email after" },
+    { value: "follow_up_email_sent", label: "Follow-up email sent (true/false)" },
+    { value: "booked", label: "Booked (true/false)" },
+    { value: "email_sent_with_info", label: "Info email sent (true/false)" },
+  ],
+  client: [
+    { value: "stage", label: "Stage" },
+    { value: "stage_reason", label: "Stage reason" },
+    { value: "company", label: "Company" },
+    { value: "practice_area", label: "Practice area" },
+    { value: "role", label: "Role" },
+    { value: "email", label: "Email" },
+    { value: "phone", label: "Phone" },
+    { value: "pain_points", label: "Pain points" },
+    { value: "discovery_source", label: "Discovery source" },
+    { value: "discovery_notes", label: "Discovery notes" },
+    { value: "future_plans", label: "Future plans" },
+    { value: "client_health_score", label: "Client health score (number)" },
+    { value: "date_reached", label: "Date reached" },
+  ],
+};
 
 export const TRIGGER_TYPES = [
   { value: "lead_created", label: "New lead from web form" },
