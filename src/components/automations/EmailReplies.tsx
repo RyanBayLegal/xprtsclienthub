@@ -637,7 +637,7 @@ export default function EmailReplies() {
                   {matches.slice(0, 5).map((m) => (
                     <Button key={m.id} size="sm" variant="secondary" className="h-6 max-w-[220px] px-2 text-xs" onClick={() => jumpTo(t.key, m.id)}>
                       <span className="truncate">
-                        {new Date(m.at).toLocaleDateString()} · {m.subject || m.body?.slice(0, 30) || "(no subject)"}
+                        {new Date(m.at).toLocaleDateString()} · {m.subject || renderDecisionFor(m).text.slice(0, 30) || "(no subject)"}
                       </span>
                     </Button>
                   ))}
@@ -647,7 +647,7 @@ export default function EmailReplies() {
               {!isOpen && (
                 <p className="mt-1 line-clamp-1 pl-6 text-xs text-muted-foreground">
                   <span className="font-medium">{latest.direction === "inbound" ? "Them" : "You"}:</span>{" "}
-                  {latest.subject || "(no subject)"} — {latest.body}
+                  {latest.subject || "(no subject)"} — {renderDecisionFor(latest).text}
                 </p>
               )}
 
