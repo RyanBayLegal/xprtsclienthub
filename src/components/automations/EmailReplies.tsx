@@ -11,8 +11,10 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import DOMPurify from "dompurify";
+import { buildMimeReport, decideRender, type MimePart, type RenderDecision } from "@/lib/email-mime";
 import {
-  Bug, ChevronDown, ChevronRight, Code2, Loader2, Paperclip, RefreshCw, RotateCw, Send, User, X,
+  AlertTriangle, Bug, ChevronDown, ChevronRight, Code2, Download, FileCode2, Loader2, Paperclip,
+  RefreshCw, RotateCw, Send, User, X,
 } from "lucide-react";
 
 type Filter = "all" | "leads" | "clients";
@@ -25,8 +27,6 @@ interface AttachmentRef {
   disposition?: string;
   contentId?: string | null;
 }
-
-interface MimePart { type: string; disposition?: string; filename?: string; content_id?: string | null; size?: number; }
 
 interface Message {
   id: string;
@@ -44,6 +44,9 @@ interface Message {
   matchDebug?: Record<string, unknown> | null;
   mimeParts?: MimePart[];
   sourceId?: string;
+  charset?: string | null;
+  parseError?: { message: string; part_path?: string | null } | null;
+  rawSource?: string | null;
 }
 
 interface Thread {
@@ -58,26 +61,17 @@ interface Thread {
 const asAttachments = (v: unknown): AttachmentRef[] =>
   Array.isArray(v) ? (v as AttachmentRef[]).filter((a) => a && typeof a.path === "string") : [];
 
-// Keeps previously imported malformed MIME messages readable while the backend
-// parser ensures newly synced messages are stored as decoded content.
-const cleanMessageBody = (value: string | null): string => {
-  if (!value) return "";
-  let body = value.replace(/\r\n/g, "\n");
-  const boundaryLine = body.match(/^--[-=\w]+\s*$/m)?.[0];
-  if (boundaryLine || /Content-(?:Type|Transfer-Encoding):/i.test(body)) {
-    const candidates = body.split(/^--[-=\w]+(?:--)?\s*$/m);
-    const plain = candidates.find((part) => /Content-Type:\s*text\/plain/i.test(part));
-    body = plain || candidates.find((part) => !/Content-Type:\s*text\/html/i.test(part)) || body;
-    body = body.replace(/^[\s\S]*?\n\n/, "");
-  }
-  body = body
-    .replace(/=\n/g, "")
-    .replace(/=([0-9A-F]{2})/gi, (_match, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/^Content-(?:Type|Transfer-Encoding|Disposition):.*$/gim, "")
-    .replace(/^--[-=\w]+(?:--)?\s*$/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return body;
+const renderDecisionFor = (m: Message): RenderDecision =>
+  decideRender({ body: m.body, html: m.html, charset: m.charset, mimeParts: m.mimeParts, parseError: m.parseError });
+
+const downloadJson = (filename: string, payload: unknown) => {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 function InlineEmailImage({ attachment, onOpen }: { attachment: AttachmentRef; onOpen: () => void }) {
