@@ -263,6 +263,15 @@ async function inCooldown(
 
 function simulateAction(kind: string, cfg: Any, ctx: Record<string, Any>): string {
   switch (kind) {
+    case "delay": {
+      const unit = cfg.wait_unit === "minutes" ? "minute(s)" : "second(s)";
+      return `[simulated] Wait ${Number(cfg.wait_amount || 0)} ${unit}`;
+    }
+    case "update_fields": {
+      const updates: Any[] = Array.isArray(cfg.updates) ? cfg.updates : [];
+      const target = cfg.target === "client" ? "client profile" : "lead";
+      return `[simulated] Update ${target}: ${updates.map((u) => `${u.field}="${render(String(u.value ?? ""), ctx)}"`).join(", ") || "no changes"}`;
+    }
     case "send_email": {
       const to = cfg.to_mode === "custom"
         ? render(cfg.to || "", ctx)
@@ -295,6 +304,39 @@ async function runAction(
 ): Promise<string> {
   if (dryRun) return simulateAction(kind, cfg, ctx);
   switch (kind) {
+    case "delay": {
+      const amount = Number(cfg.wait_amount || 0);
+      const ms = (cfg.wait_unit === "minutes" ? amount * 60 : amount) * 1000;
+      const waited = Math.min(Math.max(ms, 0), MAX_DELAY_MS);
+      if (waited > 0) await sleep(waited);
+      return `Waited ${Math.round(waited / 1000)}s${ms > MAX_DELAY_MS ? " (capped at 60s)" : ""}`;
+    }
+
+    case "update_fields": {
+      const updates: Any[] = Array.isArray(cfg.updates) ? cfg.updates : [];
+      if (updates.length === 0) return "Skipped: no field changes configured";
+      const isClient = cfg.target === "client";
+      const table = isClient ? "client_profiles" : "leads";
+      const recordId = isClient ? ctx.client_profile_id : ctx.lead_id;
+      if (!recordId) return `Skipped: no ${isClient ? "client profile" : "lead"} in context`;
+
+      const payload: Record<string, Any> = {};
+      for (const u of updates) {
+        const field = String(u?.field ?? "").trim();
+        if (!field) continue;
+        const raw = render(String(u?.value ?? ""), ctx).trim();
+        if (raw === "") { payload[field] = null; continue; }
+        if (/^(true|false)$/i.test(raw)) payload[field] = raw.toLowerCase() === "true";
+        else if (field === "client_health_score") payload[field] = Number(raw);
+        else payload[field] = raw;
+      }
+      if (Object.keys(payload).length === 0) return "Skipped: no field changes configured";
+
+      const { error } = await db.from(table).update(payload).eq("id", recordId);
+      if (error) throw new Error(error.message);
+      return `Updated ${isClient ? "client" : "lead"}: ${Object.keys(payload).join(", ")}`;
+    }
+
     case "send_email": {
       let to = "";
       if (cfg.to_mode === "custom") to = render(cfg.to || "", ctx);
