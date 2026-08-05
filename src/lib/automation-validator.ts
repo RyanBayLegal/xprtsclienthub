@@ -79,6 +79,23 @@ export function validateAutomation(
         if (!str(cfg.title)) issues.push({ level: "error", nodeId: n.id, message: `${name}: notification title is required.` });
         break;
       }
+      case "delay": {
+        const unit = str(cfg.wait_unit) || "seconds";
+        const amount = Number(cfg.wait_amount ?? 0);
+        if (!(amount > 0)) issues.push({ level: "error", nodeId: n.id, message: `${name}: set how long to wait.` });
+        const seconds = unit === "minutes" ? amount * 60 : amount;
+        if (seconds > 60) issues.push({ level: "warning", nodeId: n.id, message: `${name}: live waiting is capped at 60 seconds.` });
+        break;
+      }
+      case "update_fields": {
+        const updates = Array.isArray(cfg.updates) ? (cfg.updates as { field?: string; value?: string }[]) : [];
+        if (updates.length === 0) issues.push({ level: "error", nodeId: n.id, message: `${name}: add at least one field change.` });
+        if (updates.some((u) => !str(u?.field))) issues.push({ level: "error", nodeId: n.id, message: `${name}: every change needs a field.` });
+        if (updates.some((u) => str(u?.field) && !str(u?.value))) {
+          issues.push({ level: "warning", nodeId: n.id, message: `${name}: a change has an empty value — the field will be cleared.` });
+        }
+        break;
+      }
       case "convert_to_client": {
         if (!["lead_created", "lead_created_manual", "lead_merged", "lead_stage_change", "email_received"].includes(triggerType)) {
           issues.push({ level: "warning", nodeId: n.id, message: `${name}: this trigger rarely carries a lead to convert.` });
