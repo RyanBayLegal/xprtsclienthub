@@ -80,6 +80,23 @@ const cleanMessageBody = (value: string | null): string => {
   return body;
 };
 
+function InlineEmailImage({ attachment, onOpen }: { attachment: AttachmentRef; onOpen: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    supabase.storage.from("email-attachments").createSignedUrl(attachment.path, 3600).then(({ data }) => {
+      if (active) setUrl(data?.signedUrl || null);
+    });
+    return () => { active = false; };
+  }, [attachment.path]);
+  if (!url) return <div className="h-20 animate-pulse rounded-md bg-muted" />;
+  return (
+    <button type="button" className="block max-w-full overflow-hidden rounded-md border" onClick={onOpen} title={`Open ${attachment.name}`}>
+      <img src={url} alt={attachment.name || "Inline email image"} className="max-h-80 max-w-full object-contain" loading="lazy" />
+    </button>
+  );
+}
+
 /** Back-and-forth email conversations with leads and clients. */
 export default function EmailReplies() {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -630,6 +647,13 @@ export default function EmailReplies() {
                             ) : (
                               <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{m.body}</p>
                             )}
+                            {m.attachments.some((a) => a.disposition === "inline" && a.type?.startsWith("image/")) && (
+                              <div className="mt-2 space-y-2">
+                                {m.attachments
+                                  .filter((a) => a.disposition === "inline" && a.type?.startsWith("image/"))
+                                  .map((a) => <InlineEmailImage key={a.path} attachment={a} onOpen={() => openAttachment(a)} />)}
+                              </div>
+                            )}
                             {m.direction === "inbound" && (
                               <Button size="sm" variant="ghost" className="mt-1 h-6 px-1.5 text-[11px]" onClick={() => setInspectMessage(m)}>
                                 <Code2 className="mr-1 h-3 w-3" /> Inspect MIME
@@ -637,7 +661,7 @@ export default function EmailReplies() {
                             )}
                             {m.attachments.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {m.attachments.map((a) => (
+                                {m.attachments.filter((a) => a.disposition !== "inline" || !a.type?.startsWith("image/")).map((a) => (
                                   <Button key={a.path} size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => openAttachment(a)}>
                                     <Paperclip className="mr-1 h-3 w-3" />
                                     <span className="max-w-[160px] truncate">{a.name}</span>
