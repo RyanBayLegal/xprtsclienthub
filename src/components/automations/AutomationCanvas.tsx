@@ -31,6 +31,7 @@ import {
   NODE_CATALOG,
   TASK_EVENTS,
   TRIGGER_TYPES,
+  UPDATABLE_FIELDS,
   type NodeKind,
 } from "./nodeCatalog";
 import TokenPreview from "./TokenPreview";
@@ -64,7 +65,11 @@ function FlowNode({ id, data, selected }: NodeProps) {
             ? `${config.field || "field"} ${String(config.operator || "equals").replace("_", " ")} ${config.value ?? ""}`
             : kind === "wait_for_reply"
               ? `Reply within ${config.within_days || 7} day(s)${config.wait_seconds ? ` · wait ${config.wait_seconds}s` : ""}`
-              : String(config.title || meta.label);
+              : kind === "delay"
+                ? `Wait ${config.wait_amount || 0} ${String(config.wait_unit || "seconds")}`
+                : kind === "update_fields"
+                  ? `Update ${(Array.isArray(config.updates) ? config.updates.length : 0)} field(s) on ${config.target === "client" ? "client" : "lead"}`
+                  : String(config.title || meta.label);
 
   return (
     <div
