@@ -634,13 +634,19 @@ export type Database = {
           from_email: string | null
           from_name: string | null
           id: string
+          in_reply_to: string | null
+          match_debug: Json
+          match_method: string | null
           matched_client_id: string | null
           matched_lead_id: string | null
+          message_id: string | null
           message_uid: string | null
           processed: boolean
           raw_payload: Json | null
           received_at: string
+          references_header: string | null
           subject: string | null
+          thread_id: string | null
           to_email: string | null
         }
         Insert: {
@@ -650,13 +656,19 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          in_reply_to?: string | null
+          match_debug?: Json
+          match_method?: string | null
           matched_client_id?: string | null
           matched_lead_id?: string | null
+          message_id?: string | null
           message_uid?: string | null
           processed?: boolean
           raw_payload?: Json | null
           received_at?: string
+          references_header?: string | null
           subject?: string | null
+          thread_id?: string | null
           to_email?: string | null
         }
         Update: {
@@ -666,13 +678,19 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          in_reply_to?: string | null
+          match_debug?: Json
+          match_method?: string | null
           matched_client_id?: string | null
           matched_lead_id?: string | null
+          message_id?: string | null
           message_uid?: string | null
           processed?: boolean
           raw_payload?: Json | null
           received_at?: string
+          references_header?: string | null
           subject?: string | null
+          thread_id?: string | null
           to_email?: string | null
         }
         Relationships: [
@@ -870,6 +888,7 @@ export type Database = {
           status: string
           subject: string | null
           task_id: string | null
+          thread_id: string | null
         }
         Insert: {
           attachments?: Json
@@ -887,6 +906,7 @@ export type Database = {
           status?: string
           subject?: string | null
           task_id?: string | null
+          thread_id?: string | null
         }
         Update: {
           attachments?: Json
@@ -904,6 +924,7 @@ export type Database = {
           status?: string
           subject?: string | null
           task_id?: string | null
+          thread_id?: string | null
         }
         Relationships: []
       }

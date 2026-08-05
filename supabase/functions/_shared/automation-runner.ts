@@ -38,10 +38,17 @@ export async function sendMail(
   subject: string,
   html: string,
   attachments: MailAttachment[] = [],
-) {
+  opts: { inReplyTo?: string; references?: string } = {},
+): Promise<{ messageId: string }> {
   const user = Deno.env.get("GMAIL_USER");
   const pass = Deno.env.get("GMAIL_APP_PASSWORD")?.replace(/\s+/g, "");
   if (!user || !pass) throw new Error("Gmail SMTP is not configured");
+
+  const domain = (user.split("@")[1] || "xprts.com").toLowerCase();
+  const messageId = `<${crypto.randomUUID()}@${domain}>`;
+  const headers: Record<string, string> = { "Message-ID": messageId };
+  if (opts.inReplyTo) headers["In-Reply-To"] = opts.inReplyTo;
+  if (opts.references) headers["References"] = opts.references;
 
   let lastError = "";
   for (const [port, tls] of [[465, true], [587, false]] as [number, boolean][]) {
@@ -55,15 +62,16 @@ export async function sendMail(
         subject,
         content: html.replace(/<[^>]+>/g, " "),
         html,
+        headers,
         attachments: attachments.map((a) => ({
           filename: a.filename,
           encoding: "base64" as const,
           content: a.contentBase64,
           contentType: a.contentType || "application/octet-stream",
         })),
-      });
+      } as Any);
       try { await client.close(); } catch (_) { /* ignore */ }
-      return;
+      return { messageId };
     } catch (e) {
       lastError = `port ${port}: ${(e as Error)?.message ?? String(e)}`;
       try { await client.close(); } catch (_) { /* ignore */ }

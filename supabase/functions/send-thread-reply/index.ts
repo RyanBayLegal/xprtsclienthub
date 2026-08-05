@@ -31,11 +31,16 @@ Deno.serve(async (req: Request) => {
     const allowed = (roles || []).some((r: { role: string }) => r.role === "team_admin" || r.role === "staff_member");
     if (!allowed) return json({ error: "Forbidden" }, 403);
 
-    const { to, subject, body, lead_id, client_profile_id, attachments } = await req.json();
+    const { to, subject, body, lead_id, client_profile_id, attachments, in_reply_to, references } = await req.json();
     if (!to || !body) return json({ error: "Recipient and message are required" }, 400);
 
     const html = String(body).replace(/\n/g, "<br/>");
     const finalSubject = String(subject || "Re:");
+    const threadId = client_profile_id
+      ? `client:${client_profile_id}`
+      : lead_id
+        ? `lead:${lead_id}`
+        : `email:${String(to).toLowerCase()}`;
 
     // Pull attachment bytes out of private storage.
     const files: { path: string; name: string; type?: string; size?: number }[] = Array.isArray(attachments) ? attachments : [];
@@ -51,8 +56,13 @@ Deno.serve(async (req: Request) => {
       mailAttachments.push({ filename: f.name, contentBase64: btoa(binary), contentType: f.type });
     }
 
+    let sentMessageId: string | null = null;
     try {
-      await sendMail(String(to), finalSubject, html, mailAttachments);
+      const res = await sendMail(String(to), finalSubject, html, mailAttachments, {
+        inReplyTo: in_reply_to || undefined,
+        references: references || in_reply_to || undefined,
+      });
+      sentMessageId = res.messageId;
     } catch (e) {
       await db.from("notification_logs").insert({
         channel: "thread_reply",
@@ -64,6 +74,7 @@ Deno.serve(async (req: Request) => {
         lead_id: lead_id || null,
         client_profile_id: client_profile_id || null,
         status: "failed",
+        thread_id: threadId,
         attachments: files,
         error_message: (e as Error)?.message ?? String(e),
       });
@@ -80,10 +91,12 @@ Deno.serve(async (req: Request) => {
       lead_id: lead_id || null,
       client_profile_id: client_profile_id || null,
       status: "sent",
+      thread_id: threadId,
+      message_id: sentMessageId,
       attachments: files,
     });
 
-    return json({ success: true });
+    return json({ success: true, message_id: sentMessageId });
   } catch (e) {
     return json({ error: (e as Error)?.message ?? String(e) }, 500);
   }
