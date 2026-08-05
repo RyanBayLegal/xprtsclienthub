@@ -579,6 +579,11 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
                       <SelectContent>
                         <SelectItem value="seconds">Seconds</SelectItem>
                         <SelectItem value="minutes">Minutes</SelectItem>
+                        <SelectItem value="hours">Hours</SelectItem>
+                        <SelectItem value="days">Days</SelectItem>
+                        <SelectItem value="weeks">Weeks</SelectItem>
+                        <SelectItem value="months">Months</SelectItem>
+                        <SelectItem value="years">Years</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
