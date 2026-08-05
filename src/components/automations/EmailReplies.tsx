@@ -263,7 +263,10 @@ export default function EmailReplies() {
     if (!message.html) return "";
     let html = message.html;
     for (const attachment of message.attachments) {
-      if (attachment.contentId) html = html.replaceAll(`cid:${attachment.contentId.replace(/^<|>$/g, "")}`, "");
+      if (attachment.contentId) {
+        const cid = `cid:${attachment.contentId.replace(/^<|>$/g, "")}`;
+        html = html.split(cid).join("");
+      }
     }
     return DOMPurify.sanitize(html, {
       USE_PROFILES: { html: true },
