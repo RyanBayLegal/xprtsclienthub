@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import {
-  ChevronDown, ChevronRight, Loader2, Paperclip, RefreshCw, RotateCw, Send, User, X,
+  Bug, ChevronDown, ChevronRight, Loader2, Paperclip, RefreshCw, RotateCw, Send, User, X,
 } from "lucide-react";
 
 type Filter = "all" | "leads" | "clients" | "unmatched";
@@ -32,6 +33,9 @@ interface Message {
   status?: string | null;
   error?: string | null;
   attachments: AttachmentRef[];
+  messageId?: string | null;
+  matchMethod?: string | null;
+  matchDebug?: Record<string, unknown> | null;
 }
 
 interface Thread {
@@ -61,6 +65,9 @@ export default function EmailReplies() {
   const [retrying, setRetrying] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [debugRows, setDebugRows] = useState<Record<string, unknown>[]>([]);
+  const [debugOpen, setDebugOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const bottomRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const msgRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -68,14 +75,14 @@ export default function EmailReplies() {
 
   const load = useCallback(async () => {
     const [inboundRes, outboundRes, syncRes] = await Promise.all([
-      supabase
+      (supabase as any)
         .from("inbound_emails")
-        .select("id, from_email, from_name, subject, body_text, received_at, matched_lead_id, matched_client_id, attachments")
+        .select("id, from_email, from_name, subject, body_text, received_at, matched_lead_id, matched_client_id, attachments, message_id, in_reply_to, thread_id, match_method, match_debug")
         .order("received_at", { ascending: false })
         .limit(300),
       (supabase as any)
         .from("notification_logs")
-        .select("id, recipient_email, subject, body_text, created_at, lead_id, client_profile_id, status, error_message, direction, attachments")
+        .select("id, recipient_email, subject, body_text, created_at, lead_id, client_profile_id, status, error_message, direction, attachments, message_id, thread_id")
         .order("created_at", { ascending: false })
         .limit(300),
       (supabase as any).from("email_sync_state").select("last_checked_at").maybeSingle(),
@@ -124,6 +131,9 @@ export default function EmailReplies() {
         at: r.received_at,
         address: r.from_email || "",
         attachments: asAttachments(r.attachments),
+        messageId: r.message_id ?? null,
+        matchMethod: r.match_method ?? null,
+        matchDebug: r.match_debug ?? null,
       });
     }
 
@@ -148,6 +158,7 @@ export default function EmailReplies() {
         status: o.status,
         error: o.error_message,
         attachments: asAttachments(o.attachments),
+        messageId: o.message_id ?? null,
       });
     }
 
@@ -171,18 +182,45 @@ export default function EmailReplies() {
 
   useEffect(() => { load(); }, [load]);
 
-  const checkForReplies = async () => {
+  const sync = useCallback(async (silent: boolean) => {
     setSyncing(true);
     const { data, error } = await supabase.functions.invoke("fetch-inbound-email");
     setSyncing(false);
     if (error || (data as any)?.error) {
-      toast.error((data as any)?.error || error?.message || "Could not check the mailbox");
+      if (!silent) toast.error((data as any)?.error || error?.message || "Could not check the mailbox");
       return;
     }
     const stored = (data as any)?.stored ?? 0;
-    toast.success(stored ? `${stored} new repl${stored === 1 ? "y" : "ies"} imported` : "No new replies found");
+    const dbg = (data as any)?.debug;
+    if (Array.isArray(dbg) && dbg.length) setDebugRows(dbg);
+    if (!silent) {
+      toast.success(stored ? `${stored} new repl${stored === 1 ? "y" : "ies"} imported` : "No new replies found");
+    } else if (stored) {
+      toast.success(`${stored} new repl${stored === 1 ? "y" : "ies"} received`);
+    }
     await load();
-  };
+  }, [load]);
+
+  const checkForReplies = () => sync(false);
+
+  // Automatic incremental polling so replies land in threads on their own.
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") sync(true);
+    }, 60000);
+    return () => clearInterval(id);
+  }, [autoRefresh, sync]);
+
+  // Live updates when rows are written by automations or other users.
+  useEffect(() => {
+    const channel = supabase
+      .channel("email-threads")
+      .on("postgres_changes", { event: "*", schema: "public", table: "inbound_emails" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "notification_logs" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [load]);
 
   const messageMatches = useCallback(
     (m: Message) => {
