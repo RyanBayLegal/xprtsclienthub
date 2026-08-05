@@ -173,8 +173,8 @@ Deno.serve(async (req: Request) => {
 
       for (const uid of uids) {
         if (Number(uid) > maxUid) maxUid = Number(uid);
-        const key = `gmail:inbox:${uid}`;
-        const { data: exists } = await db.from("inbound_emails").select("id").eq("provider_fingerprint", key).maybeSingle();
+        const key = `gmail:${uid}`;
+        const { data: exists } = await db.from("inbound_emails").select("id").eq("message_uid", key).maybeSingle();
         if (exists) continue;
 
         const raw = await imap.cmd(`UID FETCH ${uid} (BODY.PEEK[])`);
@@ -201,9 +201,8 @@ Deno.serve(async (req: Request) => {
           normalizeMessageId(messageId), fromEmail, subject.trim().toLowerCase(),
           isNaN(receivedAt.getTime()) ? "" : receivedAt.toISOString(), text.trim(),
         ].join("\n"))}`;
-        const dedupeFilters = [key, contentFingerprint];
         const { data: duplicate } = await db.from("inbound_emails").select("id")
-          .in("provider_fingerprint", dedupeFilters).limit(1);
+          .eq("provider_fingerprint", contentFingerprint).limit(1);
         if ((duplicate || []).length) continue;
         if (messageId) {
           const { data: duplicateMessage } = await db.from("inbound_emails").select("id")
@@ -271,7 +270,7 @@ Deno.serve(async (req: Request) => {
           body_html: html || null,
           raw_payload: { source: "imap", uid },
           message_uid: key,
-          provider_fingerprint: key,
+          provider_fingerprint: contentFingerprint,
           message_id: messageId || null,
           in_reply_to: inReplyTo || null,
           references_header: referencesHeader || null,
