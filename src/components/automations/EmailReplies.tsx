@@ -50,6 +50,28 @@ interface Thread {
 const asAttachments = (v: unknown): AttachmentRef[] =>
   Array.isArray(v) ? (v as AttachmentRef[]).filter((a) => a && typeof a.path === "string") : [];
 
+// Keeps previously imported malformed MIME messages readable while the backend
+// parser ensures newly synced messages are stored as decoded content.
+const cleanMessageBody = (value: string | null): string => {
+  if (!value) return "";
+  let body = value.replace(/\r\n/g, "\n");
+  const boundaryLine = body.match(/^--[-=\w]+\s*$/m)?.[0];
+  if (boundaryLine || /Content-(?:Type|Transfer-Encoding):/i.test(body)) {
+    const candidates = body.split(/^--[-=\w]+(?:--)?\s*$/m);
+    const plain = candidates.find((part) => /Content-Type:\s*text\/plain/i.test(part));
+    body = plain || candidates.find((part) => !/Content-Type:\s*text\/html/i.test(part)) || body;
+    body = body.replace(/^[\s\S]*?\n\n/, "");
+  }
+  body = body
+    .replace(/=\n/g, "")
+    .replace(/=([0-9A-F]{2})/gi, (_match, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/^Content-(?:Type|Transfer-Encoding|Disposition):.*$/gim, "")
+    .replace(/^--[-=\w]+(?:--)?\s*$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return body;
+};
+
 /** Back-and-forth email conversations with leads and clients. */
 export default function EmailReplies() {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -134,7 +156,7 @@ export default function EmailReplies() {
         id: `in:${r.id}`,
         direction: "inbound",
         subject: r.subject,
-        body: r.body_text,
+        body: cleanMessageBody(r.body_text),
         at: r.received_at,
         address: r.from_email || "",
         attachments: asAttachments(r.attachments),
@@ -159,7 +181,7 @@ export default function EmailReplies() {
         id: `out:${o.id}`,
         direction: "outbound",
         subject: o.subject,
-        body: o.body_text,
+        body: cleanMessageBody(o.body_text),
         at: o.created_at,
         address: addr,
         status: o.status,

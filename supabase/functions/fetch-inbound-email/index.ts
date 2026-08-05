@@ -46,43 +46,74 @@ class Imap {
   close() { try { this.conn.close(); } catch (_) { /* ignore */ } }
 }
 
-function decodeBody(raw: string): { text: string; html: string } {
+function splitEntity(raw: string) {
   const headerEnd = raw.search(/\r?\n\r?\n/);
-  const headers = headerEnd > -1 ? raw.slice(0, headerEnd) : raw;
-  let body = headerEnd > -1 ? raw.slice(headerEnd).replace(/^\r?\n\r?\n/, "") : "";
+  if (headerEnd < 0) return { headers: "", body: raw };
+  const separator = raw.slice(headerEnd).match(/^\r?\n\r?\n/)?.[0] || "";
+  return { headers: raw.slice(0, headerEnd).replace(/\r?\n[ \t]+/g, " "), body: raw.slice(headerEnd + separator.length) };
+}
 
-  const boundary = headers.match(/boundary="?([^";\r\n]+)"?/i)?.[1];
-  const pickPart = (part: string) => {
-    const pe = part.search(/\r?\n\r?\n/);
-    const ph = pe > -1 ? part.slice(0, pe) : "";
-    let pb = pe > -1 ? part.slice(pe).replace(/^\r?\n\r?\n/, "") : "";
-    const enc = ph.match(/Content-Transfer-Encoding:\s*(\S+)/i)?.[1]?.toLowerCase();
-    if (enc === "base64") {
-      try { pb = new TextDecoder().decode(Uint8Array.from(atob(pb.replace(/\s+/g, "")), (c) => c.charCodeAt(0))); } catch (_) { /* ignore */ }
-    } else if (enc === "quoted-printable") {
-      pb = pb.replace(/=\r?\n/g, "").replace(/=([0-9A-F]{2})/gi, (_m, h) => String.fromCharCode(parseInt(h, 16)));
+function decodeTransfer(body: string, encoding: string) {
+  if (encoding === "base64") {
+    try {
+      const bytes = Uint8Array.from(atob(body.replace(/\s+/g, "")), (c) => c.charCodeAt(0));
+      return new TextDecoder().decode(bytes);
+    } catch { return body; }
+  }
+  if (encoding === "quoted-printable") {
+    const compact = body.replace(/=\r?\n/g, "");
+    const bytes: number[] = [];
+    for (let i = 0; i < compact.length; i += 1) {
+      const hex = compact.slice(i + 1, i + 3);
+      if (compact[i] === "=" && /^[0-9a-f]{2}$/i.test(hex)) {
+        bytes.push(parseInt(hex, 16));
+        i += 2;
+      } else {
+        bytes.push(...new TextEncoder().encode(compact[i]));
+      }
     }
-    return { type: (ph.match(/Content-Type:\s*([^;\r\n]+)/i)?.[1] || "text/plain").toLowerCase(), body: pb };
+    return new TextDecoder().decode(Uint8Array.from(bytes));
+  }
+  return body;
+}
+
+function decodeBody(raw: string): { text: string; html: string } {
+  const found = { text: [] as string[], html: [] as string[] };
+  const visit = (entity: string) => {
+    const { headers, body } = splitEntity(entity.replace(/^\r?\n/, ""));
+    const contentType = headers.match(/^Content-Type:\s*([^;\r\n]+)/im)?.[1]?.toLowerCase() || "text/plain";
+    const boundary = headers.match(/boundary\s*=\s*(?:"([^"]+)"|([^;\r\n]+))/i)?.slice(1).find(Boolean)?.trim();
+    if (contentType.startsWith("multipart/") && boundary) {
+      const marker = `--${boundary}`;
+      for (const part of body.split(marker).slice(1)) {
+        const clean = part.replace(/^\r?\n/, "").replace(/\r?\n--\s*$/, "");
+        if (clean.trim() && clean.trim() !== "--") visit(clean);
+      }
+      return;
+    }
+    const disposition = headers.match(/^Content-Disposition:\s*([^;\r\n]+)/im)?.[1]?.toLowerCase() || "";
+    if (disposition === "attachment") return;
+    const encoding = headers.match(/^Content-Transfer-Encoding:\s*(\S+)/im)?.[1]?.toLowerCase() || "";
+    const decoded = decodeTransfer(body, encoding).replace(/\r\n/g, "\n").trim();
+    if (!decoded) return;
+    if (contentType === "text/html") found.html.push(decoded);
+    else if (contentType === "text/plain") found.text.push(decoded);
   };
 
-  let text = "";
-  let html = "";
-  if (boundary) {
-    for (const part of raw.split(`--${boundary}`)) {
-      if (!part.trim() || part.trim() === "--") continue;
-      const p = pickPart(part);
-      if (p.type.includes("text/plain") && !text) text = p.body;
-      if (p.type.includes("text/html") && !html) html = p.body;
-    }
-  } else {
-    const p = pickPart(raw);
-    if (p.type.includes("text/html")) html = p.body; else text = p.body;
-    body = p.body;
-  }
-  if (!text && html) text = html.replace(/<[^>]+>/g, " ").replace(/\s+\n/g, "\n");
-  if (!text && !html) text = body;
-  // Strip quoted reply history for readability.
-  text = text.split(/\r?\n(?:>|On .+ wrote:)/)[0].trim();
+  visit(raw);
+  const html = found.html[0] || "";
+  let text = found.text[0] || (html
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|tr)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">"));
+  text = text
+    .split(/\n(?:>|On .+ wrote:)/)[0]
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
   return { text, html };
 }
 
@@ -178,8 +209,13 @@ Deno.serve(async (req: Request) => {
         if (exists) continue;
 
         const raw = await imap.cmd(`UID FETCH ${uid} (BODY.PEEK[])`);
+        const literal = raw.match(/\{(\d+)\}\r?\n/);
+        const literalStart = literal?.index === undefined ? -1 : literal.index + literal[0].length;
+        const literalLength = Number(literal?.[1] || 0);
         const start = raw.indexOf("\r\n");
-        const message = raw.slice(start + 2);
+        const message = literalStart >= 0 && literalLength > 0
+          ? raw.slice(literalStart, literalStart + literalLength)
+          : raw.slice(start + 2).replace(/\r?\n\)\r?\na\d+ OK[\s\S]*$/i, "");
         const headerBlock = message.slice(0, Math.max(0, message.search(/\r?\n\r?\n/)))
           .replace(/\r?\n[ \t]+/g, " ");
         const h = (name: string) =>
