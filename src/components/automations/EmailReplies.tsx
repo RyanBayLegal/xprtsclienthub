@@ -106,6 +106,7 @@ export default function EmailReplies() {
   const [retrying, setRetrying] = useState<string | null>(null);
   const [reparsing, setReparsing] = useState<string | null>(null);
   const [inspectMessage, setInspectMessage] = useState<Message | null>(null);
+  const [showRaw, setShowRaw] = useState<Record<string, boolean>>({});
   const [syncing, setSyncing] = useState(false);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -274,6 +275,28 @@ export default function EmailReplies() {
   };
 
   const safeHtml = (message: Message) => {
+    return sanitizeHtml(message);
+  };
+
+  const exportMime = (m: Message) => {
+    const report = buildMimeReport(
+      {
+        id: m.id,
+        subject: m.subject,
+        address: m.address,
+        at: m.at,
+        messageId: m.messageId,
+        mimeParts: m.mimeParts,
+        attachments: m.attachments,
+        raw: m.rawSource,
+      },
+      renderDecisionFor(m),
+    );
+    downloadJson(`mime-report-${m.id.replace(/[:]/g, "-")}.json`, report);
+    toast.success("MIME report downloaded");
+  };
+
+  const sanitizeHtml = (message: Message) => {
     if (!message.html) return "";
     let html = message.html;
     for (const attachment of message.attachments) {
