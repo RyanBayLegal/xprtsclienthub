@@ -598,7 +598,7 @@ export default function Automations() {
       </Dialog>
 
       <Dialog open={simOpen} onOpenChange={setSimOpen}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Simulate automation</DialogTitle>
           </DialogHeader>
@@ -636,25 +636,10 @@ export default function Automations() {
               {simResult.error_message && (
                 <p className="rounded bg-destructive/10 px-2 py-1 text-xs text-destructive">{simResult.error_message}</p>
               )}
-              {(simResult.steps || []).length === 0 && (
-                <p className="text-xs text-muted-foreground">No steps ran with this data.</p>
-              )}
-              {(simResult.steps || []).map((st, i) => (
-                <div key={i} className="flex items-start gap-2 rounded border border-border/60 px-2 py-1.5">
-                  {st.status === "error"
-                    ? <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
-                    : st.status === "skipped"
-                      ? <MinusCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      : <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-medium text-foreground">{st.kind}</span>
-                      {st.branch && <Badge variant="secondary" className="text-[10px]">branch: {st.branch}</Badge>}
-                    </div>
-                    <p className="text-xs text-muted-foreground">{st.result}</p>
-                  </div>
-                </div>
-              ))}
+              <StepTimeline
+                steps={simResult.steps || []}
+                emptyText="No steps ran with this data."
+              />
             </div>
           )}
         </DialogContent>
