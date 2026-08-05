@@ -517,7 +517,7 @@ export default function Automations() {
           </DialogHeader>
           {editing && (
             <div className="flex min-h-0 flex-1 flex-col gap-4">
-              <div className="grid shrink-0 grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="grid max-h-[26vh] shrink-0 grid-cols-1 gap-3 overflow-y-auto pr-1 md:grid-cols-3">
                 <div>
                   <Label className="text-xs">Name</Label>
                   <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Welcome new lead" />
