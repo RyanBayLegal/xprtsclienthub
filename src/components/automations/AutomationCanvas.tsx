@@ -31,6 +31,7 @@ import {
   NODE_CATALOG,
   TASK_EVENTS,
   TRIGGER_TYPES,
+  UPDATABLE_FIELDS,
   type NodeKind,
 } from "./nodeCatalog";
 import TokenPreview from "./TokenPreview";
@@ -64,7 +65,11 @@ function FlowNode({ id, data, selected }: NodeProps) {
             ? `${config.field || "field"} ${String(config.operator || "equals").replace("_", " ")} ${config.value ?? ""}`
             : kind === "wait_for_reply"
               ? `Reply within ${config.within_days || 7} day(s)${config.wait_seconds ? ` · wait ${config.wait_seconds}s` : ""}`
-              : String(config.title || meta.label);
+              : kind === "delay"
+                ? `Wait ${config.wait_amount || 0} ${String(config.wait_unit || "seconds")}`
+                : kind === "update_fields"
+                  ? `Update ${(Array.isArray(config.updates) ? config.updates.length : 0)} field(s) on ${config.target === "client" ? "client" : "lead"}`
+                  : String(config.title || meta.label);
 
   return (
     <div
@@ -552,6 +557,123 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
                 </div>
               </div>
             )}
+
+            {kind === "delay" && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Pauses the automation before the next step runs.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">Wait</Label>
+                    <Input
+                      type="number" min={0}
+                      value={cfg.wait_amount ?? ""}
+                      onChange={(e) => updateConfig({ wait_amount: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Unit</Label>
+                    <Select value={cfg.wait_unit || "seconds"} onValueChange={(v) => updateConfig({ wait_unit: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="seconds">Seconds</SelectItem>
+                        <SelectItem value="minutes">Minutes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Live waiting is capped at 60 seconds per step so runs never time out. Longer waits stop the run and
+                  are reported in the run history.
+                </p>
+              </div>
+            )}
+
+            {kind === "update_fields" && (() => {
+              const updates = (((selected?.data as { config?: { updates?: { field: string; value: string }[] } })?.config?.updates) || []) as { field: string; value: string }[];
+              const target = (cfg.target === "client" ? "client" : "lead") as "lead" | "client";
+              const setUpdates = (next: { field: string; value: string }[]) => updateConfig({ updates: next });
+              return (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Record to update</Label>
+                    <Select value={target} onValueChange={(v) => updateConfig({ target: v, updates: [] })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lead">Lead in this run</SelectItem>
+                        <SelectItem value="client">Client profile in this run</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {updates.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No field changes yet — add one below.</p>
+                  )}
+
+                  {updates.map((u, i) => {
+                    const isStage = u.field === "stage";
+                    const stages = target === "client" ? CLIENT_STAGES : LEAD_STAGES;
+                    const patch = (p: Partial<{ field: string; value: string }>) =>
+                      setUpdates(updates.map((x, idx) => (idx === i ? { ...x, ...p } : x)));
+                    return (
+                      <div key={i} className="space-y-2 rounded-md bg-muted/40 p-2">
+                        <div className="flex gap-2">
+                          <Select value={u.field} onValueChange={(v) => patch({ field: v, value: "" })}>
+                            <SelectTrigger className="h-8 flex-1"><SelectValue placeholder="Field" /></SelectTrigger>
+                            <SelectContent>
+                              {UPDATABLE_FIELDS[target].map((f) => (
+                                <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="ghost" size="icon"
+                            className="h-8 w-8 shrink-0 text-destructive"
+                            onClick={() => setUpdates(updates.filter((_, idx) => idx !== i))}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                        {isStage ? (
+                          <Select value={u.value} onValueChange={(v) => patch({ value: v })}>
+                            <SelectTrigger className="h-8"><SelectValue placeholder="Select stage" /></SelectTrigger>
+                            <SelectContent>
+                              {stages.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            className="h-8"
+                            value={u.value || ""}
+                            placeholder="New value — merge tags allowed"
+                            onChange={(e) => patch({ value: e.target.value })}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => setUpdates([...updates, { field: UPDATABLE_FIELDS[target][0].value, value: "" }])}
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Add field change
+                  </Button>
+
+                  {tokens.length > 0 && (
+                    <div className="rounded-md border border-dashed border-border p-2">
+                      <p className="mb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Merge tags</p>
+                      <div className="flex flex-wrap gap-1">
+                        {tokens.map((t) => (
+                          <Badge key={t} variant="secondary" className="font-mono text-[10px]">{`{{${t}}}`}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {["send_email", "create_task", "send_notification"].includes(kind || "") && tokens.length > 0 && (
               <div className="rounded-md border border-dashed border-border p-2">
