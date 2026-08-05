@@ -177,7 +177,7 @@ export default function EmailReplies() {
         id: `in:${r.id}`,
         direction: "inbound",
         subject: r.subject,
-        body: cleanMessageBody(r.body_text),
+        body: r.body_text,
         html: r.body_html,
         at: r.received_at,
         address: r.from_email || "",
@@ -187,6 +187,9 @@ export default function EmailReplies() {
         matchDebug: r.match_debug ?? null,
         mimeParts: Array.isArray(r.raw_payload?.mime_parts) ? r.raw_payload.mime_parts : [],
         sourceId: r.id,
+        charset: r.raw_payload?.charset ?? null,
+        parseError: r.raw_payload?.parse_error ?? null,
+        rawSource: r.raw_payload?.raw_source ?? null,
       });
     }
 
@@ -205,7 +208,7 @@ export default function EmailReplies() {
         id: `out:${o.id}`,
         direction: "outbound",
         subject: o.subject,
-        body: cleanMessageBody(o.body_text),
+        body: o.body_text,
         at: o.created_at,
         address: addr,
         status: o.status,
