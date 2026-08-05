@@ -11,10 +11,14 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import DOMPurify from "dompurify";
-import { buildMimeReport, decideRender, type MimePart, type RenderDecision } from "@/lib/email-mime";
+import {
+  buildMimeReport, captureFailingFixture, clearCapturedFixtures, clearRenderCache, decideRenderCached,
+  isFixtureCaptureEnabled, listCapturedFixtures, serializeFixtures, setFixtureCaptureEnabled,
+  type CapturedFixture, type MimePart, type RenderDecision,
+} from "@/lib/email-mime";
 import {
   AlertTriangle, Bug, ChevronDown, ChevronRight, Code2, Download, FileCode2, Loader2, Paperclip,
-  RefreshCw, RotateCw, Send, User, X,
+  RefreshCw, RotateCw, Send, ShieldAlert, User, X,
 } from "lucide-react";
 
 type Filter = "all" | "leads" | "clients";
@@ -62,7 +66,18 @@ const asAttachments = (v: unknown): AttachmentRef[] =>
   Array.isArray(v) ? (v as AttachmentRef[]).filter((a) => a && typeof a.path === "string") : [];
 
 const renderDecisionFor = (m: Message): RenderDecision =>
-  decideRender({ body: m.body, html: m.html, charset: m.charset, mimeParts: m.mimeParts, parseError: m.parseError });
+  decideRenderCached(m.id, {
+    body: m.body, html: m.html, charset: m.charset, mimeParts: m.mimeParts, parseError: m.parseError,
+  });
+
+const downloadText = (filename: string, text: string) => {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 const downloadJson = (filename: string, payload: unknown) => {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -113,6 +128,11 @@ export default function EmailReplies() {
   const [pollInterval, setPollInterval] = useState(60);
   const [debugRows, setDebugRows] = useState<Record<string, unknown>[]>([]);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [healthOpen, setHealthOpen] = useState(false);
+  const [bulkReparsing, setBulkReparsing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  const [captureEnabled, setCaptureEnabled] = useState(isFixtureCaptureEnabled());
+  const [captured, setCaptured] = useState<CapturedFixture[]>(listCapturedFixtures());
   const [loading, setLoading] = useState(true);
   const bottomRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const msgRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -269,6 +289,7 @@ export default function EmailReplies() {
       toast.error((data as any)?.error || error?.message || "Could not reparse message");
       return;
     }
+    clearRenderCache(message.id);
     toast.success("Message reparsed with the latest MIME decoder");
     setInspectMessage(null);
     await load();
@@ -346,6 +367,71 @@ export default function EmailReplies() {
   );
 
   const hasQuery = !!(search.trim() || sender.trim() || from || to);
+
+  // Every message whose MIME payload could not be decoded, with its context.
+  const failures = useMemo(
+    () =>
+      threads.flatMap((t) =>
+        t.messages
+          .map((m) => ({ thread: t, message: m, decision: renderDecisionFor(m) }))
+          .filter((row) => row.decision.mode === "error"),
+      ),
+    [threads],
+  );
+
+  const failureGroups = useMemo(() => {
+    const by = (pick: (row: (typeof failures)[number]) => string) => {
+      const counts = new Map<string, number>();
+      for (const row of failures) {
+        const key = pick(row) || "unknown";
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    };
+    return {
+      byContact: by((r) => `${r.thread.name} (${r.thread.kind})`),
+      bySender: by((r) => r.message.address),
+      byPath: by((r) => r.decision.failingPartPath || "unknown"),
+    };
+  }, [failures]);
+
+  // Persist newly seen failing payloads as regression fixtures.
+  useEffect(() => {
+    if (!captureEnabled || failures.length === 0) return;
+    let saved = 0;
+    for (const row of failures) {
+      const name = `production failure ${row.message.id} (${row.decision.failingPartPath || "unknown path"})`;
+      if (
+        captureFailingFixture(
+          name,
+          { body: row.message.body, html: row.message.html, charset: row.message.charset },
+          row.decision,
+        )
+      ) saved += 1;
+    }
+    if (saved) {
+      setCaptured(listCapturedFixtures());
+      toast.info(`${saved} failing MIME payload${saved === 1 ? "" : "s"} saved as regression fixtures`);
+    }
+  }, [failures, captureEnabled]);
+
+  const bulkReparse = async () => {
+    const targets = failures.map((f) => f.message).filter((m) => m.sourceId);
+    if (targets.length === 0) { toast.info("No decode failures to reparse"); return; }
+    setBulkReparsing(true);
+    setBulkProgress({ done: 0, total: targets.length });
+    let ok = 0;
+    for (const [i, m] of targets.entries()) {
+      const { data, error } = await supabase.functions.invoke("fetch-inbound-email", { body: { reparse_id: m.sourceId } });
+      if (!error && !(data as any)?.error) { ok += 1; clearRenderCache(m.id); }
+      setBulkProgress({ done: i + 1, total: targets.length });
+    }
+    setBulkReparsing(false);
+    toast[ok === targets.length ? "success" : "warning"](
+      `Reparsed ${ok} of ${targets.length} failing message${targets.length === 1 ? "" : "s"}`,
+    );
+    await load();
+  };
 
   // Matching details persisted on already-imported inbound messages.
   const storedDebug = useMemo(
@@ -531,6 +617,92 @@ export default function EmailReplies() {
           >
             Auto-refresh {autoRefresh ? `every ${pollInterval}s` : "off"}
           </Button>
+          <Dialog open={healthOpen} onOpenChange={setHealthOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant={failures.length ? "destructive" : "outline"}>
+                <ShieldAlert className="mr-2 h-4 w-4" />
+                MIME health{failures.length ? ` (${failures.length})` : ""}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
+              <DialogHeader><DialogTitle>MIME decode &amp; render failures</DialogTitle></DialogHeader>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={bulkReparse} disabled={bulkReparsing || failures.length === 0}>
+                  {bulkReparsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  {bulkReparsing
+                    ? `Reparsing ${bulkProgress.done}/${bulkProgress.total}…`
+                    : `Reparse all failing (${failures.length})`}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={captureEnabled ? "secondary" : "outline"}
+                  onClick={() => { const next = !captureEnabled; setFixtureCaptureEnabled(next); setCaptureEnabled(next); }}
+                >
+                  Auto-save fixtures {captureEnabled ? "on" : "off"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={captured.length === 0}
+                  onClick={() => downloadText("captured-mime-fixtures.ts", serializeFixtures(captured))}
+                >
+                  <Download className="mr-2 h-4 w-4" /> Download {captured.length} fixture{captured.length === 1 ? "" : "s"}
+                </Button>
+                {captured.length > 0 && (
+                  <Button size="sm" variant="ghost" onClick={() => { clearCapturedFixtures(); setCaptured([]); }}>
+                    Clear fixtures
+                  </Button>
+                )}
+              </div>
+              {failures.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Every imported message renders cleanly right now.</p>
+              ) : (
+                <div className="space-y-3">
+                  {([
+                    ["By contact / automation thread", failureGroups.byContact],
+                    ["By sender", failureGroups.bySender],
+                    ["By failing part path", failureGroups.byPath],
+                  ] as const).map(([title, rows]) => (
+                    <div key={title} className="rounded-md border p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+                      <ul className="mt-2 space-y-1 text-xs">
+                        {rows.map(([label, count]) => (
+                          <li key={label} className="flex items-center justify-between gap-2">
+                            <code className="truncate">{label}</code>
+                            <Badge variant="outline">{count}</Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Failing messages</p>
+                    <ul className="mt-2 space-y-1.5 text-xs">
+                      {failures.slice(0, 30).map(({ thread, message, decision }) => (
+                        <li key={message.id} className="flex items-center justify-between gap-2">
+                          <span className="min-w-0 truncate">
+                            {new Date(message.at).toLocaleDateString()} · {thread.name} · {message.subject || "(no subject)"}
+                          </span>
+                          <span className="flex shrink-0 items-center gap-1">
+                            <code className="text-muted-foreground">{decision.failingPartPath || "unknown"}</code>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2"
+                              disabled={!message.sourceId || reparsing === message.id}
+                              onClick={() => reparseMessage(message)}
+                            >
+                              {reparsing === message.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Reparse"}
+                            </Button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
           <Dialog open={debugOpen} onOpenChange={setDebugOpen}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline"><Bug className="mr-2 h-4 w-4" />Matching debug</Button>
