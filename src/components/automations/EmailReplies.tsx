@@ -312,7 +312,7 @@ export default function EmailReplies() {
     (m: Message) => {
       const q = search.trim().toLowerCase();
       const s = sender.trim().toLowerCase();
-      const okQ = !q || `${m.subject ?? ""} ${m.body ?? ""}`.toLowerCase().includes(q);
+      const okQ = !q || `${m.subject ?? ""} ${renderDecisionFor(m).text}`.toLowerCase().includes(q);
       const okS = !s || m.address.toLowerCase().includes(s);
       const t = new Date(m.at).getTime();
       const okFrom = !from || t >= new Date(`${from}T00:00:00`).getTime();
@@ -423,9 +423,10 @@ export default function EmailReplies() {
   };
 
   const retryMessage = async (t: Thread, m: Message) => {
-    if (!t.email || !m.body) return;
+    const body = renderDecisionFor(m).text;
+    if (!t.email || !body) return;
     setRetrying(m.id);
-    const ok = await send(t, m.body, m.subject || subjectFor(t), m.attachments);
+    const ok = await send(t, body, m.subject || subjectFor(t), m.attachments);
     setRetrying(null);
     if (ok) { toast.success("Message resent"); await load(); }
   };
