@@ -598,8 +598,8 @@ async function executeGraph(
     while (attempts < maxAttempts) {
       attempts++;
       try {
-        const result = await runAction(db, kind, cfg, ctx, actorId, opts.dryRun === true);
-        push({ status: "success", attempts, result });
+        const outcome = await runAction(db, kind, cfg, ctx, actorId, opts.dryRun === true);
+        push({ status: "success", attempts, result: outcome.result, details: outcome.details ?? null });
         await visitFrom(node.id, depth + 1);
         return;
       } catch (e) {
@@ -609,7 +609,7 @@ async function executeGraph(
     }
     status = "error";
     errorMessage = lastError;
-    push({ status: "error", attempts, result: lastError, error: lastError });
+    push({ status: "error", attempts, result: lastError, error: lastError, details: { error_kind: kind } });
   };
 
   const visitFrom = async (nodeId: string, depth: number, branch?: string) => {
