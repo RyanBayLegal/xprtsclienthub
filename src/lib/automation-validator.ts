@@ -83,7 +83,10 @@ export function validateAutomation(
         const unit = str(cfg.wait_unit) || "seconds";
         const amount = Number(cfg.wait_amount ?? 0);
         if (!(amount > 0)) issues.push({ level: "error", nodeId: n.id, message: `${name}: set how long to wait.` });
-        const seconds = unit === "minutes" ? amount * 60 : amount;
+        const perUnit: Record<string, number> = {
+          seconds: 1, minutes: 60, hours: 3600, days: 86400, weeks: 604800, months: 2629800, years: 31557600,
+        };
+        const seconds = amount * (perUnit[unit] ?? 1);
         if (seconds > 60) issues.push({ level: "warning", nodeId: n.id, message: `${name}: live waiting is capped at 60 seconds.` });
         break;
       }

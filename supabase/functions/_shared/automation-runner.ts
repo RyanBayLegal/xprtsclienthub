@@ -241,6 +241,26 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Hard cap so an edge function invocation can never hang forever.
 const MAX_DELAY_MS = 60_000;
 
+/** Supported wait units and their length in seconds (months/years use average lengths). */
+const WAIT_UNIT_SECONDS: Record<string, number> = {
+  seconds: 1,
+  minutes: 60,
+  hours: 3600,
+  days: 86400,
+  weeks: 604800,
+  months: 2629800,
+  years: 31557600,
+};
+
+function normalizeWaitUnit(unit: unknown): string {
+  const u = String(unit ?? "seconds").toLowerCase();
+  return WAIT_UNIT_SECONDS[u] ? u : "seconds";
+}
+
+function waitMsOf(amount: number, unit: string): number {
+  return (Number(amount) || 0) * WAIT_UNIT_SECONDS[normalizeWaitUnit(unit)] * 1000;
+}
+
 async function inCooldown(
   db: Any,
   automationId: string | null,
@@ -312,9 +332,10 @@ async function simulateAction(
 ): Promise<ActionOutcome> {
   switch (kind) {
     case "delay": {
-      const unit = cfg.wait_unit === "minutes" ? "minute(s)" : "second(s)";
       const amount = Number(cfg.wait_amount || 0);
-      const ms = (cfg.wait_unit === "minutes" ? amount * 60 : amount) * 1000;
+      const unitKey = normalizeWaitUnit(cfg.wait_unit);
+      const unit = `${unitKey.replace(/s$/, "")}(s)`;
+      const ms = waitMsOf(amount, unitKey);
       return {
         result: `[simulated] Wait ${amount} ${unit}`,
         details: { wait_ms: ms, capped_ms: Math.min(ms, MAX_DELAY_MS), capped: ms > MAX_DELAY_MS },
@@ -370,7 +391,7 @@ async function runAction(
   switch (kind) {
     case "delay": {
       const amount = Number(cfg.wait_amount || 0);
-      const ms = (cfg.wait_unit === "minutes" ? amount * 60 : amount) * 1000;
+      const ms = waitMsOf(amount, normalizeWaitUnit(cfg.wait_unit));
       const waited = Math.min(Math.max(ms, 0), MAX_DELAY_MS);
       if (waited > 0) await sleep(waited);
       return {
