@@ -37,7 +37,17 @@ export interface StepRecord {
 const fmtValue = (v: unknown) =>
   v === null || v === undefined || v === "" ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v);
 
-const fmtMs = (ms: number) => (ms >= 1000 ? `${Math.round(ms / 100) / 10}s` : `${ms} ms`);
+const fmtMs = (ms: number) => {
+  if (ms < 1000) return `${ms} ms`;
+  const s = ms / 1000;
+  if (s < 60) return `${Math.round(s * 10) / 10}s`;
+  if (s < 3600) return `${Math.round((s / 60) * 10) / 10} min`;
+  if (s < 86400) return `${Math.round((s / 3600) * 10) / 10} h`;
+  if (s < 604800) return `${Math.round((s / 86400) * 10) / 10} days`;
+  if (s < 2629800) return `${Math.round((s / 604800) * 10) / 10} weeks`;
+  if (s < 31557600) return `${Math.round((s / 2629800) * 10) / 10} months`;
+  return `${Math.round((s / 31557600) * 10) / 10} years`;
+};
 
 interface Props {
   steps: StepRecord[];
