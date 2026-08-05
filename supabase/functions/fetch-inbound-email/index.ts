@@ -48,12 +48,33 @@ class Imap {
 }
 
 async function decodeBody(raw: string, db: Any, uid: string) {
-  const parsed = await new PostalMime().parse(raw);
+  let parsed: Any;
+  try {
+    parsed = await new PostalMime().parse(raw);
+  } catch (e) {
+    return {
+      text: "",
+      html: "",
+      attachments: [] as Any[],
+      parts: [] as Any[],
+      charset: "utf-8",
+      parseError: { message: (e as Error)?.message ?? String(e), part_path: "message/root" },
+    };
+  }
   const attachments: Any[] = [];
   const parts: Any[] = [];
-  if (parsed.text) parts.push({ type: "text/plain", disposition: "inline", size: parsed.text.length });
-  if (parsed.html) parts.push({ type: "text/html", disposition: "inline", size: parsed.html.length });
+  let parseError: Any = null;
+  // Charset declared on the top-level text part; used by the renderer when a
+  // stored body still needs client-side base64/quoted-printable decoding.
+  const charset = (raw.match(/Content-Type:\s*text\/plain[^\n]*charset=["']?([\w-]+)/i)?.[1]
+    || raw.match(/charset=["']?([\w-]+)/i)?.[1] || "utf-8").toLowerCase();
+  if (parsed.text) parts.push({ type: "text/plain", disposition: "inline", size: parsed.text.length, charset, path: "1/text/plain" });
+  if (parsed.html) parts.push({ type: "text/html", disposition: "inline", size: parsed.html.length, charset, path: "2/text/html" });
+  if (!parsed.text && !parsed.html) {
+    parseError = { message: "No decodable text/plain or text/html part was found.", part_path: "message/body" };
+  }
   for (const [index, attachment] of (parsed.attachments || []).entries()) {
+   try {
     const disposition = attachment.disposition === "inline" || attachment.contentId ? "inline" : "attachment";
     const filename = attachment.filename || `${disposition}-${index + 1}`;
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -65,10 +86,13 @@ async function decodeBody(raw: string, db: Any, uid: string) {
       contentType: attachment.mimeType || "application/octet-stream",
       upsert: true,
     });
-    parts.push({ type: attachment.mimeType || "application/octet-stream", disposition, filename, content_id: attachment.contentId || null, size: content.byteLength });
+    parts.push({ type: attachment.mimeType || "application/octet-stream", disposition, filename, content_id: attachment.contentId || null, size: content.byteLength, path: `${index + 3}/${attachment.mimeType || "application/octet-stream"}` });
     if (!error) attachments.push({ path, name: filename, type: attachment.mimeType, size: content.byteLength, disposition, contentId: attachment.contentId || null });
+   } catch (e) {
+     parseError = parseError || { message: (e as Error)?.message ?? String(e), part_path: `${index + 3}/attachment` };
+   }
   }
-  return { text: String(parsed.text || "").trim(), html: String(parsed.html || "").trim(), attachments, parts };
+  return { text: String(parsed.text || "").trim(), html: String(parsed.html || "").trim(), attachments, parts, charset, parseError };
 }
 
 function decodeMime(v: string) {
