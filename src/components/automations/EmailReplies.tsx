@@ -11,8 +11,10 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import DOMPurify from "dompurify";
+import { buildMimeReport, decideRender, type MimePart, type RenderDecision } from "@/lib/email-mime";
 import {
-  Bug, ChevronDown, ChevronRight, Code2, Loader2, Paperclip, RefreshCw, RotateCw, Send, User, X,
+  AlertTriangle, Bug, ChevronDown, ChevronRight, Code2, Download, FileCode2, Loader2, Paperclip,
+  RefreshCw, RotateCw, Send, User, X,
 } from "lucide-react";
 
 type Filter = "all" | "leads" | "clients";
@@ -25,8 +27,6 @@ interface AttachmentRef {
   disposition?: string;
   contentId?: string | null;
 }
-
-interface MimePart { type: string; disposition?: string; filename?: string; content_id?: string | null; size?: number; }
 
 interface Message {
   id: string;
@@ -44,6 +44,9 @@ interface Message {
   matchDebug?: Record<string, unknown> | null;
   mimeParts?: MimePart[];
   sourceId?: string;
+  charset?: string | null;
+  parseError?: { message: string; part_path?: string | null } | null;
+  rawSource?: string | null;
 }
 
 interface Thread {
@@ -58,26 +61,17 @@ interface Thread {
 const asAttachments = (v: unknown): AttachmentRef[] =>
   Array.isArray(v) ? (v as AttachmentRef[]).filter((a) => a && typeof a.path === "string") : [];
 
-// Keeps previously imported malformed MIME messages readable while the backend
-// parser ensures newly synced messages are stored as decoded content.
-const cleanMessageBody = (value: string | null): string => {
-  if (!value) return "";
-  let body = value.replace(/\r\n/g, "\n");
-  const boundaryLine = body.match(/^--[-=\w]+\s*$/m)?.[0];
-  if (boundaryLine || /Content-(?:Type|Transfer-Encoding):/i.test(body)) {
-    const candidates = body.split(/^--[-=\w]+(?:--)?\s*$/m);
-    const plain = candidates.find((part) => /Content-Type:\s*text\/plain/i.test(part));
-    body = plain || candidates.find((part) => !/Content-Type:\s*text\/html/i.test(part)) || body;
-    body = body.replace(/^[\s\S]*?\n\n/, "");
-  }
-  body = body
-    .replace(/=\n/g, "")
-    .replace(/=([0-9A-F]{2})/gi, (_match, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/^Content-(?:Type|Transfer-Encoding|Disposition):.*$/gim, "")
-    .replace(/^--[-=\w]+(?:--)?\s*$/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return body;
+const renderDecisionFor = (m: Message): RenderDecision =>
+  decideRender({ body: m.body, html: m.html, charset: m.charset, mimeParts: m.mimeParts, parseError: m.parseError });
+
+const downloadJson = (filename: string, payload: unknown) => {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 function InlineEmailImage({ attachment, onOpen }: { attachment: AttachmentRef; onOpen: () => void }) {
@@ -112,6 +106,7 @@ export default function EmailReplies() {
   const [retrying, setRetrying] = useState<string | null>(null);
   const [reparsing, setReparsing] = useState<string | null>(null);
   const [inspectMessage, setInspectMessage] = useState<Message | null>(null);
+  const [showRaw, setShowRaw] = useState<Record<string, boolean>>({});
   const [syncing, setSyncing] = useState(false);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -183,7 +178,7 @@ export default function EmailReplies() {
         id: `in:${r.id}`,
         direction: "inbound",
         subject: r.subject,
-        body: cleanMessageBody(r.body_text),
+        body: r.body_text,
         html: r.body_html,
         at: r.received_at,
         address: r.from_email || "",
@@ -193,6 +188,9 @@ export default function EmailReplies() {
         matchDebug: r.match_debug ?? null,
         mimeParts: Array.isArray(r.raw_payload?.mime_parts) ? r.raw_payload.mime_parts : [],
         sourceId: r.id,
+        charset: r.raw_payload?.charset ?? null,
+        parseError: r.raw_payload?.parse_error ?? null,
+        rawSource: r.raw_payload?.raw_source ?? null,
       });
     }
 
@@ -211,7 +209,7 @@ export default function EmailReplies() {
         id: `out:${o.id}`,
         direction: "outbound",
         subject: o.subject,
-        body: cleanMessageBody(o.body_text),
+        body: o.body_text,
         at: o.created_at,
         address: addr,
         status: o.status,
@@ -277,6 +275,28 @@ export default function EmailReplies() {
   };
 
   const safeHtml = (message: Message) => {
+    return sanitizeHtml(message);
+  };
+
+  const exportMime = (m: Message) => {
+    const report = buildMimeReport(
+      {
+        id: m.id,
+        subject: m.subject,
+        address: m.address,
+        at: m.at,
+        messageId: m.messageId,
+        mimeParts: m.mimeParts,
+        attachments: m.attachments,
+        raw: m.rawSource,
+      },
+      renderDecisionFor(m),
+    );
+    downloadJson(`mime-report-${m.id.replace(/[:]/g, "-")}.json`, report);
+    toast.success("MIME report downloaded");
+  };
+
+  const sanitizeHtml = (message: Message) => {
     if (!message.html) return "";
     let html = message.html;
     for (const attachment of message.attachments) {
@@ -315,7 +335,7 @@ export default function EmailReplies() {
     (m: Message) => {
       const q = search.trim().toLowerCase();
       const s = sender.trim().toLowerCase();
-      const okQ = !q || `${m.subject ?? ""} ${m.body ?? ""}`.toLowerCase().includes(q);
+      const okQ = !q || `${m.subject ?? ""} ${renderDecisionFor(m).text}`.toLowerCase().includes(q);
       const okS = !s || m.address.toLowerCase().includes(s);
       const t = new Date(m.at).getTime();
       const okFrom = !from || t >= new Date(`${from}T00:00:00`).getTime();
@@ -426,9 +446,10 @@ export default function EmailReplies() {
   };
 
   const retryMessage = async (t: Thread, m: Message) => {
-    if (!t.email || !m.body) return;
+    const body = renderDecisionFor(m).text;
+    if (!t.email || !body) return;
     setRetrying(m.id);
-    const ok = await send(t, m.body, m.subject || subjectFor(t), m.attachments);
+    const ok = await send(t, body, m.subject || subjectFor(t), m.attachments);
     setRetrying(null);
     if (ok) { toast.success("Message resent"); await load(); }
   };
@@ -454,16 +475,39 @@ export default function EmailReplies() {
               ))}
               {inspectMessage?.mimeParts?.length === 0 && <p className="text-sm text-muted-foreground">No MIME metadata is stored for this older message. Reparse it to inspect its parts.</p>}
             </div>
+            {inspectMessage && (() => {
+              const d = renderDecisionFor(inspectMessage);
+              return (
+                <div className={cn("rounded-md border p-3 text-xs", d.mode === "error" && "border-destructive/40 bg-destructive/10")}>
+                  <p className="font-medium">Renderer decision: {d.mode}</p>
+                  <p className="mt-1 text-muted-foreground">{d.reason}</p>
+                  <p className="mt-1 text-muted-foreground">Charset: {d.charset} · Decoders: {d.decoders.join(", ") || "none"}</p>
+                  {d.mode === "error" && (
+                    <p className="mt-1 text-destructive">
+                      Failing part path: <code className="break-all">{d.failingPartPath || "unknown"}</code>
+                      {d.errorMessage ? ` — ${d.errorMessage}` : ""}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
             <dl className="grid gap-2 text-xs sm:grid-cols-2">
               <div><dt className="text-muted-foreground">Message ID</dt><dd className="break-all">{inspectMessage?.messageId || "—"}</dd></div>
               <div><dt className="text-muted-foreground">Detected attachments</dt><dd>{inspectMessage?.attachments.length || 0}</dd></div>
             </dl>
-            {inspectMessage?.sourceId && (
-              <Button onClick={() => reparseMessage(inspectMessage)} disabled={reparsing === inspectMessage.id}>
-                {reparsing === inspectMessage.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                Reparse and re-render
-              </Button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {inspectMessage?.sourceId && (
+                <Button onClick={() => reparseMessage(inspectMessage)} disabled={reparsing === inspectMessage.id}>
+                  {reparsing === inspectMessage.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Reparse and re-render
+                </Button>
+              )}
+              {inspectMessage && (
+                <Button variant="outline" onClick={() => exportMime(inspectMessage)}>
+                  <Download className="mr-2 h-4 w-4" /> Export MIME JSON
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -593,7 +637,7 @@ export default function EmailReplies() {
                   {matches.slice(0, 5).map((m) => (
                     <Button key={m.id} size="sm" variant="secondary" className="h-6 max-w-[220px] px-2 text-xs" onClick={() => jumpTo(t.key, m.id)}>
                       <span className="truncate">
-                        {new Date(m.at).toLocaleDateString()} · {m.subject || m.body?.slice(0, 30) || "(no subject)"}
+                        {new Date(m.at).toLocaleDateString()} · {m.subject || renderDecisionFor(m).text.slice(0, 30) || "(no subject)"}
                       </span>
                     </Button>
                   ))}
@@ -603,7 +647,7 @@ export default function EmailReplies() {
               {!isOpen && (
                 <p className="mt-1 line-clamp-1 pl-6 text-xs text-muted-foreground">
                   <span className="font-medium">{latest.direction === "inbound" ? "Them" : "You"}:</span>{" "}
-                  {latest.subject || "(no subject)"} — {latest.body}
+                  {latest.subject || "(no subject)"} — {renderDecisionFor(latest).text}
                 </p>
               )}
 
@@ -613,6 +657,8 @@ export default function EmailReplies() {
                     {t.messages.map((m) => {
                       const st = statusLabel(m);
                       const isMatch = hasQuery && messageMatches(m);
+                      const decision = renderDecisionFor(m);
+                      const rawOpen = showRaw[m.id] ?? false;
                       return (
                         <div
                           key={m.id}
@@ -639,13 +685,23 @@ export default function EmailReplies() {
                               </span>
                             </div>
                             {m.subject && <p className="mt-0.5 text-sm font-medium text-foreground">{m.subject}</p>}
-                            {m.html ? (
+                            {decision.mode === "error" ? (
+                              <div className="mt-1 rounded-md border border-destructive/40 bg-destructive/10 p-2">
+                                <p className="flex items-center gap-1.5 text-[11px] font-medium text-destructive">
+                                  <AlertTriangle className="h-3 w-3" /> Could not decode this message
+                                </p>
+                                <p className="mt-1 text-[11px] text-destructive/90">{decision.errorMessage || decision.reason}</p>
+                                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                  Failing part path: <code className="break-all">{decision.failingPartPath || "unknown"}</code>
+                                </p>
+                              </div>
+                            ) : decision.mode === "html" ? (
                               <div
                                 className="prose prose-sm mt-1 max-w-none break-words text-muted-foreground prose-a:text-primary prose-a:underline prose-p:my-1 prose-br:leading-normal dark:prose-invert"
                                 dangerouslySetInnerHTML={{ __html: safeHtml(m) }}
                               />
                             ) : (
-                              <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{m.body}</p>
+                              <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{decision.text}</p>
                             )}
                             {m.attachments.some((a) => a.disposition === "inline" && a.type?.startsWith("image/")) && (
                               <div className="mt-2 space-y-2">
@@ -655,9 +711,27 @@ export default function EmailReplies() {
                               </div>
                             )}
                             {m.direction === "inbound" && (
-                              <Button size="sm" variant="ghost" className="mt-1 h-6 px-1.5 text-[11px]" onClick={() => setInspectMessage(m)}>
-                                <Code2 className="mr-1 h-3 w-3" /> Inspect MIME
-                              </Button>
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => setInspectMessage(m)}>
+                                  <Code2 className="mr-1 h-3 w-3" /> Inspect MIME
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 px-1.5 text-[11px]"
+                                  onClick={() => setShowRaw((s) => ({ ...s, [m.id]: !rawOpen }))}
+                                >
+                                  <FileCode2 className="mr-1 h-3 w-3" /> {rawOpen ? "Hide" : "Show"} raw source
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => exportMime(m)}>
+                                  <Download className="mr-1 h-3 w-3" /> Export JSON
+                                </Button>
+                              </div>
+                            )}
+                            {rawOpen && (
+                              <pre className="mt-1 max-h-72 overflow-auto rounded-md border bg-muted/60 p-2 text-[10px] leading-snug">
+                                {m.rawSource || "No raw MIME source is stored for this message. Use “Reparse and re-render” to fetch it from Gmail."}
+                              </pre>
                             )}
                             {m.attachments.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
