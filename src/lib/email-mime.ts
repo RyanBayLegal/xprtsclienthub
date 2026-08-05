@@ -216,3 +216,159 @@ export function buildMimeReport(message: {
     raw_source: message.raw || null,
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * Decode cache — repeated renders reuse the decoded parts.
+ * ------------------------------------------------------------------ */
+
+const renderCache = new Map<string, RenderDecision>();
+const CACHE_LIMIT = 500;
+
+function cacheKey(id: string, input: DecodeInput): string {
+  const body = input.body || "";
+  const html = input.html || "";
+  // Cheap content fingerprint so edits/reparses invalidate the entry.
+  return [
+    id,
+    body.length,
+    html.length,
+    input.charset || "",
+    input.parseError?.message || "",
+    body.slice(0, 32),
+    body.slice(-32),
+  ].join("|");
+}
+
+/** Memoised decideRender keyed by message id + content fingerprint. */
+export function decideRenderCached(id: string, input: DecodeInput): RenderDecision {
+  const key = cacheKey(id, input);
+  const hit = renderCache.get(key);
+  if (hit) return hit;
+  const decision = decideRender(input);
+  if (renderCache.size >= CACHE_LIMIT) {
+    const oldest = renderCache.keys().next().value as string | undefined;
+    if (oldest) renderCache.delete(oldest);
+  }
+  renderCache.set(key, decision);
+  return decision;
+}
+
+/** Drops cached decisions (all, or just the ones for one message id). */
+export function clearRenderCache(id?: string) {
+  if (!id) { renderCache.clear(); return; }
+  for (const key of [...renderCache.keys()]) {
+    if (key.startsWith(`${id}|`)) renderCache.delete(key);
+  }
+}
+
+export function renderCacheSize(): number {
+  return renderCache.size;
+}
+
+/* ------------------------------------------------------------------ *
+ * Auto-captured regression fixtures for production decode failures.
+ * ------------------------------------------------------------------ */
+
+export interface CapturedFixture extends MimeFixtureShape {
+  capturedAt: string;
+}
+
+export interface MimeFixtureShape {
+  name: string;
+  body: string;
+  html?: string | null;
+  charset?: string | null;
+  expectMode: RenderMode;
+  failingPartPath?: string | null;
+}
+
+const FIXTURE_KEY = "mime-fixtures:captured";
+const FIXTURE_TOGGLE_KEY = "mime-fixtures:auto-capture";
+const MAX_FIXTURES = 25;
+
+export function isFixtureCaptureEnabled(): boolean {
+  try {
+    return localStorage.getItem(FIXTURE_TOGGLE_KEY) !== "off";
+  } catch {
+    return false;
+  }
+}
+
+export function setFixtureCaptureEnabled(enabled: boolean) {
+  try {
+    localStorage.setItem(FIXTURE_TOGGLE_KEY, enabled ? "on" : "off");
+  } catch { /* storage unavailable */ }
+}
+
+export function listCapturedFixtures(): CapturedFixture[] {
+  try {
+    const raw = localStorage.getItem(FIXTURE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as CapturedFixture[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearCapturedFixtures() {
+  try { localStorage.removeItem(FIXTURE_KEY); } catch { /* noop */ }
+}
+
+/**
+ * Saves a failing payload as a regression fixture (deduplicated by name).
+ * Returns true when a new fixture was stored.
+ */
+export function captureFailingFixture(
+  name: string,
+  input: DecodeInput,
+  decision: RenderDecision,
+): boolean {
+  if (decision.mode !== "error" || !isFixtureCaptureEnabled()) return false;
+  const existing = listCapturedFixtures();
+  if (existing.some((f) => f.name === name)) return false;
+  const fixture: CapturedFixture = {
+    name,
+    body: (input.body || "").slice(0, 20000),
+    html: input.html ? input.html.slice(0, 20000) : null,
+    charset: input.charset ?? null,
+    expectMode: "error",
+    failingPartPath: decision.failingPartPath ?? null,
+    capturedAt: new Date().toISOString(),
+  };
+  const next = [fixture, ...existing].slice(0, MAX_FIXTURES);
+  try {
+    localStorage.setItem(FIXTURE_KEY, JSON.stringify(next));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Renders captured fixtures as a drop-in file for src/test/fixtures/mime. */
+export function serializeFixtures(fixtures: CapturedFixture[]): string {
+  const entries = fixtures
+    .map((f) =>
+      [
+        "  {",
+        `    name: ${JSON.stringify(f.name)},`,
+        `    body: ${JSON.stringify(f.body)},`,
+        f.html ? `    html: ${JSON.stringify(f.html)},` : "",
+        f.charset ? `    charset: ${JSON.stringify(f.charset)},` : "",
+        `    expectMode: ${JSON.stringify(f.expectMode)},`,
+        "  },",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    )
+    .join("\n");
+  return [
+    "// Auto-captured from production decode failures.",
+    "// Append these entries to src/test/fixtures/mime/index.ts.",
+    "import type { MimeFixture } from \"@/test/fixtures/mime\";",
+    "",
+    "export const capturedMimeFixtures: MimeFixture[] = [",
+    entries,
+    "];",
+    "",
+  ].join("\n");
+}
