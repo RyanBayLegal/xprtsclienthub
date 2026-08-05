@@ -14,7 +14,7 @@ import {
   Bug, ChevronDown, ChevronRight, Loader2, Paperclip, RefreshCw, RotateCw, Send, User, X,
 } from "lucide-react";
 
-type Filter = "all" | "leads" | "clients" | "unmatched";
+type Filter = "all" | "leads" | "clients";
 
 interface AttachmentRef {
   path: string;
@@ -40,7 +40,7 @@ interface Message {
 
 interface Thread {
   key: string;
-  kind: "lead" | "client" | "unmatched";
+  kind: "lead" | "client";
   id: string | null;
   name: string;
   email: string;
@@ -66,6 +66,7 @@ export default function EmailReplies() {
   const [syncing, setSyncing] = useState(false);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [pollInterval, setPollInterval] = useState(60);
   const [debugRows, setDebugRows] = useState<Record<string, unknown>[]>([]);
   const [debugOpen, setDebugOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -74,7 +75,7 @@ export default function EmailReplies() {
   const [highlighted, setHighlighted] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [inboundRes, outboundRes, syncRes] = await Promise.all([
+    const [inboundRes, outboundRes, syncRes, automationRes] = await Promise.all([
       (supabase as any)
         .from("inbound_emails")
         .select("id, from_email, from_name, subject, body_text, received_at, matched_lead_id, matched_client_id, attachments, message_id, in_reply_to, thread_id, match_method, match_debug")
@@ -86,13 +87,19 @@ export default function EmailReplies() {
         .order("created_at", { ascending: false })
         .limit(300),
       (supabase as any).from("email_sync_state").select("last_checked_at").maybeSingle(),
+      (supabase as any).from("automations").select("trigger_config").eq("trigger_type", "email_received").eq("is_active", true),
     ]);
 
     setLastChecked((syncRes as any)?.data?.last_checked_at ?? null);
+    const pollingConfigs = (((automationRes as any)?.data || []) as { trigger_config?: Record<string, unknown> }[])
+      .map((row) => row.trigger_config || {})
+      .filter((cfg) => cfg.auto_refresh_enabled !== false);
+    setAutoRefresh(pollingConfigs.length > 0);
+    setPollInterval(Math.max(15, Math.min(...pollingConfigs.map((cfg) => Number(cfg.poll_interval_seconds) || 60), 60)));
 
-    const inbound = (inboundRes.data as any[]) || [];
+    const inbound = ((inboundRes.data as any[]) || []).filter((r) => r.matched_lead_id || r.matched_client_id);
     const outbound = ((outboundRes.data as any[]) || []).filter(
-      (o) => (o.direction ?? "outbound") === "outbound" && o.recipient_email,
+      (o) => (o.direction ?? "outbound") === "outbound" && o.recipient_email && (o.lead_id || o.client_profile_id),
     );
 
     const leadIds = new Set<string>();
@@ -117,7 +124,7 @@ export default function EmailReplies() {
     };
 
     for (const r of inbound) {
-      const kind: Thread["kind"] = r.matched_client_id ? "client" : r.matched_lead_id ? "lead" : "unmatched";
+      const kind: Thread["kind"] = r.matched_client_id ? "client" : "lead";
       const id = r.matched_client_id || r.matched_lead_id || null;
       const name =
         (kind === "client" && clientMap.get(id!)?.name) ||
@@ -141,7 +148,7 @@ export default function EmailReplies() {
       (raw || "").match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0]?.toLowerCase() || "";
 
     for (const o of outbound) {
-      const kind: Thread["kind"] = o.client_profile_id ? "client" : o.lead_id ? "lead" : "unmatched";
+      const kind: Thread["kind"] = o.client_profile_id ? "client" : "lead";
       const id = o.client_profile_id || o.lead_id || null;
       const name =
         (kind === "client" && clientMap.get(id!)?.name) ||
@@ -208,9 +215,9 @@ export default function EmailReplies() {
     if (!autoRefresh) return;
     const id = setInterval(() => {
       if (document.visibilityState === "visible") sync(true);
-    }, 60000);
+    }, pollInterval * 1000);
     return () => clearInterval(id);
-  }, [autoRefresh, sync]);
+  }, [autoRefresh, pollInterval, sync]);
 
   // Live updates when rows are written by automations or other users.
   useEffect(() => {
@@ -254,7 +261,7 @@ export default function EmailReplies() {
     const s = sender.trim().toLowerCase();
     return threads
       .filter((t) =>
-        filter === "all" ? true : filter === "leads" ? t.kind === "lead" : filter === "clients" ? t.kind === "client" : t.kind === "unmatched",
+        filter === "all" ? true : filter === "leads" ? t.kind === "lead" : t.kind === "client",
       )
       .filter((t) => {
         if (!hasQuery) return true;
@@ -354,7 +361,7 @@ export default function EmailReplies() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {(["all", "leads", "clients", "unmatched"] as Filter[]).map((f) => (
+        {(["all", "leads", "clients"] as Filter[]).map((f) => (
           <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="capitalize">
             {f}
           </Button>
@@ -368,10 +375,10 @@ export default function EmailReplies() {
           <Button
             size="sm"
             variant={autoRefresh ? "secondary" : "outline"}
-            onClick={() => setAutoRefresh((v) => !v)}
-            title="Automatically pull new replies every minute"
+            disabled
+            title="Configure auto-refresh on each inbound-email automation"
           >
-            Auto-refresh {autoRefresh ? "on" : "off"}
+            Auto-refresh {autoRefresh ? `every ${pollInterval}s` : "off"}
           </Button>
           <Dialog open={debugOpen} onOpenChange={setDebugOpen}>
             <DialogTrigger asChild>

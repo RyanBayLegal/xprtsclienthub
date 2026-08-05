@@ -93,6 +93,15 @@ function decodeMime(v: string) {
     q.replace(/_/g, " ").replace(/=([0-9A-F]{2})/gi, (_x: string, h: string) => String.fromCharCode(parseInt(h, 16))));
 }
 
+function normalizeMessageId(value: string) {
+  return value.trim().toLowerCase().replace(/^<|>$/g, "");
+}
+
+async function sha256(value: string) {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   const json = (b: unknown, s = 200) =>
@@ -133,15 +142,13 @@ Deno.serve(async (req: Request) => {
       const lastUid = Number((syncState as Any)?.last_uid || 0);
       const since = new Date(Date.now() - days * 86400000);
       const mm = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][since.getUTCMonth()];
-      // Incremental: only look at UIDs newer than the last one we imported.
-      const criteria = lastUid > 0
-        ? `UID ${lastUid + 1}:*`
-        : `SINCE ${since.getUTCDate()}-${mm}-${since.getUTCFullYear()}`;
+      // Re-scan a bounded recent window so messages skipped before a contact was
+      // added can be backfilled. Database uniqueness makes repeated polls safe.
+      const criteria = `SINCE ${since.getUTCDate()}-${mm}-${since.getUTCFullYear()}`;
       const searchRes = await imap.cmd(`UID SEARCH ${criteria}`);
       const uids = (searchRes.match(/^\* SEARCH([\d\s]*)/m)?.[1] || "")
         .trim().split(/\s+/).filter(Boolean)
-        .filter((u) => Number(u) > lastUid)
-        .slice(-60);
+        .slice(-250);
 
       let stored = 0;
       let maxUid = lastUid;
@@ -166,8 +173,8 @@ Deno.serve(async (req: Request) => {
 
       for (const uid of uids) {
         if (Number(uid) > maxUid) maxUid = Number(uid);
-        const key = `gmail:${uid}`;
-        const { data: exists } = await db.from("inbound_emails").select("id").eq("message_uid", key).maybeSingle();
+        const key = `gmail:inbox:${uid}`;
+        const { data: exists } = await db.from("inbound_emails").select("id").eq("provider_fingerprint", key).maybeSingle();
         if (exists) continue;
 
         const raw = await imap.cmd(`UID FETCH ${uid} (BODY.PEEK[])`);
@@ -190,6 +197,28 @@ Deno.serve(async (req: Request) => {
         const inReplyTo = h("In-Reply-To");
         const referencesHeader = h("References");
 
+        const contentFingerprint = `gmail:content:${await sha256([
+          normalizeMessageId(messageId), fromEmail, subject.trim().toLowerCase(),
+          isNaN(receivedAt.getTime()) ? "" : receivedAt.toISOString(), text.trim(),
+        ].join("\n"))}`;
+        const dedupeFilters = [key, contentFingerprint];
+        const { data: duplicate } = await db.from("inbound_emails").select("id")
+          .in("provider_fingerprint", dedupeFilters).limit(1);
+        if ((duplicate || []).length) continue;
+        if (messageId) {
+          const { data: duplicateMessage } = await db.from("inbound_emails").select("id")
+            .ilike("message_id", messageId.trim()).limit(1);
+          if ((duplicateMessage || []).length) continue;
+        }
+
+        // The sender must be a known lead/client before reply headers may attach it.
+        const senderClient = clientByEmail.get(fromEmail) || null;
+        const senderLead = leadByEmail.get(fromEmail) || null;
+        if (!senderClient && !senderLead) {
+          debug.push({ uid, from_email: fromEmail, subject, message_id: messageId || null, stored: false, reason: "Sender is not on any lead or client record" });
+          continue;
+        }
+
         // 1) Header-based matching: link the reply to the outbound message it answers.
         const refIds = [...new Set(
           `${inReplyTo} ${referencesHeader}`.match(/<[^>\s]+>/g) || [],
@@ -211,10 +240,8 @@ Deno.serve(async (req: Request) => {
 
         // 2) Fall back to the sender address on a known lead or client.
         if (!lead && !client) {
-          const c = clientByEmail.get(fromEmail);
-          const l = leadByEmail.get(fromEmail);
-          if (c) { client = c; matchMethod = "sender:client-email"; }
-          else if (l) { lead = l; matchMethod = "sender:lead-email"; }
+          if (senderClient) { client = senderClient; matchMethod = "sender:client-email"; }
+          else if (senderLead) { lead = senderLead; matchMethod = "sender:lead-email"; }
         }
 
         const threadId = client ? `client:${client.id}` : lead ? `lead:${lead.id}` : null;
@@ -233,14 +260,9 @@ Deno.serve(async (req: Request) => {
           received_at: isNaN(receivedAt.getTime()) ? new Date().toISOString() : receivedAt.toISOString(),
         };
 
-        // Skip anything that is not from a known lead or client.
-        if (!lead && !client) {
-          debug.push({ ...decision, stored: false, reason: "Sender is not on any lead or client record" });
-          continue;
-        }
         debug.push({ ...decision, stored: true, reason: matchMethod.startsWith("header") ? "Matched by reply headers" : "Matched by sender email" });
 
-        const { data: inserted } = await db.from("inbound_emails").insert({
+        const { data: inserted, error: insertError } = await db.from("inbound_emails").insert({
           from_email: fromEmail,
           from_name: fromName || null,
           to_email: h("To") || user,
@@ -249,6 +271,7 @@ Deno.serve(async (req: Request) => {
           body_html: html || null,
           raw_payload: { source: "imap", uid },
           message_uid: key,
+          provider_fingerprint: key,
           message_id: messageId || null,
           in_reply_to: inReplyTo || null,
           references_header: referencesHeader || null,
@@ -260,6 +283,11 @@ Deno.serve(async (req: Request) => {
           processed: true,
           received_at: isNaN(receivedAt.getTime()) ? new Date().toISOString() : receivedAt.toISOString(),
         }).select("id").maybeSingle();
+
+        if (insertError) {
+          if (insertError.code === "23505") continue;
+          throw insertError;
+        }
 
         stored++;
         seen.push(fromEmail);
