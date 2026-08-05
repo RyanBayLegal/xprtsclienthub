@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import DOMPurify from "dompurify";
 import {
-  Bug, ChevronDown, ChevronRight, Loader2, Paperclip, RefreshCw, RotateCw, Send, User, X,
+  Bug, ChevronDown, ChevronRight, Code2, Loader2, Paperclip, RefreshCw, RotateCw, Send, User, X,
 } from "lucide-react";
 
 type Filter = "all" | "leads" | "clients";
@@ -21,13 +22,18 @@ interface AttachmentRef {
   name: string;
   type?: string;
   size?: number;
+  disposition?: string;
+  contentId?: string | null;
 }
+
+interface MimePart { type: string; disposition?: string; filename?: string; content_id?: string | null; size?: number; }
 
 interface Message {
   id: string;
   direction: "inbound" | "outbound";
   subject: string | null;
   body: string | null;
+  html?: string | null;
   at: string;
   address: string;
   status?: string | null;
@@ -36,6 +42,8 @@ interface Message {
   messageId?: string | null;
   matchMethod?: string | null;
   matchDebug?: Record<string, unknown> | null;
+  mimeParts?: MimePart[];
+  sourceId?: string;
 }
 
 interface Thread {
@@ -72,6 +80,23 @@ const cleanMessageBody = (value: string | null): string => {
   return body;
 };
 
+function InlineEmailImage({ attachment, onOpen }: { attachment: AttachmentRef; onOpen: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    supabase.storage.from("email-attachments").createSignedUrl(attachment.path, 3600).then(({ data }) => {
+      if (active) setUrl(data?.signedUrl || null);
+    });
+    return () => { active = false; };
+  }, [attachment.path]);
+  if (!url) return <div className="h-20 animate-pulse rounded-md bg-muted" />;
+  return (
+    <button type="button" className="block max-w-full overflow-hidden rounded-md border" onClick={onOpen} title={`Open ${attachment.name}`}>
+      <img src={url} alt={attachment.name || "Inline email image"} className="max-h-80 max-w-full object-contain" loading="lazy" />
+    </button>
+  );
+}
+
 /** Back-and-forth email conversations with leads and clients. */
 export default function EmailReplies() {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -85,6 +110,8 @@ export default function EmailReplies() {
   const [files, setFiles] = useState<Record<string, File[]>>({});
   const [sending, setSending] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [reparsing, setReparsing] = useState<string | null>(null);
+  const [inspectMessage, setInspectMessage] = useState<Message | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -100,7 +127,7 @@ export default function EmailReplies() {
     const [inboundRes, outboundRes, syncRes, automationRes] = await Promise.all([
       (supabase as any)
         .from("inbound_emails")
-        .select("id, from_email, from_name, subject, body_text, received_at, matched_lead_id, matched_client_id, attachments, message_id, in_reply_to, thread_id, match_method, match_debug")
+        .select("id, from_email, from_name, subject, body_text, body_html, received_at, matched_lead_id, matched_client_id, attachments, message_id, in_reply_to, thread_id, match_method, match_debug, raw_payload")
         .order("received_at", { ascending: false })
         .limit(300),
       (supabase as any)
@@ -157,12 +184,15 @@ export default function EmailReplies() {
         direction: "inbound",
         subject: r.subject,
         body: cleanMessageBody(r.body_text),
+        html: r.body_html,
         at: r.received_at,
         address: r.from_email || "",
         attachments: asAttachments(r.attachments),
         messageId: r.message_id ?? null,
         matchMethod: r.match_method ?? null,
         matchDebug: r.match_debug ?? null,
+        mimeParts: Array.isArray(r.raw_payload?.mime_parts) ? r.raw_payload.mime_parts : [],
+        sourceId: r.id,
       });
     }
 
@@ -231,6 +261,36 @@ export default function EmailReplies() {
   }, [load]);
 
   const checkForReplies = () => sync(false);
+
+  const reparseMessage = async (message: Message) => {
+    if (!message.sourceId) return;
+    setReparsing(message.id);
+    const { data, error } = await supabase.functions.invoke("fetch-inbound-email", { body: { reparse_id: message.sourceId } });
+    setReparsing(null);
+    if (error || (data as any)?.error) {
+      toast.error((data as any)?.error || error?.message || "Could not reparse message");
+      return;
+    }
+    toast.success("Message reparsed with the latest MIME decoder");
+    setInspectMessage(null);
+    await load();
+  };
+
+  const safeHtml = (message: Message) => {
+    if (!message.html) return "";
+    let html = message.html;
+    for (const attachment of message.attachments) {
+      if (attachment.contentId) {
+        const cid = `cid:${attachment.contentId.replace(/^<|>$/g, "")}`;
+        html = html.split(cid).join("");
+      }
+    }
+    return DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      FORBID_TAGS: ["style", "script", "iframe", "form", "input", "button"],
+      FORBID_ATTR: ["style", "srcset"],
+    });
+  };
 
   // Automatic incremental polling so replies land in threads on their own.
   useEffect(() => {
@@ -382,6 +442,31 @@ export default function EmailReplies() {
 
   return (
     <div className="space-y-3">
+      <Dialog open={Boolean(inspectMessage)} onOpenChange={(value) => { if (!value) setInspectMessage(null); }}>
+        <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
+          <DialogHeader><DialogTitle>Message inspector</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {(inspectMessage?.mimeParts || []).map((part, index) => (
+                <Badge key={`${part.type}-${index}`} variant="outline">
+                  {part.type} · {part.disposition || "inline"}{part.filename ? ` · ${part.filename}` : ""}
+                </Badge>
+              ))}
+              {inspectMessage?.mimeParts?.length === 0 && <p className="text-sm text-muted-foreground">No MIME metadata is stored for this older message. Reparse it to inspect its parts.</p>}
+            </div>
+            <dl className="grid gap-2 text-xs sm:grid-cols-2">
+              <div><dt className="text-muted-foreground">Message ID</dt><dd className="break-all">{inspectMessage?.messageId || "—"}</dd></div>
+              <div><dt className="text-muted-foreground">Detected attachments</dt><dd>{inspectMessage?.attachments.length || 0}</dd></div>
+            </dl>
+            {inspectMessage?.sourceId && (
+              <Button onClick={() => reparseMessage(inspectMessage)} disabled={reparsing === inspectMessage.id}>
+                {reparsing === inspectMessage.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Reparse and re-render
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-wrap items-center gap-2">
         {(["all", "leads", "clients"] as Filter[]).map((f) => (
           <Button key={f} size="sm" variant={filter === f ? "default" : "outline"} onClick={() => setFilter(f)} className="capitalize">
@@ -554,10 +639,29 @@ export default function EmailReplies() {
                               </span>
                             </div>
                             {m.subject && <p className="mt-0.5 text-sm font-medium text-foreground">{m.subject}</p>}
-                            <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">{m.body}</p>
+                            {m.html ? (
+                              <div
+                                className="prose prose-sm mt-1 max-w-none break-words text-muted-foreground prose-a:text-primary prose-a:underline prose-p:my-1 prose-br:leading-normal dark:prose-invert"
+                                dangerouslySetInnerHTML={{ __html: safeHtml(m) }}
+                              />
+                            ) : (
+                              <p className="mt-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">{m.body}</p>
+                            )}
+                            {m.attachments.some((a) => a.disposition === "inline" && a.type?.startsWith("image/")) && (
+                              <div className="mt-2 space-y-2">
+                                {m.attachments
+                                  .filter((a) => a.disposition === "inline" && a.type?.startsWith("image/"))
+                                  .map((a) => <InlineEmailImage key={a.path} attachment={a} onOpen={() => openAttachment(a)} />)}
+                              </div>
+                            )}
+                            {m.direction === "inbound" && (
+                              <Button size="sm" variant="ghost" className="mt-1 h-6 px-1.5 text-[11px]" onClick={() => setInspectMessage(m)}>
+                                <Code2 className="mr-1 h-3 w-3" /> Inspect MIME
+                              </Button>
+                            )}
                             {m.attachments.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                {m.attachments.map((a) => (
+                                {m.attachments.filter((a) => a.disposition !== "inline" || !a.type?.startsWith("image/")).map((a) => (
                                   <Button key={a.path} size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => openAttachment(a)}>
                                     <Paperclip className="mr-1 h-3 w-3" />
                                     <span className="max-w-[160px] truncate">{a.name}</span>

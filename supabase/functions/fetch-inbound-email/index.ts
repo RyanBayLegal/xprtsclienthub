@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import PostalMime from "npm:postal-mime@2.4.3";
 import { corsHeaders, adminClient, runAutomations } from "../_shared/automation-runner.ts";
 
 // Pulls recent messages from the configured Gmail mailbox over IMAP and stores
@@ -46,75 +47,28 @@ class Imap {
   close() { try { this.conn.close(); } catch (_) { /* ignore */ } }
 }
 
-function splitEntity(raw: string) {
-  const headerEnd = raw.search(/\r?\n\r?\n/);
-  if (headerEnd < 0) return { headers: "", body: raw };
-  const separator = raw.slice(headerEnd).match(/^\r?\n\r?\n/)?.[0] || "";
-  return { headers: raw.slice(0, headerEnd).replace(/\r?\n[ \t]+/g, " "), body: raw.slice(headerEnd + separator.length) };
-}
-
-function decodeTransfer(body: string, encoding: string) {
-  if (encoding === "base64") {
-    try {
-      const bytes = Uint8Array.from(atob(body.replace(/\s+/g, "")), (c) => c.charCodeAt(0));
-      return new TextDecoder().decode(bytes);
-    } catch { return body; }
+async function decodeBody(raw: string, db: Any, uid: string) {
+  const parsed = await new PostalMime().parse(raw);
+  const attachments: Any[] = [];
+  const parts: Any[] = [];
+  if (parsed.text) parts.push({ type: "text/plain", disposition: "inline", size: parsed.text.length });
+  if (parsed.html) parts.push({ type: "text/html", disposition: "inline", size: parsed.html.length });
+  for (const [index, attachment] of (parsed.attachments || []).entries()) {
+    const disposition = attachment.disposition === "inline" || attachment.contentId ? "inline" : "attachment";
+    const filename = attachment.filename || `${disposition}-${index + 1}`;
+    const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `inbound/${uid}/${index}-${safeName}`;
+    const content = attachment.content instanceof Uint8Array
+      ? attachment.content
+      : new TextEncoder().encode(String(attachment.content || ""));
+    const { error } = await db.storage.from("email-attachments").upload(path, content, {
+      contentType: attachment.mimeType || "application/octet-stream",
+      upsert: true,
+    });
+    parts.push({ type: attachment.mimeType || "application/octet-stream", disposition, filename, content_id: attachment.contentId || null, size: content.byteLength });
+    if (!error) attachments.push({ path, name: filename, type: attachment.mimeType, size: content.byteLength, disposition, contentId: attachment.contentId || null });
   }
-  if (encoding === "quoted-printable") {
-    const compact = body.replace(/=\r?\n/g, "");
-    const bytes: number[] = [];
-    for (let i = 0; i < compact.length; i += 1) {
-      const hex = compact.slice(i + 1, i + 3);
-      if (compact[i] === "=" && /^[0-9a-f]{2}$/i.test(hex)) {
-        bytes.push(parseInt(hex, 16));
-        i += 2;
-      } else {
-        bytes.push(...new TextEncoder().encode(compact[i]));
-      }
-    }
-    return new TextDecoder().decode(Uint8Array.from(bytes));
-  }
-  return body;
-}
-
-function decodeBody(raw: string): { text: string; html: string } {
-  const found = { text: [] as string[], html: [] as string[] };
-  const visit = (entity: string) => {
-    const { headers, body } = splitEntity(entity.replace(/^\r?\n/, ""));
-    const contentType = headers.match(/^Content-Type:\s*([^;\r\n]+)/im)?.[1]?.toLowerCase() || "text/plain";
-    const boundary = headers.match(/boundary\s*=\s*(?:"([^"]+)"|([^;\r\n]+))/i)?.slice(1).find(Boolean)?.trim();
-    if (contentType.startsWith("multipart/") && boundary) {
-      const marker = `--${boundary}`;
-      for (const part of body.split(marker).slice(1)) {
-        const clean = part.replace(/^\r?\n/, "").replace(/\r?\n--\s*$/, "");
-        if (clean.trim() && clean.trim() !== "--") visit(clean);
-      }
-      return;
-    }
-    const disposition = headers.match(/^Content-Disposition:\s*([^;\r\n]+)/im)?.[1]?.toLowerCase() || "";
-    if (disposition === "attachment") return;
-    const encoding = headers.match(/^Content-Transfer-Encoding:\s*(\S+)/im)?.[1]?.toLowerCase() || "";
-    const decoded = decodeTransfer(body, encoding).replace(/\r\n/g, "\n").trim();
-    if (!decoded) return;
-    if (contentType === "text/html") found.html.push(decoded);
-    else if (contentType === "text/plain") found.text.push(decoded);
-  };
-
-  visit(raw);
-  const html = found.html[0] || "";
-  let text = found.text[0] || (html
-    .replace(/<\s*br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|tr)>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">"));
-  text = text
-    .split(/\n(?:>|On .+ wrote:)/)[0]
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return { text, html };
+  return { text: String(parsed.text || "").trim(), html: String(parsed.html || "").trim(), attachments, parts };
 }
 
 function decodeMime(v: string) {
@@ -168,6 +122,14 @@ Deno.serve(async (req: Request) => {
       await imap.cmd(`SELECT INBOX`);
 
       const url = new URL(req.url);
+      const requestBody = req.method === "POST" ? await req.clone().json().catch(() => ({})) as Any : {};
+      const reparseId = String(requestBody?.reparse_id || "");
+      let reparseUid = "";
+      if (reparseId) {
+        const { data: target } = await db.from("inbound_emails").select("message_uid").eq("id", reparseId).maybeSingle();
+        reparseUid = String(target?.message_uid || "").replace(/^gmail:/, "");
+        if (!reparseUid) return json({ error: "This message cannot be reparsed because its Gmail source ID is unavailable." }, 400);
+      }
       const days = Number(url.searchParams.get("days") || 14);
       const { data: syncState } = await db.from("email_sync_state").select("last_uid").eq("id", true).maybeSingle();
       const lastUid = Number((syncState as Any)?.last_uid || 0);
@@ -177,9 +139,10 @@ Deno.serve(async (req: Request) => {
       // added can be backfilled. Database uniqueness makes repeated polls safe.
       const criteria = `SINCE ${since.getUTCDate()}-${mm}-${since.getUTCFullYear()}`;
       const searchRes = await imap.cmd(`UID SEARCH ${criteria}`);
-      const uids = (searchRes.match(/^\* SEARCH([\d\s]*)/m)?.[1] || "")
+      const searchedUids = (searchRes.match(/^\* SEARCH([\d\s]*)/m)?.[1] || "")
         .trim().split(/\s+/).filter(Boolean)
         .slice(-250);
+      const uids = reparseUid ? [reparseUid] : searchedUids;
 
       let stored = 0;
       let maxUid = lastUid;
@@ -206,7 +169,7 @@ Deno.serve(async (req: Request) => {
         if (Number(uid) > maxUid) maxUid = Number(uid);
         const key = `gmail:${uid}`;
         const { data: exists } = await db.from("inbound_emails").select("id").eq("message_uid", key).maybeSingle();
-        if (exists) continue;
+        if (exists && !reparseUid) continue;
 
         const raw = await imap.cmd(`UID FETCH ${uid} (BODY.PEEK[])`);
         const literal = raw.match(/\{(\d+)\}\r?\n/);
@@ -228,7 +191,7 @@ Deno.serve(async (req: Request) => {
         const subject = h("Subject");
         const dateHeader = h("Date");
         const receivedAt = dateHeader ? new Date(dateHeader) : new Date();
-        const { text, html } = decodeBody(message);
+        const { text, html, attachments, parts } = await decodeBody(message, db, uid);
         const messageId = h("Message-ID") || h("Message-Id");
         const inReplyTo = h("In-Reply-To");
         const referencesHeader = h("References");
@@ -239,8 +202,8 @@ Deno.serve(async (req: Request) => {
         ].join("\n"))}`;
         const { data: duplicate } = await db.from("inbound_emails").select("id")
           .eq("provider_fingerprint", contentFingerprint).limit(1);
-        if ((duplicate || []).length) continue;
-        if (messageId) {
+        if (!reparseUid && (duplicate || []).length) continue;
+        if (!reparseUid && messageId) {
           const { data: duplicateMessage } = await db.from("inbound_emails").select("id")
             .ilike("message_id", messageId.trim()).limit(1);
           if ((duplicateMessage || []).length) continue;
@@ -297,14 +260,15 @@ Deno.serve(async (req: Request) => {
 
         debug.push({ ...decision, stored: true, reason: matchMethod.startsWith("header") ? "Matched by reply headers" : "Matched by sender email" });
 
-        const { data: inserted, error: insertError } = await db.from("inbound_emails").insert({
+        const values = {
           from_email: fromEmail,
           from_name: fromName || null,
           to_email: h("To") || user,
           subject: subject || null,
           body_text: text || null,
           body_html: html || null,
-          raw_payload: { source: "imap", uid },
+          raw_payload: { source: "imap", uid, mime_parts: parts, parser: "postal-mime-2.4.3" },
+          attachments,
           message_uid: key,
           provider_fingerprint: contentFingerprint,
           message_id: messageId || null,
@@ -317,7 +281,11 @@ Deno.serve(async (req: Request) => {
           matched_client_id: client?.id ?? null,
           processed: true,
           received_at: isNaN(receivedAt.getTime()) ? new Date().toISOString() : receivedAt.toISOString(),
-        }).select("id").maybeSingle();
+        };
+        const write = reparseUid
+          ? db.from("inbound_emails").update(values).eq("id", reparseId).select("id").maybeSingle()
+          : db.from("inbound_emails").insert(values).select("id").maybeSingle();
+        const { data: inserted, error: insertError } = await write;
 
         if (insertError) {
           if (insertError.code === "23505") continue;
@@ -327,7 +295,7 @@ Deno.serve(async (req: Request) => {
         stored++;
         seen.push(fromEmail);
 
-        await runAutomations("email_received", {
+        if (!reparseUid) await runAutomations("email_received", {
           email_id: inserted?.id ?? null,
           from_email: fromEmail,
           from_name: fromName,
@@ -347,7 +315,7 @@ Deno.serve(async (req: Request) => {
         last_uid: maxUid > 0 ? maxUid : null,
         updated_at: new Date().toISOString(),
       });
-      return json({ success: true, checked: uids.length, stored, senders: seen, debug });
+      return json({ success: true, checked: uids.length, stored, reparsed: Boolean(reparseUid), senders: seen, debug });
     } finally {
       imap.close();
     }
