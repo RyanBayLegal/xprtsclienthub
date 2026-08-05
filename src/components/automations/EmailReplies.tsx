@@ -354,6 +354,52 @@ export default function EmailReplies() {
               Checked {formatDistanceToNow(new Date(lastChecked), { addSuffix: true })}
             </span>
           )}
+          <Button
+            size="sm"
+            variant={autoRefresh ? "secondary" : "outline"}
+            onClick={() => setAutoRefresh((v) => !v)}
+            title="Automatically pull new replies every minute"
+          >
+            Auto-refresh {autoRefresh ? "on" : "off"}
+          </Button>
+          <Dialog open={debugOpen} onOpenChange={setDebugOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline"><Bug className="mr-2 h-4 w-4" />Matching debug</Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
+              <DialogHeader><DialogTitle>Message matching debug</DialogTitle></DialogHeader>
+              <p className="text-xs text-muted-foreground">
+                Shows how each fetched message was matched: reply headers first (Message-ID / In-Reply-To / References),
+                then the sender address against lead and client records. Messages from addresses that are not on a lead
+                or client are never stored.
+              </p>
+              {debugRows.length === 0 && storedDebug.length === 0 && (
+                <p className="text-sm text-muted-foreground">Run “Check for replies” to see matching details.</p>
+              )}
+              {[...debugRows, ...storedDebug].map((row, i) => {
+                const r = row as Record<string, any>;
+                return (
+                  <div key={i} className="rounded-md border p-3 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={r.stored === false ? "destructive" : "outline"}>
+                        {r.stored === false ? "not attached" : "attached"}
+                      </Badge>
+                      <span className="font-medium">{r.from_email || "—"}</span>
+                      <span className="truncate text-muted-foreground">{r.subject || "(no subject)"}</span>
+                    </div>
+                    <dl className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                      <div><dt className="inline text-muted-foreground">Match: </dt><dd className="inline">{r.match_method || "none"}</dd></div>
+                      <div><dt className="inline text-muted-foreground">Reason: </dt><dd className="inline">{r.reason || "—"}</dd></div>
+                      <div><dt className="inline text-muted-foreground">Message-ID: </dt><dd className="inline break-all">{r.message_id || "—"}</dd></div>
+                      <div><dt className="inline text-muted-foreground">In-Reply-To: </dt><dd className="inline break-all">{r.in_reply_to || "—"}</dd></div>
+                      <div><dt className="inline text-muted-foreground">Thread: </dt><dd className="inline break-all">{r.thread_id || "—"}</dd></div>
+                      <div><dt className="inline text-muted-foreground">Lead / Client: </dt><dd className="inline break-all">{r.lead_id || r.client_profile_id || "—"}</dd></div>
+                    </dl>
+                  </div>
+                );
+              })}
+            </DialogContent>
+          </Dialog>
           <Button size="sm" variant="outline" onClick={checkForReplies} disabled={syncing}>
             {syncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Check for replies
