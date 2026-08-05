@@ -215,7 +215,7 @@ Deno.serve(async (req: Request) => {
         const subject = h("Subject");
         const dateHeader = h("Date");
         const receivedAt = dateHeader ? new Date(dateHeader) : new Date();
-        const { text, html, attachments, parts } = await decodeBody(message, db, uid);
+        const { text, html, attachments, parts, charset, parseError } = await decodeBody(message, db, uid);
         const messageId = h("Message-ID") || h("Message-Id");
         const inReplyTo = h("In-Reply-To");
         const referencesHeader = h("References");
@@ -291,7 +291,17 @@ Deno.serve(async (req: Request) => {
           subject: subject || null,
           body_text: text || null,
           body_html: html || null,
-          raw_payload: { source: "imap", uid, mime_parts: parts, parser: "postal-mime-2.4.3" },
+          raw_payload: {
+            source: "imap",
+            uid,
+            mime_parts: parts,
+            parser: "postal-mime-2.4.3",
+            charset,
+            parse_error: parseError,
+            // Bounded raw copy so the UI can show the original Gmail MIME source.
+            raw_source: message.slice(0, 200000),
+            raw_truncated: message.length > 200000,
+          },
           attachments,
           message_uid: key,
           provider_fingerprint: contentFingerprint,
