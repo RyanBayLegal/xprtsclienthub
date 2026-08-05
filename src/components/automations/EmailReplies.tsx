@@ -128,6 +128,11 @@ export default function EmailReplies() {
   const [pollInterval, setPollInterval] = useState(60);
   const [debugRows, setDebugRows] = useState<Record<string, unknown>[]>([]);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [healthOpen, setHealthOpen] = useState(false);
+  const [bulkReparsing, setBulkReparsing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  const [captureEnabled, setCaptureEnabled] = useState(isFixtureCaptureEnabled());
+  const [captured, setCaptured] = useState<CapturedFixture[]>(listCapturedFixtures());
   const [loading, setLoading] = useState(true);
   const bottomRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const msgRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -284,6 +289,7 @@ export default function EmailReplies() {
       toast.error((data as any)?.error || error?.message || "Could not reparse message");
       return;
     }
+    clearRenderCache(message.id);
     toast.success("Message reparsed with the latest MIME decoder");
     setInspectMessage(null);
     await load();
