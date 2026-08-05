@@ -475,16 +475,39 @@ export default function EmailReplies() {
               ))}
               {inspectMessage?.mimeParts?.length === 0 && <p className="text-sm text-muted-foreground">No MIME metadata is stored for this older message. Reparse it to inspect its parts.</p>}
             </div>
+            {inspectMessage && (() => {
+              const d = renderDecisionFor(inspectMessage);
+              return (
+                <div className={cn("rounded-md border p-3 text-xs", d.mode === "error" && "border-destructive/40 bg-destructive/10")}>
+                  <p className="font-medium">Renderer decision: {d.mode}</p>
+                  <p className="mt-1 text-muted-foreground">{d.reason}</p>
+                  <p className="mt-1 text-muted-foreground">Charset: {d.charset} · Decoders: {d.decoders.join(", ") || "none"}</p>
+                  {d.mode === "error" && (
+                    <p className="mt-1 text-destructive">
+                      Failing part path: <code className="break-all">{d.failingPartPath || "unknown"}</code>
+                      {d.errorMessage ? ` — ${d.errorMessage}` : ""}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
             <dl className="grid gap-2 text-xs sm:grid-cols-2">
               <div><dt className="text-muted-foreground">Message ID</dt><dd className="break-all">{inspectMessage?.messageId || "—"}</dd></div>
               <div><dt className="text-muted-foreground">Detected attachments</dt><dd>{inspectMessage?.attachments.length || 0}</dd></div>
             </dl>
-            {inspectMessage?.sourceId && (
-              <Button onClick={() => reparseMessage(inspectMessage)} disabled={reparsing === inspectMessage.id}>
-                {reparsing === inspectMessage.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                Reparse and re-render
-              </Button>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {inspectMessage?.sourceId && (
+                <Button onClick={() => reparseMessage(inspectMessage)} disabled={reparsing === inspectMessage.id}>
+                  {reparsing === inspectMessage.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Reparse and re-render
+                </Button>
+              )}
+              {inspectMessage && (
+                <Button variant="outline" onClick={() => exportMime(inspectMessage)}>
+                  <Download className="mr-2 h-4 w-4" /> Export MIME JSON
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
