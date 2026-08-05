@@ -241,6 +241,26 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Hard cap so an edge function invocation can never hang forever.
 const MAX_DELAY_MS = 60_000;
 
+/** Supported wait units and their length in seconds (months/years use average lengths). */
+const WAIT_UNIT_SECONDS: Record<string, number> = {
+  seconds: 1,
+  minutes: 60,
+  hours: 3600,
+  days: 86400,
+  weeks: 604800,
+  months: 2629800,
+  years: 31557600,
+};
+
+function normalizeWaitUnit(unit: unknown): string {
+  const u = String(unit ?? "seconds").toLowerCase();
+  return WAIT_UNIT_SECONDS[u] ? u : "seconds";
+}
+
+function waitMsOf(amount: number, unit: string): number {
+  return (Number(amount) || 0) * WAIT_UNIT_SECONDS[normalizeWaitUnit(unit)] * 1000;
+}
+
 async function inCooldown(
   db: Any,
   automationId: string | null,
