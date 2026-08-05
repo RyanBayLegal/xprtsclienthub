@@ -73,7 +73,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`group relative min-w-[230px] rounded-lg border bg-card px-3 py-2.5 shadow-sm transition-colors ${
+      className={`group relative min-w-[300px] rounded-xl border bg-card px-4 py-3.5 shadow-md transition-colors ${
         selected ? "border-primary ring-1 ring-primary" : hasError ? "border-destructive ring-1 ring-destructive/50" : "border-border"
       }`}
     >
@@ -85,8 +85,8 @@ function FlowNode({ id, data, selected }: NodeProps) {
         />
       )}
       <div className="flex items-center gap-2">
-        <Icon className={`h-4 w-4 shrink-0 ${meta.accent}`} />
-        <span className="text-sm font-medium text-foreground">{meta.label}</span>
+        <Icon className={`h-5 w-5 shrink-0 ${meta.accent}`} />
+        <span className="text-base font-semibold text-foreground">{meta.label}</span>
         <button
           type="button"
           aria-label="Delete step"
@@ -96,7 +96,7 @@ function FlowNode({ id, data, selected }: NodeProps) {
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
-      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{subtitle}</p>
+      <p className="mt-1 line-clamp-2 text-[13px] text-muted-foreground">{subtitle}</p>
       {(Number(config.delay_seconds) > 0 || Number(config.retry_attempts) > 1 || Number(config.cooldown_minutes) > 0) && (
         <p className="mt-1 text-[10px] text-muted-foreground">
           {Number(config.delay_seconds) > 0 && `wait ${config.delay_seconds}s · `}
@@ -248,17 +248,17 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
   );
 
   return (
-    <div className="flex h-full min-h-[420px] gap-3">
-      <div className="flex w-44 shrink-0 flex-col gap-1.5 overflow-y-auto rounded-lg border border-border bg-muted/30 p-2">
+    <div className="flex h-full min-h-[620px] gap-4">
+      <div className="flex w-56 shrink-0 flex-col gap-1.5 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3">
         <p className="px-1 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground">Steps</p>
         {ADDABLE_KINDS.map((k) => {
           const meta = NODE_CATALOG[k];
           const Icon = meta.icon;
           const disabled = k === "trigger" && hasTrigger;
           return (
-            <Button key={k} variant="ghost" size="sm" className="justify-start" disabled={disabled} onClick={() => addNode(k)}>
+            <Button key={k} variant="ghost" className="h-9 justify-start" disabled={disabled} onClick={() => addNode(k)}>
               <Icon className={`mr-2 h-4 w-4 ${meta.accent}`} />
-              <span className="truncate text-xs">{meta.label}</span>
+              <span className="truncate text-sm">{meta.label}</span>
               <Plus className="ml-auto h-3 w-3 opacity-50" />
             </Button>
           );
@@ -297,7 +297,7 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
         </ReactFlow>
       </div>
 
-      <div className="max-h-36 shrink-0 overflow-y-auto rounded-lg border border-border bg-muted/30 p-2">
+      <div className="max-h-44 shrink-0 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3">
         {issues.length === 0 ? (
           <p className="flex items-center gap-2 text-xs text-emerald-600">
             <CheckCircle2 className="h-3.5 w-3.5" /> Validation passed — this automation is ready to save.
@@ -323,7 +323,7 @@ export default function AutomationCanvas({ graph, triggerType, onChange, staff, 
       </div>
       </div>
 
-      <div className="w-80 shrink-0 overflow-y-auto rounded-lg border border-border bg-card p-3">
+      <div className="w-[26rem] shrink-0 overflow-y-auto rounded-lg border border-border bg-card p-4">
         {!selected && (
           <p className="text-sm text-muted-foreground">
             Select a step on the canvas to configure it, or add one from the left. Drag from a node's bottom dot down
