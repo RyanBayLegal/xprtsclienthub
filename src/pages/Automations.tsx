@@ -85,7 +85,7 @@ export default function Automations() {
     status?: string;
     trigger_matched?: boolean;
     captures?: Record<string, string>;
-    steps?: { kind: string; status: string; result?: string; branch?: string }[];
+    steps?: StepRecord[];
     error_message?: string | null;
   } | null>(null);
 
