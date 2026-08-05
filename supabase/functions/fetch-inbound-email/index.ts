@@ -127,15 +127,45 @@ Deno.serve(async (req: Request) => {
       await imap.cmd(`LOGIN "${user}" "${pass}"`);
       await imap.cmd(`SELECT INBOX`);
 
-      const days = Number(new URL(req.url).searchParams.get("days") || 14);
+      const url = new URL(req.url);
+      const days = Number(url.searchParams.get("days") || 14);
+      const { data: syncState } = await db.from("email_sync_state").select("last_uid").eq("id", true).maybeSingle();
+      const lastUid = Number((syncState as Any)?.last_uid || 0);
       const since = new Date(Date.now() - days * 86400000);
       const mm = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][since.getUTCMonth()];
-      const searchRes = await imap.cmd(`UID SEARCH SINCE ${since.getUTCDate()}-${mm}-${since.getUTCFullYear()}`);
-      const uids = (searchRes.match(/^\* SEARCH([\d\s]*)/m)?.[1] || "").trim().split(/\s+/).filter(Boolean).slice(-80);
+      // Incremental: only look at UIDs newer than the last one we imported.
+      const criteria = lastUid > 0
+        ? `UID ${lastUid + 1}:*`
+        : `SINCE ${since.getUTCDate()}-${mm}-${since.getUTCFullYear()}`;
+      const searchRes = await imap.cmd(`UID SEARCH ${criteria}`);
+      const uids = (searchRes.match(/^\* SEARCH([\d\s]*)/m)?.[1] || "")
+        .trim().split(/\s+/).filter(Boolean)
+        .filter((u) => Number(u) > lastUid)
+        .slice(-60);
 
       let stored = 0;
+      let maxUid = lastUid;
       const seen: string[] = [];
+      const debug: Any[] = [];
+
+      // Known contacts only — we never store mail from addresses that are not
+      // on a lead or client record.
+      const { data: leadRows } = await db.from("leads").select("id, name, contact");
+      const { data: clientRows } = await db.from("client_profiles").select("id, name, email");
+      const leadByEmail = new Map<string, Any>();
+      for (const l of (leadRows || []) as Any[]) {
+        for (const e of String(l.contact || "").toLowerCase().match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || []) {
+          if (!leadByEmail.has(e)) leadByEmail.set(e, l);
+        }
+      }
+      const clientByEmail = new Map<string, Any>();
+      for (const c of (clientRows || []) as Any[]) {
+        const e = String(c.email || "").toLowerCase().match(/[\w.+-]+@[\w-]+\.[\w.-]+/)?.[0];
+        if (e && !clientByEmail.has(e)) clientByEmail.set(e, c);
+      }
+
       for (const uid of uids) {
+        if (Number(uid) > maxUid) maxUid = Number(uid);
         const key = `gmail:${uid}`;
         const { data: exists } = await db.from("inbound_emails").select("id").eq("message_uid", key).maybeSingle();
         if (exists) continue;
@@ -156,9 +186,59 @@ Deno.serve(async (req: Request) => {
         const dateHeader = h("Date");
         const receivedAt = dateHeader ? new Date(dateHeader) : new Date();
         const { text, html } = decodeBody(message);
+        const messageId = h("Message-ID") || h("Message-Id");
+        const inReplyTo = h("In-Reply-To");
+        const referencesHeader = h("References");
 
-        const { data: lead } = await db.from("leads").select("id").ilike("contact", `%${fromEmail}%`).limit(1).maybeSingle();
-        const { data: client } = await db.from("client_profiles").select("id").ilike("email", fromEmail).limit(1).maybeSingle();
+        // 1) Header-based matching: link the reply to the outbound message it answers.
+        const refIds = [...new Set(
+          `${inReplyTo} ${referencesHeader}`.match(/<[^>\s]+>/g) || [],
+        )];
+        let lead: Any = null;
+        let client: Any = null;
+        let matchMethod = "none";
+        let parentLog: Any = null;
+        if (refIds.length) {
+          const { data: parents } = await db
+            .from("notification_logs")
+            .select("id, message_id, thread_id, lead_id, client_profile_id, subject")
+            .in("message_id", refIds)
+            .limit(1);
+          parentLog = (parents || [])[0] || null;
+          if (parentLog?.client_profile_id) { client = { id: parentLog.client_profile_id }; matchMethod = "header:in-reply-to"; }
+          else if (parentLog?.lead_id) { lead = { id: parentLog.lead_id }; matchMethod = "header:in-reply-to"; }
+        }
+
+        // 2) Fall back to the sender address on a known lead or client.
+        if (!lead && !client) {
+          const c = clientByEmail.get(fromEmail);
+          const l = leadByEmail.get(fromEmail);
+          if (c) { client = c; matchMethod = "sender:client-email"; }
+          else if (l) { lead = l; matchMethod = "sender:lead-email"; }
+        }
+
+        const threadId = client ? `client:${client.id}` : lead ? `lead:${lead.id}` : null;
+        const decision = {
+          uid,
+          from_email: fromEmail,
+          subject,
+          message_id: messageId || null,
+          in_reply_to: inReplyTo || null,
+          references: refIds,
+          matched_parent_message_id: parentLog?.message_id ?? null,
+          match_method: matchMethod,
+          thread_id: threadId,
+          lead_id: lead?.id ?? null,
+          client_profile_id: client?.id ?? null,
+          received_at: isNaN(receivedAt.getTime()) ? new Date().toISOString() : receivedAt.toISOString(),
+        };
+
+        // Skip anything that is not from a known lead or client.
+        if (!lead && !client) {
+          debug.push({ ...decision, stored: false, reason: "Sender is not on any lead or client record" });
+          continue;
+        }
+        debug.push({ ...decision, stored: true, reason: matchMethod.startsWith("header") ? "Matched by reply headers" : "Matched by sender email" });
 
         const { data: inserted } = await db.from("inbound_emails").insert({
           from_email: fromEmail,
@@ -169,6 +249,12 @@ Deno.serve(async (req: Request) => {
           body_html: html || null,
           raw_payload: { source: "imap", uid },
           message_uid: key,
+          message_id: messageId || null,
+          in_reply_to: inReplyTo || null,
+          references_header: referencesHeader || null,
+          thread_id: threadId,
+          match_method: matchMethod,
+          match_debug: decision,
           matched_lead_id: lead?.id ?? null,
           matched_client_id: client?.id ?? null,
           processed: true,
@@ -192,8 +278,13 @@ Deno.serve(async (req: Request) => {
         }, null);
       }
 
-      await db.from("email_sync_state").upsert({ id: true, last_checked_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-      return json({ success: true, checked: uids.length, stored, senders: seen });
+      await db.from("email_sync_state").upsert({
+        id: true,
+        last_checked_at: new Date().toISOString(),
+        last_uid: maxUid > 0 ? maxUid : null,
+        updated_at: new Date().toISOString(),
+      });
+      return json({ success: true, checked: uids.length, stored, senders: seen, debug });
     } finally {
       imap.close();
     }
