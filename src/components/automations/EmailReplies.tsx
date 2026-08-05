@@ -238,6 +238,17 @@ export default function EmailReplies() {
 
   const hasQuery = !!(search.trim() || sender.trim() || from || to);
 
+  // Matching details persisted on already-imported inbound messages.
+  const storedDebug = useMemo(
+    () =>
+      threads
+        .flatMap((t) => t.messages)
+        .filter((m) => m.direction === "inbound" && m.matchDebug)
+        .slice(0, 50)
+        .map((m) => ({ ...(m.matchDebug as Record<string, unknown>), stored: true })),
+    [threads],
+  );
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const s = sender.trim().toLowerCase();
