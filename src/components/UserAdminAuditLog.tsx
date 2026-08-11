@@ -29,6 +29,10 @@ const ACTION_LABELS: Record<string, { label: string; variant: "default" | "secon
   restore: { label: "Restored", variant: "secondary" },
   remove: { label: "Removed", variant: "destructive" },
   role_change: { label: "Role changed", variant: "default" },
+  invite_email_sent: { label: "Invite emailed", variant: "secondary" },
+  invite_email_failed: { label: "Invite email failed", variant: "destructive" },
+  invite_resend_sent: { label: "Invite resent", variant: "secondary" },
+  invite_resend_failed: { label: "Invite resend failed", variant: "destructive" },
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -151,6 +155,10 @@ export default function UserAdminAuditLog({ refreshKey = 0 }: { refreshKey?: num
               <SelectItem value="restore">Restored</SelectItem>
               <SelectItem value="remove">Removed</SelectItem>
               <SelectItem value="role_change">Role changed</SelectItem>
+              <SelectItem value="invite_email_sent">Invite emailed</SelectItem>
+              <SelectItem value="invite_email_failed">Invite email failed</SelectItem>
+              <SelectItem value="invite_resend_sent">Invite resent</SelectItem>
+              <SelectItem value="invite_resend_failed">Invite resend failed</SelectItem>
             </SelectContent>
           </Select>
           <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 w-[150px] text-xs" />
