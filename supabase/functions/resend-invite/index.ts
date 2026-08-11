@@ -12,6 +12,36 @@ function inviteHtml(link: string, name?: string) {
 </div>`;
 }
 
+type Any = any;
+
+async function logInvite(
+  adminClient: Any,
+  caller: Any,
+  target: { email: string; name?: string | null; userId?: string | null },
+  ok: boolean,
+  errorMessage?: string | null,
+  kind = "invite_email",
+) {
+  try {
+    const { data: actorProfile } = await adminClient
+      .from("profiles").select("full_name").eq("user_id", caller.id).maybeSingle();
+    await adminClient.from("user_admin_audit_logs").insert({
+      actor_user_id: caller.id,
+      actor_email: caller.email ?? null,
+      actor_name: actorProfile?.full_name ?? null,
+      target_user_id: target.userId ?? null,
+      target_email: target.email,
+      target_name: target.name ?? null,
+      action: ok ? `${kind}_sent` : `${kind}_failed`,
+      old_value: null,
+      new_value: ok ? "sent" : "failed",
+      details: ok
+        ? `Invite/password-setup link emailed to ${target.email} via Gmail SMTP`
+        : `Invite email to ${target.email} failed: ${errorMessage ?? "unknown error"}`,
+    });
+  } catch (_) { /* never block the invite on logging */ }
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -102,11 +132,14 @@ Deno.serve(async (req) => {
         inviteHtml(linkData.properties.action_link, userData.user.user_metadata?.full_name),
       );
     } catch (mailErr) {
+      await logInvite(adminClient, caller, { email, name: userData.user.user_metadata?.full_name, userId }, false, (mailErr as Error).message);
       return new Response(
         JSON.stringify({ error: `Invite link created but email failed: ${(mailErr as Error).message}` }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    await logInvite(adminClient, caller, { email, name: userData.user.user_metadata?.full_name, userId }, true);
 
     return new Response(
       JSON.stringify({ success: true, message: `Invite resent to ${email}` }),
