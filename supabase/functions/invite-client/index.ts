@@ -1,4 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendMail } from "../_shared/automation-runner.ts";
+
+
+function inviteHtml(link: string, name?: string) {
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1a1a1a;line-height:1.6">
+  <p>Hi${name ? " " + name : ""},</p>
+  <p>You have been invited to the XPRTS Client Hub. Click the button below to set your password and access your account.</p>
+  <p style="margin:24px 0"><a href="${link}" style="background:#1d4ed8;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:6px;display:inline-block">Set your password</a></p>
+  <p style="font-size:13px;color:#555">If the button does not work, copy and paste this link into your browser:<br><a href="${link}">${link}</a></p>
+  <p style="font-size:13px;color:#555">This link expires after a short time. If it has expired, request a new invite.</p>
+</div>`;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,17 +75,26 @@ Deno.serve(async (req) => {
 
     // Resend mode: just generate a new recovery link for an existing user
     if (resend) {
-      const { error: linkError } = await adminClient.auth.admin.generateLink({
+      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
         type: "recovery",
         email,
         options: { redirectTo: `${siteUrl}/reset-password` },
       });
 
-      if (linkError) {
-        return new Response(JSON.stringify({ error: linkError.message }), {
+      if (linkError || !linkData?.properties?.action_link) {
+        return new Response(JSON.stringify({ error: linkError?.message || "Could not generate invite link" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      try {
+        await sendMail(email, "Your XPRTS Client Hub invitation", inviteHtml(linkData.properties.action_link, name));
+      } catch (mailErr) {
+        return new Response(
+          JSON.stringify({ error: `Invite link created but email failed: ${(mailErr as Error).message}` }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
 
       return new Response(
@@ -118,14 +139,35 @@ Deno.serve(async (req) => {
         .eq("id", clientProfileId);
     }
 
-    await adminClient.auth.admin.generateLink({
+    let emailSent = false;
+    let emailError: string | null = null;
+    const { data: newLink } = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email,
       options: { redirectTo: `${siteUrl}/reset-password` },
     });
 
+    if (newLink?.properties?.action_link) {
+      try {
+        await sendMail(email, "Your XPRTS Client Hub invitation", inviteHtml(newLink.properties.action_link, name));
+        emailSent = true;
+      } catch (mailErr) {
+        emailError = (mailErr as Error).message;
+      }
+    } else {
+      emailError = "Could not generate invite link";
+    }
+
     return new Response(
-      JSON.stringify({ success: true, userId, message: `Client account created for ${email}` }),
+      JSON.stringify({
+        success: true,
+        userId,
+        emailSent,
+        emailError,
+        message: emailSent
+          ? `Client account created and invite emailed to ${email}`
+          : `Client account created for ${email}, but the invite email failed: ${emailError}`,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
