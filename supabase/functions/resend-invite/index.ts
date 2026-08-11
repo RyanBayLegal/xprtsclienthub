@@ -1,4 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendMail } from "../_shared/automation-runner.ts";
+
+
+function inviteHtml(link: string, name?: string) {
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1a1a1a;line-height:1.6">
+  <p>Hi${name ? " " + name : ""},</p>
+  <p>You have been invited to the XPRTS Client Hub. Click the button below to set your password and access your account.</p>
+  <p style="margin:24px 0"><a href="${link}" style="background:#1d4ed8;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:6px;display:inline-block">Set your password</a></p>
+  <p style="font-size:13px;color:#555">If the button does not work, copy and paste this link into your browser:<br><a href="${link}">${link}</a></p>
+  <p style="font-size:13px;color:#555">This link expires after a short time. If it has expired, request a new invite.</p>
+</div>`;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
