@@ -82,17 +82,30 @@ Deno.serve(async (req) => {
     const email = userData.user.email;
     const siteUrl = req.headers.get("origin") || "https://id-preview--269ff167-474a-46bb-8fcf-11513049feb4.lovable.app";
 
-    const { error: linkError } = await adminClient.auth.admin.generateLink({
+    const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email,
       options: { redirectTo: `${siteUrl}/reset-password` },
     });
 
-    if (linkError) {
-      return new Response(JSON.stringify({ error: linkError.message }), {
+    if (linkError || !linkData?.properties?.action_link) {
+      return new Response(JSON.stringify({ error: linkError?.message || "Could not generate invite link" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    try {
+      await sendMail(
+        email,
+        "Your XPRTS Client Hub invitation",
+        inviteHtml(linkData.properties.action_link, userData.user.user_metadata?.full_name),
+      );
+    } catch (mailErr) {
+      return new Response(
+        JSON.stringify({ error: `Invite link created but email failed: ${(mailErr as Error).message}` }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     return new Response(

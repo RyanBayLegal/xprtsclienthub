@@ -75,17 +75,26 @@ Deno.serve(async (req) => {
 
     // Resend mode: just generate a new recovery link for an existing user
     if (resend) {
-      const { error: linkError } = await adminClient.auth.admin.generateLink({
+      const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
         type: "recovery",
         email,
         options: { redirectTo: `${siteUrl}/reset-password` },
       });
 
-      if (linkError) {
-        return new Response(JSON.stringify({ error: linkError.message }), {
+      if (linkError || !linkData?.properties?.action_link) {
+        return new Response(JSON.stringify({ error: linkError?.message || "Could not generate invite link" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      try {
+        await sendMail(email, "Your XPRTS Client Hub invitation", inviteHtml(linkData.properties.action_link, name));
+      } catch (mailErr) {
+        return new Response(
+          JSON.stringify({ error: `Invite link created but email failed: ${(mailErr as Error).message}` }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
 
       return new Response(
@@ -130,14 +139,35 @@ Deno.serve(async (req) => {
         .eq("id", clientProfileId);
     }
 
-    await adminClient.auth.admin.generateLink({
+    let emailSent = false;
+    let emailError: string | null = null;
+    const { data: newLink } = await adminClient.auth.admin.generateLink({
       type: "recovery",
       email,
       options: { redirectTo: `${siteUrl}/reset-password` },
     });
 
+    if (newLink?.properties?.action_link) {
+      try {
+        await sendMail(email, "Your XPRTS Client Hub invitation", inviteHtml(newLink.properties.action_link, name));
+        emailSent = true;
+      } catch (mailErr) {
+        emailError = (mailErr as Error).message;
+      }
+    } else {
+      emailError = "Could not generate invite link";
+    }
+
     return new Response(
-      JSON.stringify({ success: true, userId, message: `Client account created for ${email}` }),
+      JSON.stringify({
+        success: true,
+        userId,
+        emailSent,
+        emailError,
+        message: emailSent
+          ? `Client account created and invite emailed to ${email}`
+          : `Client account created for ${email}, but the invite email failed: ${emailError}`,
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
