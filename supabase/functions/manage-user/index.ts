@@ -25,13 +25,35 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    const anonClient = createClient(supabaseUrl, anonKey);
-    const { data: { user: caller } } = await anonClient.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
+    const token = authHeader.replace("Bearer ", "").trim();
+    const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    // Resolve the caller: try JWT claims first (works with signing keys),
+    // then fall back to the auth server lookup.
+    let caller: { id: string; email: string | null } | null = null;
+    const anonClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    try {
+      const { data: claimsData } = await (anonClient.auth as any).getClaims(token);
+      const claims = claimsData?.claims;
+      if (claims?.sub) caller = { id: claims.sub, email: claims.email ?? null };
+    } catch (_e) { /* fall through */ }
+
+    if (!caller) {
+      const { data: userData } = await anonClient.auth.getUser(token);
+      if (userData?.user) caller = { id: userData.user.id, email: userData.user.email ?? null };
+    }
+
     if (!caller) return json({ error: "Unauthorized" }, 401);
 
-    const admin = createClient(supabaseUrl, serviceRoleKey);
+    if (!caller.email) {
+      try {
+        const { data: u } = await admin.auth.admin.getUserById(caller.id);
+        caller = { id: caller.id, email: u?.user?.email ?? null };
+      } catch (_e) { /* ignore */ }
+    }
+
     const { action, userId, role: newRole } = await req.json();
 
     const isSuperAdmin = (caller.email || "").toLowerCase() === SUPER_ADMIN_EMAIL;
